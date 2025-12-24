@@ -1,0 +1,11 @@
+com\digitalstudio\app\model\PhotoItem.class
+com\digitalstudio\app\model\BillPaymentTransaction.class
+com\digitalstudio\app\model\PhotoOrderStatus.class
+com\digitalstudio\app\model\Uploads.class
+com\digitalstudio\app\model\Payment.class
+com\digitalstudio\app\model\ValueConfiguration.class
+com\digitalstudio\app\model\Customer.class
+com\digitalstudio\app\DigitalStudioApplication.class
+com\digitalstudio\app\model\Addon.class
+com\digitalstudio\app\model\PhotoOrder.class
+com\digitalstudio\app\model\TransactionStatus.class
