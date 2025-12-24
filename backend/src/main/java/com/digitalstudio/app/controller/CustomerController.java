@@ -23,6 +23,11 @@ public class CustomerController {
         this.customerService = customerService;
     }
 
+    @GetMapping
+    public ResponseEntity<java.util.List<com.digitalstudio.app.model.Customer>> getAllCustomers() {
+        return ResponseEntity.ok(customerService.getAllCustomers());
+    }
+
     @GetMapping("/sequence")
     public ResponseEntity<Map<String, Integer>> getUniqueSequence(@org.springframework.web.bind.annotation.RequestParam String instanceId) {
         int sequence = customerService.getNextSequence(instanceId);

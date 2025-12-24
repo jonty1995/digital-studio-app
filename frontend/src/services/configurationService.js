@@ -81,27 +81,62 @@ export const configurationService = {
     // It's a pure function then.
 
     calculatePrice: (itemName, addonNames, isInstant, isCustomer, items, rules) => {
-        if (!items || !rules) return 0;
+        if (!items || !rules || !itemName) return 0;
 
         const item = items.find(i => i.name === itemName);
         if (!item) return 0;
 
-        // Check for rules
+        // Determine Base Price for the Item itself based on mode
+        const itemBasePrice = isCustomer
+            ? (isInstant ? (parseFloat(item.instantCustomerPrice) || 0) : (parseFloat(item.regularCustomerPrice) || 0))
+            : (isInstant ? (parseFloat(item.instantBasePrice) || 0) : (parseFloat(item.regularBasePrice) || 0));
+
+        if (!addonNames || addonNames.length === 0) {
+            return itemBasePrice;
+        }
+
+        // 1. Try to find EXACT rule match for this specific combination
         const sortedAddons = [...addonNames].sort().join(",");
-        const rule = rules.find(r =>
+        const exactRule = rules.find(r =>
             r.item === itemName &&
             (r.addons || []).sort().join(",") === sortedAddons
         );
 
-        if (rule) {
-            return isCustomer ? rule.customerPrice : rule.basePrice;
+        if (exactRule) {
+            return isCustomer
+                ? (parseFloat(exactRule.customerPrice) || 0)
+                : (parseFloat(exactRule.basePrice) || 0);
         }
 
-        // Fallback
-        if (isCustomer) {
-            return isInstant ? item.instantCustomer : item.regularCustomer;
-        } else {
-            return isInstant ? item.instantBase : item.regularBase;
+        // 2. Additive Fallback: Sum up individual addon costs
+        // We assume the "cost" of an addon is (RulePrice - ItemRegularPrice).
+        // We calculate this margin and add it to the current itemBasePrice (which handles Instant vs Regular).
+
+        // Base reference for calculating addon margin (Regular price is standard reference)
+        const referenceBase = isCustomer
+            ? (parseFloat(item.regularCustomerPrice) || 0)
+            : (parseFloat(item.regularBasePrice) || 0);
+
+        let totalAddonsCost = 0;
+
+        for (const addon of addonNames) {
+            const addonRule = rules.find(r =>
+                r.item === itemName &&
+                r.addons && r.addons.length === 1 && r.addons[0] === addon
+            );
+
+            if (addonRule) {
+                const rulePrice = isCustomer
+                    ? (parseFloat(addonRule.customerPrice) || 0)
+                    : (parseFloat(addonRule.basePrice) || 0);
+
+                // Margin = Price of (Item+Addon) - Price of (Item Only)
+                // If referenceBase is 0, we just take the rule price (implied full cost).
+                const margin = rulePrice - referenceBase;
+                totalAddonsCost += margin;
+            }
         }
+
+        return itemBasePrice + totalAddonsCost;
     }
 };

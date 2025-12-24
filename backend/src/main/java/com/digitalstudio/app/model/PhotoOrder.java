@@ -13,9 +13,15 @@ public class PhotoOrder {
     @Id
     private Long orderId; // Timestamp based
 
-    private Long customerId;
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
     private Long uploadId;
-    private Long paymentId;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "payment_id")
+    private Payment payment;
 
     @Column(columnDefinition = "TEXT")
     private String description;

@@ -4,9 +4,10 @@ import Layout from "./Layout"
 import PhotoOrders from "./pages/PhotoOrders"
 import Configuration from "./pages/Configuration"
 
+import Customers from "./pages/Customers"
+
 // Placeholders
 const BillPayment = () => <div className="p-4"><h1 className="text-2xl font-bold">Bill Payment</h1></div>
-const Customers = () => <div className="p-4"><h1 className="text-2xl font-bold">Customers</h1></div>
 
 function App() {
   return (

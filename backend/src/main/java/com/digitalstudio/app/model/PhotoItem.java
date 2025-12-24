@@ -12,8 +12,16 @@ public class PhotoItem {
     private Long id;
 
     private String name;
-    private Integer regularBase;
-    private Integer regularCustomer;
-    private Integer instantBase;
-    private Integer instantCustomer;
+
+    @Column(name = "regular_base_price")
+    private Integer regularBasePrice;
+
+    @Column(name = "regular_customer_price")
+    private Integer regularCustomerPrice;
+
+    @Column(name = "instant_base_price")
+    private Integer instantBasePrice;
+
+    @Column(name = "instant_customer_price")
+    private Integer instantCustomerPrice;
 }

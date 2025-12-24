@@ -1,0 +1,258 @@
+2025-12-24 19:17:56 [restartedMain] INFO  c.d.app.DigitalStudioApplication - Starting DigitalStudioApplication using Java 22.0.1 with PID 19532 (F:\Project\digital-studio-app\backend\target\classes started by Jonty in F:\Project\digital-studio-app\backend)
+2025-12-24 19:17:56 [restartedMain] INFO  c.d.app.DigitalStudioApplication - No active profile set, falling back to 1 default profile: "default"
+2025-12-24 19:17:56 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2025-12-24 19:17:56 [restartedMain] INFO  o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor - For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2025-12-24 19:17:57 [restartedMain] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2025-12-24 19:17:57 [restartedMain] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 67 ms. Found 7 JPA repository interfaces.
+2025-12-24 19:17:58 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 8081 (http)
+2025-12-24 19:17:58 [restartedMain] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-12-24 19:17:58 [restartedMain] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.16]
+2025-12-24 19:17:58 [restartedMain] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-12-24 19:17:58 [restartedMain] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1848 ms
+2025-12-24 19:17:58 [restartedMain] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+2025-12-24 19:17:58 [restartedMain] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.3.1.Final
+2025-12-24 19:17:59 [restartedMain] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+2025-12-24 19:17:59 [restartedMain] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2025-12-24 19:17:59 [restartedMain] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-12-24 19:17:59 [restartedMain] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@566e14b1
+2025-12-24 19:17:59 [restartedMain] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-12-24 19:17:59 [restartedMain] WARN  org.hibernate.orm.deprecation - HHH90000025: MySQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-12-24 19:18:00 [restartedMain] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2025-12-24 19:18:00 [restartedMain] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2025-12-24 19:18:01 [restartedMain] INFO  o.s.d.j.r.query.QueryEnhancerFactory - Hibernate is in classpath; If applicable, HQL parser will be used.
+2025-12-24 19:18:02 [restartedMain] INFO  o.s.b.d.a.OptionalLiveReloadServer - LiveReload server is running on port 35729
+2025-12-24 19:18:02 [restartedMain] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8081 (http) with context path ''
+2025-12-24 19:18:02 [restartedMain] INFO  c.d.app.DigitalStudioApplication - Started DigitalStudioApplication in 5.923 seconds (process running for 6.485)
+2025-12-24 19:18:10 [http-nio-8081-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-12-24 19:18:10 [http-nio-8081-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-12-24 19:18:10 [http-nio-8081-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 3 ms
+2025-12-24 19:18:11 [http-nio-8081-exec-1] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:18:11 [http-nio-8081-exec-1] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:18:11 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:18:11 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:18:11 [http-nio-8081-exec-1] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:18:11 [http-nio-8081-exec-1] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:18:11 [http-nio-8081-exec-2] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:18:11 [http-nio-8081-exec-2] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:18:11 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:18:11 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:18:11 [http-nio-8081-exec-2] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:18:11 [http-nio-8081-exec-2] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-4] INFO  c.d.a.c.ConfigurationController - Enter: getPhotoItems() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-5] INFO  c.d.a.c.ConfigurationController - Enter: getAddons() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-4] INFO  c.d.app.service.ConfigurationService - Enter: getAllPhotoItems() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-5] INFO  c.d.app.service.ConfigurationService - Enter: getAllAddons() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-6] INFO  c.d.a.c.ConfigurationController - Enter: getPricingRules() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-6] INFO  c.d.app.service.ConfigurationService - Enter: getAllPricingRules() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy129 - Enter: findAll() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy131 - Enter: findAll() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy130 - Enter: findAll() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-3] INFO  c.d.a.controller.CustomerController - Enter: getUniqueSequence() with argument[s] = [uoqk35uiwkmjk10qd2]
+2025-12-24 19:18:12 [http-nio-8081-exec-3] INFO  c.d.app.service.CustomerService - Enter: getNextSequence() with argument[s] = [uoqk35uiwkmjk10qd2]
+2025-12-24 19:18:12 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy134 - Enter: findMaxIdInRange() with argument[s] = [251224000, 251224999]
+2025-12-24 19:18:12 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy130 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy129 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-5] INFO  c.d.app.service.ConfigurationService - Exit: getAllAddons() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-4] INFO  c.d.app.service.ConfigurationService - Exit: getAllPhotoItems() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-5] INFO  c.d.a.c.ConfigurationController - Exit: getAddons() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-4] INFO  c.d.a.c.ConfigurationController - Exit: getPhotoItems() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy131 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-6] INFO  c.d.app.service.ConfigurationService - Exit: getAllPricingRules() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-6] INFO  c.d.a.c.ConfigurationController - Exit: getPricingRules() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy134 - Exit: findMaxIdInRange() with result = null
+2025-12-24 19:18:12 [http-nio-8081-exec-3] INFO  c.d.app.service.CustomerService - Exit: getNextSequence() with result = 1
+2025-12-24 19:18:12 [http-nio-8081-exec-3] INFO  c.d.a.controller.CustomerController - Exit: getUniqueSequence() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-8] INFO  c.d.a.c.ConfigurationController - Enter: getPhotoItems() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-7] INFO  c.d.a.c.ConfigurationController - Enter: getAddons() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-8] INFO  c.d.app.service.ConfigurationService - Enter: getAllPhotoItems() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy129 - Enter: findAll() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-7] INFO  c.d.app.service.ConfigurationService - Enter: getAllAddons() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy130 - Enter: findAll() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy130 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-7] INFO  c.d.app.service.ConfigurationService - Exit: getAllAddons() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy129 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-8] INFO  c.d.app.service.ConfigurationService - Exit: getAllPhotoItems() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-7] INFO  c.d.a.c.ConfigurationController - Exit: getAddons() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-8] INFO  c.d.a.c.ConfigurationController - Exit: getPhotoItems() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  c.d.a.controller.CustomerController - Enter: getUniqueSequence() with argument[s] = [uoqk35uiwkmjk10qd2]
+2025-12-24 19:18:12 [http-nio-8081-exec-10] INFO  c.d.a.c.ConfigurationController - Enter: getPricingRules() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  c.d.app.service.CustomerService - Enter: getNextSequence() with argument[s] = [uoqk35uiwkmjk10qd2]
+2025-12-24 19:18:12 [http-nio-8081-exec-10] INFO  c.d.app.service.ConfigurationService - Enter: getAllPricingRules() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-10] INFO  jdk.proxy4.$Proxy131 - Enter: findAll() with argument[s] = []
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy134 - Enter: findMaxIdInRange() with argument[s] = [251224000, 251224999]
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy134 - Exit: findMaxIdInRange() with result = null
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy134 - Enter: existsById() with argument[s] = [251224001]
+2025-12-24 19:18:12 [http-nio-8081-exec-10] INFO  jdk.proxy4.$Proxy131 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-10] INFO  c.d.app.service.ConfigurationService - Exit: getAllPricingRules() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-10] INFO  c.d.a.c.ConfigurationController - Exit: getPricingRules() (Result details in DEBUG)
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy134 - Exit: existsById() with result = false
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  c.d.app.service.CustomerService - Exit: getNextSequence() with result = 1
+2025-12-24 19:18:12 [http-nio-8081-exec-9] INFO  c.d.a.controller.CustomerController - Exit: getUniqueSequence() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  c.d.app.controller.OrderController - Enter: createOrder() with argument[s] = [PhotoOrderRequest(customer=PhotoOrderRequest.CustomerDTO(id=9163512750, name=Jonty, mobile=9163512750), items=[{type=4x6, addons=[Frame], quantity=1, isInstant=false, price=60, unitPrice=60, basePrice=20}, {type=5x7, addons=[], quantity=1, isInstant=false, price=25, unitPrice=25, basePrice=25}], description=, payment=PhotoOrderRequest.PaymentDTO(mode=Cash, total=85.0, discount=0.0, advance=45.0), image=null)]
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  c.d.app.service.OrderService - Enter: saveOrder() with argument[s] = [PhotoOrderRequest(customer=PhotoOrderRequest.CustomerDTO(id=9163512750, name=Jonty, mobile=9163512750), items=[{type=4x6, addons=[Frame], quantity=1, isInstant=false, price=60, unitPrice=60, basePrice=20}, {type=5x7, addons=[], quantity=1, isInstant=false, price=25, unitPrice=25, basePrice=25}], description=, payment=PhotoOrderRequest.PaymentDTO(mode=Cash, total=85.0, discount=0.0, advance=45.0), image=null)]
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Enter: findByMobile() with argument[s] = [9163512750]
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Exit: findByMobile() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Enter: save() with argument[s] = [Customer(id=9163512750, name=Jonty, mobile=9163512750, editHistoryJson=null, createdAt=null, updatedAt=null)]
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Exit: save() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy136 - Enter: save() with argument[s] = [Payment(paymentId=456271844406000, totalAmount=85.0, discountAmount=0.0, advanceAmount=45.0, dueAmount=40.0, paymentMode=Cash, createdAt=null, updatedAt=null)]
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy136 - Exit: save() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy135 - Enter: save() with argument[s] = [PhotoOrder(orderId=1766584112402, customer=Customer(id=9163512750, name=Jonty, mobile=9163512750, editHistoryJson=null, createdAt=null, updatedAt=null), uploadId=null, payment=Payment(paymentId=456271844406000, totalAmount=85.0, discountAmount=0.0, advanceAmount=45.0, dueAmount=40.0, paymentMode=Cash, createdAt=null, updatedAt=null), description=, status=Pending, isInstant=false, itemsJson=[{"type":"4x6","addons":["Frame"],"quantity":1,"isInstant":false,"price":60,"unitPrice":60,"basePrice":20},{"type":"5x7","addons":[],"quantity":1,"isInstant":false,"price":25,"unitPrice":25,"basePrice":25}], createdAt=null, updatedAt=null)]
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy135 - Exit: save() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  c.d.app.service.OrderService - Exit: saveOrder() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-1] INFO  c.d.app.controller.OrderController - Exit: createOrder() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-2] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:18:32 [http-nio-8081-exec-2] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:18:32 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:18:32 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-2] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:18:32 [http-nio-8081-exec-2] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-3] INFO  c.d.a.c.ConfigurationController - Enter: getAddons() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-4] INFO  c.d.a.controller.CustomerController - Enter: getUniqueSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:20:41 [http-nio-8081-exec-5] INFO  c.d.a.c.ConfigurationController - Enter: getPhotoItems() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-4] INFO  c.d.app.service.CustomerService - Enter: getNextSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:20:41 [http-nio-8081-exec-3] INFO  c.d.app.service.ConfigurationService - Enter: getAllAddons() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy134 - Enter: findMaxIdInRange() with argument[s] = [251224000, 251224999]
+2025-12-24 19:20:41 [http-nio-8081-exec-6] INFO  c.d.a.c.ConfigurationController - Enter: getPricingRules() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-5] INFO  c.d.app.service.ConfigurationService - Enter: getAllPhotoItems() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy130 - Enter: findAll() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy129 - Enter: findAll() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-6] INFO  c.d.app.service.ConfigurationService - Enter: getAllPricingRules() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy131 - Enter: findAll() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy130 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-3] INFO  c.d.app.service.ConfigurationService - Exit: getAllAddons() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy129 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-5] INFO  c.d.app.service.ConfigurationService - Exit: getAllPhotoItems() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy134 - Exit: findMaxIdInRange() with result = null
+2025-12-24 19:20:41 [http-nio-8081-exec-3] INFO  c.d.a.c.ConfigurationController - Exit: getAddons() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-4] INFO  c.d.app.service.CustomerService - Exit: getNextSequence() with result = 2
+2025-12-24 19:20:41 [http-nio-8081-exec-4] INFO  c.d.a.controller.CustomerController - Exit: getUniqueSequence() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-5] INFO  c.d.a.c.ConfigurationController - Exit: getPhotoItems() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-8] INFO  c.d.a.c.ConfigurationController - Enter: getAddons() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-8] INFO  c.d.app.service.ConfigurationService - Enter: getAllAddons() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy130 - Enter: findAll() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  c.d.a.controller.CustomerController - Enter: getUniqueSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:20:41 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy131 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-6] INFO  c.d.app.service.ConfigurationService - Exit: getAllPricingRules() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  c.d.app.service.CustomerService - Enter: getNextSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy134 - Enter: findMaxIdInRange() with argument[s] = [251224000, 251224999]
+2025-12-24 19:20:41 [http-nio-8081-exec-6] INFO  c.d.a.c.ConfigurationController - Exit: getPricingRules() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-10] INFO  c.d.a.c.ConfigurationController - Enter: getPhotoItems() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy130 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-8] INFO  c.d.app.service.ConfigurationService - Exit: getAllAddons() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-10] INFO  c.d.app.service.ConfigurationService - Enter: getAllPhotoItems() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy134 - Exit: findMaxIdInRange() with result = null
+2025-12-24 19:20:41 [http-nio-8081-exec-10] INFO  jdk.proxy4.$Proxy129 - Enter: findAll() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy134 - Enter: existsById() with argument[s] = [251224002]
+2025-12-24 19:20:41 [http-nio-8081-exec-8] INFO  c.d.a.c.ConfigurationController - Exit: getAddons() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-10] INFO  jdk.proxy4.$Proxy129 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy134 - Exit: existsById() with result = false
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  c.d.app.service.CustomerService - Exit: getNextSequence() with result = 2
+2025-12-24 19:20:41 [http-nio-8081-exec-10] INFO  c.d.app.service.ConfigurationService - Exit: getAllPhotoItems() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-7] INFO  c.d.a.controller.CustomerController - Exit: getUniqueSequence() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-9] INFO  c.d.a.c.ConfigurationController - Enter: getPricingRules() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-9] INFO  c.d.app.service.ConfigurationService - Enter: getAllPricingRules() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy131 - Enter: findAll() with argument[s] = []
+2025-12-24 19:20:41 [http-nio-8081-exec-10] INFO  c.d.a.c.ConfigurationController - Exit: getPhotoItems() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy131 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-9] INFO  c.d.app.service.ConfigurationService - Exit: getAllPricingRules() (Result details in DEBUG)
+2025-12-24 19:20:41 [http-nio-8081-exec-9] INFO  c.d.a.c.ConfigurationController - Exit: getPricingRules() (Result details in DEBUG)
+2025-12-24 19:23:16 [http-nio-8081-exec-1] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:16 [http-nio-8081-exec-1] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:16 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:23:16 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:23:16 [http-nio-8081-exec-1] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:16 [http-nio-8081-exec-1] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:16 [http-nio-8081-exec-2] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:16 [http-nio-8081-exec-2] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:16 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:23:16 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:23:16 [http-nio-8081-exec-2] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:16 [http-nio-8081-exec-2] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:18 [http-nio-8081-exec-3] INFO  c.d.a.controller.CustomerController - Enter: getAllCustomers() with argument[s] = []
+2025-12-24 19:23:18 [http-nio-8081-exec-3] INFO  c.d.app.service.CustomerService - Enter: getAllCustomers() with argument[s] = []
+2025-12-24 19:23:18 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy134 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:18 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy134 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:18 [http-nio-8081-exec-3] INFO  c.d.app.service.CustomerService - Exit: getAllCustomers() (Result details in DEBUG)
+2025-12-24 19:23:18 [http-nio-8081-exec-3] INFO  c.d.a.controller.CustomerController - Exit: getAllCustomers() (Result details in DEBUG)
+2025-12-24 19:23:18 [http-nio-8081-exec-4] INFO  c.d.a.controller.CustomerController - Enter: getAllCustomers() with argument[s] = []
+2025-12-24 19:23:18 [http-nio-8081-exec-4] INFO  c.d.app.service.CustomerService - Enter: getAllCustomers() with argument[s] = []
+2025-12-24 19:23:18 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy134 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:18 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy134 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:18 [http-nio-8081-exec-4] INFO  c.d.app.service.CustomerService - Exit: getAllCustomers() (Result details in DEBUG)
+2025-12-24 19:23:18 [http-nio-8081-exec-4] INFO  c.d.a.controller.CustomerController - Exit: getAllCustomers() (Result details in DEBUG)
+2025-12-24 19:23:23 [http-nio-8081-exec-5] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:23 [http-nio-8081-exec-5] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:23 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:23:23 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:23:23 [http-nio-8081-exec-5] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:23 [http-nio-8081-exec-5] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:23 [http-nio-8081-exec-6] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:23 [http-nio-8081-exec-6] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:23 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:23:23 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:23:23 [http-nio-8081-exec-6] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:23 [http-nio-8081-exec-6] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  c.d.a.controller.CustomerController - Enter: getUniqueSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  c.d.app.service.CustomerService - Enter: getNextSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy134 - Enter: findMaxIdInRange() with argument[s] = [251224000, 251224999]
+2025-12-24 19:23:24 [http-nio-8081-exec-7] INFO  c.d.a.c.ConfigurationController - Enter: getPhotoItems() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-7] INFO  c.d.app.service.ConfigurationService - Enter: getAllPhotoItems() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy134 - Exit: findMaxIdInRange() with result = null
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy134 - Enter: existsById() with argument[s] = [251224002]
+2025-12-24 19:23:24 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy129 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-7] INFO  jdk.proxy4.$Proxy129 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-10] INFO  c.d.a.c.ConfigurationController - Enter: getAddons() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-7] INFO  c.d.app.service.ConfigurationService - Exit: getAllPhotoItems() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-9] INFO  c.d.a.c.ConfigurationController - Enter: getPricingRules() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  jdk.proxy4.$Proxy134 - Exit: existsById() with result = false
+2025-12-24 19:23:24 [http-nio-8081-exec-10] INFO  c.d.app.service.ConfigurationService - Enter: getAllAddons() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  c.d.app.service.CustomerService - Exit: getNextSequence() with result = 2
+2025-12-24 19:23:24 [http-nio-8081-exec-10] INFO  jdk.proxy4.$Proxy130 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-8] INFO  c.d.a.controller.CustomerController - Exit: getUniqueSequence() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-9] INFO  c.d.app.service.ConfigurationService - Enter: getAllPricingRules() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-7] INFO  c.d.a.c.ConfigurationController - Exit: getPhotoItems() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy131 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-10] INFO  jdk.proxy4.$Proxy130 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-10] INFO  c.d.app.service.ConfigurationService - Exit: getAllAddons() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-10] INFO  c.d.a.c.ConfigurationController - Exit: getAddons() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  c.d.a.controller.CustomerController - Enter: getUniqueSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  c.d.app.service.CustomerService - Enter: getNextSequence() with argument[s] = [xe1fl87jmz9mjk2kh33]
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Enter: findMaxIdInRange() with argument[s] = [251224000, 251224999]
+2025-12-24 19:23:24 [http-nio-8081-exec-2] INFO  c.d.a.c.ConfigurationController - Enter: getPhotoItems() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-2] INFO  c.d.app.service.ConfigurationService - Enter: getAllPhotoItems() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy129 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-9] INFO  jdk.proxy4.$Proxy131 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-2] INFO  jdk.proxy4.$Proxy129 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-3] INFO  c.d.a.c.ConfigurationController - Enter: getAddons() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-9] INFO  c.d.app.service.ConfigurationService - Exit: getAllPricingRules() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-2] INFO  c.d.app.service.ConfigurationService - Exit: getAllPhotoItems() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Exit: findMaxIdInRange() with result = null
+2025-12-24 19:23:24 [http-nio-8081-exec-3] INFO  c.d.app.service.ConfigurationService - Enter: getAllAddons() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-2] INFO  c.d.a.c.ConfigurationController - Exit: getPhotoItems() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy130 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Enter: existsById() with argument[s] = [251224002]
+2025-12-24 19:23:24 [http-nio-8081-exec-9] INFO  c.d.a.c.ConfigurationController - Exit: getPricingRules() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-3] INFO  jdk.proxy4.$Proxy130 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-3] INFO  c.d.app.service.ConfigurationService - Exit: getAllAddons() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-3] INFO  c.d.a.c.ConfigurationController - Exit: getAddons() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  jdk.proxy4.$Proxy134 - Exit: existsById() with result = false
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  c.d.app.service.CustomerService - Exit: getNextSequence() with result = 2
+2025-12-24 19:23:24 [http-nio-8081-exec-1] INFO  c.d.a.controller.CustomerController - Exit: getUniqueSequence() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-4] INFO  c.d.a.c.ConfigurationController - Enter: getPricingRules() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-4] INFO  c.d.app.service.ConfigurationService - Enter: getAllPricingRules() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy131 - Enter: findAll() with argument[s] = []
+2025-12-24 19:23:24 [http-nio-8081-exec-4] INFO  jdk.proxy4.$Proxy131 - Exit: findAll() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-4] INFO  c.d.app.service.ConfigurationService - Exit: getAllPricingRules() (Result details in DEBUG)
+2025-12-24 19:23:24 [http-nio-8081-exec-4] INFO  c.d.a.c.ConfigurationController - Exit: getPricingRules() (Result details in DEBUG)
+2025-12-24 19:23:29 [http-nio-8081-exec-5] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:29 [http-nio-8081-exec-5] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:29 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:23:29 [http-nio-8081-exec-5] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:23:29 [http-nio-8081-exec-5] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:29 [http-nio-8081-exec-5] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:29 [http-nio-8081-exec-6] INFO  c.d.app.controller.OrderController - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:29 [http-nio-8081-exec-6] INFO  c.d.app.service.OrderService - Enter: getAllOrders() with argument[s] = []
+2025-12-24 19:23:29 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy135 - Enter: findByOrderByCreatedAtDesc() with argument[s] = []
+2025-12-24 19:23:29 [http-nio-8081-exec-6] INFO  jdk.proxy4.$Proxy135 - Exit: findByOrderByCreatedAtDesc() (Result details in DEBUG)
+2025-12-24 19:23:29 [http-nio-8081-exec-6] INFO  c.d.app.service.OrderService - Exit: getAllOrders() (Result details in DEBUG)
+2025-12-24 19:23:29 [http-nio-8081-exec-6] INFO  c.d.app.controller.OrderController - Exit: getAllOrders() (Result details in DEBUG)

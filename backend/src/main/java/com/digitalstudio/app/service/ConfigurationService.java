@@ -8,10 +8,12 @@ import com.digitalstudio.app.repository.AddonRepository;
 import com.digitalstudio.app.repository.PhotoItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Transactional
 public class ConfigurationService {
 
     @Autowired

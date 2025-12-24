@@ -12,12 +12,16 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId }) {
         const fetchSequence = async () => {
             if (!instanceId) return;
             try {
-                const seq = await customerService.getUniqueSequence(instanceId);
-                setFetchedSequence(seq);
+                const data = await customerService.getUniqueSequence(instanceId);
+                if (data && typeof data.sequence === 'number') {
+                    setFetchedSequence(data.sequence);
+                } else {
+                    setFetchedSequence(1);
+                }
             } catch (error) {
                 console.error("Failed to fetch customer ID sequence:", error);
-                // Fallback to random if API fails, to prevent blocking
-                setFetchedSequence(Math.floor(Math.random() * 1000));
+                // Fallback to 1 as requested
+                setFetchedSequence(1);
             }
         };
         fetchSequence();

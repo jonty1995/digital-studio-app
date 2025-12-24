@@ -8,7 +8,7 @@ import { configurationService } from "@/services/configurationService";
 export function PhotoItemConfig() {
     // Mock data for now
     const [items, setItems] = useState([]);
-    const [newItem, setNewItem] = useState({ name: "", regularBase: "", regularCustomer: "", instantBase: "", instantCustomer: "" });
+    const [newItem, setNewItem] = useState({ name: "", regularBasePrice: "", regularCustomerPrice: "", instantBasePrice: "", instantCustomerPrice: "" });
     const [editingId, setEditingId] = useState(null);
 
     useEffect(() => {
@@ -45,10 +45,10 @@ export function PhotoItemConfig() {
 
         const itemData = {
             name: newItem.name,
-            regularBase: parsePrice(newItem.regularBase),
-            regularCustomer: parsePrice(newItem.regularCustomer),
-            instantBase: parsePrice(newItem.instantBase),
-            instantCustomer: parsePrice(newItem.instantCustomer)
+            regularBasePrice: parsePrice(newItem.regularBasePrice),
+            regularCustomerPrice: parsePrice(newItem.regularCustomerPrice),
+            instantBasePrice: parsePrice(newItem.instantBasePrice),
+            instantCustomerPrice: parsePrice(newItem.instantCustomerPrice)
         };
 
         if (editingId) {
@@ -58,22 +58,22 @@ export function PhotoItemConfig() {
             saveItems([...items, { ...itemData, id: Date.now() }]);
         }
 
-        setNewItem({ name: "", regularBase: "", regularCustomer: "", instantBase: "", instantCustomer: "" });
+        setNewItem({ name: "", regularBasePrice: "", regularCustomerPrice: "", instantBasePrice: "", instantCustomerPrice: "" });
     };
 
     const handleEdit = (item) => {
         setNewItem({
             name: item.name,
-            regularBase: item.regularBase,
-            regularCustomer: item.regularCustomer,
-            instantBase: item.instantBase,
-            instantCustomer: item.instantCustomer
+            regularBasePrice: item.regularBasePrice,
+            regularCustomerPrice: item.regularCustomerPrice,
+            instantBasePrice: item.instantBasePrice,
+            instantCustomerPrice: item.instantCustomerPrice
         });
         setEditingId(item.id);
     };
 
     const handleCancelEdit = () => {
-        setNewItem({ name: "", regularBase: "", regularCustomer: "", instantBase: "", instantCustomer: "" });
+        setNewItem({ name: "", regularBasePrice: "", regularCustomerPrice: "", instantBasePrice: "", instantCustomerPrice: "" });
         setEditingId(null);
     };
 
@@ -98,8 +98,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
-                        value={newItem.regularBase}
-                        onChange={(e) => setNewItem({ ...newItem, regularBase: e.target.value })}
+                        value={newItem.regularBasePrice}
+                        onChange={(e) => setNewItem({ ...newItem, regularBasePrice: e.target.value })}
                         placeholder="0"
                     />
                 </div>
@@ -108,8 +108,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
-                        value={newItem.regularCustomer}
-                        onChange={(e) => setNewItem({ ...newItem, regularCustomer: e.target.value })}
+                        value={newItem.regularCustomerPrice}
+                        onChange={(e) => setNewItem({ ...newItem, regularCustomerPrice: e.target.value })}
                         placeholder="0"
                     />
                 </div>
@@ -118,8 +118,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
-                        value={newItem.instantBase}
-                        onChange={(e) => setNewItem({ ...newItem, instantBase: e.target.value })}
+                        value={newItem.instantBasePrice}
+                        onChange={(e) => setNewItem({ ...newItem, instantBasePrice: e.target.value })}
                         placeholder="0"
                     />
                 </div>
@@ -128,8 +128,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
-                        value={newItem.instantCustomer}
-                        onChange={(e) => setNewItem({ ...newItem, instantCustomer: e.target.value })}
+                        value={newItem.instantCustomerPrice}
+                        onChange={(e) => setNewItem({ ...newItem, instantCustomerPrice: e.target.value })}
                         placeholder="0"
                     />
                 </div>
@@ -163,10 +163,10 @@ export function PhotoItemConfig() {
                         {items.map((item) => (
                             <TableRow key={item.id}>
                                 <TableCell className="font-medium py-2">{item.name}</TableCell>
-                                <TableCell className="text-right py-2">{item.regularBase}</TableCell>
-                                <TableCell className="text-right py-2">{item.regularCustomer}</TableCell>
-                                <TableCell className="text-right py-2">{item.instantBase}</TableCell>
-                                <TableCell className="text-right py-2">{item.instantCustomer}</TableCell>
+                                <TableCell className="text-right py-2">{item.regularBasePrice}</TableCell>
+                                <TableCell className="text-right py-2">{item.regularCustomerPrice}</TableCell>
+                                <TableCell className="text-right py-2">{item.instantBasePrice}</TableCell>
+                                <TableCell className="text-right py-2">{item.instantCustomerPrice}</TableCell>
                                 <TableCell className="text-right space-x-1 py-2">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
                                         <Edit2 className="w-4 h-4 text-primary" />
