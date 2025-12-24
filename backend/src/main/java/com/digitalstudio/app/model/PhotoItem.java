@@ -12,11 +12,8 @@ public class PhotoItem {
     private Long id;
 
     private String name;
-    private Double regularBasePrice;
-    private Double regularPrice;
-    private Double instantBasePrice;
-    private Double instantPrice;
-
-    @Column(columnDefinition = "TEXT")
-    private String addonCombinations; // JSON
+    private Integer regularBase;
+    private Integer regularCustomer;
+    private Integer instantBase;
+    private Integer instantCustomer;
 }

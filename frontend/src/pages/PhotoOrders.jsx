@@ -42,6 +42,14 @@ export default function PhotoOrders() {
     const [filters, setFilters] = useState({ instant: true, regular: true });
     const [dateRange, setDateRange] = useState({ start: "", end: "" });
     const [isModalOpen, setIsModalOpen] = useState(false);
+    // Sticky session ID for the form, persisted in session storage to survive refreshes
+    const [formSessionId, setFormSessionId] = useState(() => {
+        const stored = sessionStorage.getItem("photoOrderSessionId");
+        if (stored) return stored;
+        const newId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        sessionStorage.setItem("photoOrderSessionId", newId);
+        return newId;
+    });
 
     const handleFilterChange = (key) => {
         setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -50,6 +58,11 @@ export default function PhotoOrders() {
     const handleSaveOrder = (orderData) => {
         console.log("Saving order:", orderData);
         // Here you would typically make an API call
+
+        // After successful save, generate a new session ID for the next order
+        const newId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        setFormSessionId(newId);
+        sessionStorage.setItem("photoOrderSessionId", newId);
     };
 
     return (
@@ -151,7 +164,9 @@ export default function PhotoOrders() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveOrder}
+                instanceId={formSessionId}
             />
         </div>
     );
 }
+

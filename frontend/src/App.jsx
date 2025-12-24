@@ -2,11 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Layout from "./Layout"
 
 import PhotoOrders from "./pages/PhotoOrders"
+import Configuration from "./pages/Configuration"
 
 // Placeholders
 const BillPayment = () => <div className="p-4"><h1 className="text-2xl font-bold">Bill Payment</h1></div>
 const Customers = () => <div className="p-4"><h1 className="text-2xl font-bold">Customers</h1></div>
-const Configuration = () => <div className="p-4"><h1 className="text-2xl font-bold">Configuration</h1></div>
 
 function App() {
   return (

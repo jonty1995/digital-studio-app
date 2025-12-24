@@ -7,7 +7,7 @@ import { ImageUpload } from "./ImageUpload";
 import { PhotoItemForm } from "./PhotoItemForm";
 
 
-export function PhotoOrderModal({ isOpen, onClose, onSave }) {
+export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId }) {
     const [customer, setCustomer] = useState({ mobile: '', name: '', id: '' });
     const [items, setItems] = useState([]);
     const [description, setDescription] = useState("");
@@ -51,8 +51,14 @@ export function PhotoOrderModal({ isOpen, onClose, onSave }) {
                             customer={customer}
                             setCustomer={setCustomer}
                             onSearch={handleSearchCustomer}
+                            instanceId={instanceId}
                         />
-                        <ImageUpload onUpload={setImage} />
+                        <ImageUpload
+                            image={image}
+                            onUpload={setImage}
+                            onRemove={() => setImage(null)}
+                            photoId={customer.id ? `IMG_${customer.id}` : null}
+                        />
                     </div>
 
                     {/* Right Column */}

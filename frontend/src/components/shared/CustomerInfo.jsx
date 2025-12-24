@@ -1,41 +1,97 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
+import { customerService } from "@/services/customerService"
 
-export function CustomerInfo({ customer, setCustomer, onSearch }) {
+export function CustomerInfo({ customer, setCustomer, onSearch, instanceId }) {
+    const [fetchedSequence, setFetchedSequence] = useState(null);
+
+    useEffect(() => {
+        // Fetch the sequence only once when the component mounts or instanceId changes
+        const fetchSequence = async () => {
+            if (!instanceId) return;
+            try {
+                const seq = await customerService.getUniqueSequence(instanceId);
+                setFetchedSequence(seq);
+            } catch (error) {
+                console.error("Failed to fetch customer ID sequence:", error);
+                // Fallback to random if API fails, to prevent blocking
+                setFetchedSequence(Math.floor(Math.random() * 1000));
+            }
+        };
+        fetchSequence();
+    }, []);
+
+    useEffect(() => {
+        if (customer.mobile && customer.mobile.length > 0) {
+            // If mobile is provided, ID is the mobile number
+            // Only update if it's different to avoid loops
+            if (customer.id !== customer.mobile) {
+                setCustomer(prev => ({ ...prev, id: prev.mobile }));
+            }
+        } else {
+            // If no mobile, use Generated ID
+            if (fetchedSequence !== null) {
+                const now = new Date();
+                const yy = String(now.getFullYear()).slice(-2);
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const nnn = String(fetchedSequence).padStart(3, '0');
+                const generatedId = `${yy}${mm}${dd}${nnn}`;
+
+                if (customer.id !== generatedId) {
+                    setCustomer(prev => ({ ...prev, id: generatedId }));
+                }
+            }
+        }
+    }, [customer.mobile, fetchedSequence, setCustomer, customer.id]);
+
     const handleChange = (e) => {
         setCustomer({ ...customer, [e.target.name]: e.target.value })
     }
 
     return (
-        <div className="space-y-4 rounded-md border p-4 bg-card">
-            <h3 className="font-semibold">Customer Details</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                    <Label htmlFor="mobile">Mobile Number</Label>
-                    <div className="flex gap-2">
-                        <Input
-                            id="mobile"
-                            name="mobile"
-                            value={customer.mobile}
-                            onChange={handleChange}
-                            placeholder="Enter 10 digit number"
-                        />
-                        <Button type="button" onClick={onSearch} variant="secondary">Search</Button>
+        <div className="space-y-4 rounded-md border border-blue-200 p-4 bg-blue-50/30">
+            <h3 className="font-semibold text-blue-900 uppercase tracking-wide">Customer Information</h3>
+
+            {/* Mobile Number & Customer ID Section */}
+            <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                    <Label htmlFor="mobile" className="text-blue-900 font-medium">Mobile Number (Optional)</Label>
+                    <div className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded border border-blue-200">
+                        Customer ID: {customer.id || '...'}
                     </div>
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="name">Customer Name</Label>
-                    <Input
-                        id="name"
-                        name="name"
-                        value={customer.name}
-                        onChange={handleChange}
-                        placeholder="Name"
-                    />
-                </div>
+
+                <Input
+                    id="mobile"
+                    name="mobile"
+                    value={customer.mobile}
+                    onChange={handleChange}
+                    onBlur={onSearch}
+                    onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+                    placeholder="Enter mobile number"
+                    className="bg-white border-blue-200 focus-visible:ring-blue-500"
+                />
+
+                <p className="text-xs text-blue-600">
+                    If not provided, an ID will be auto-generated
+                </p>
             </div>
-            {customer.id && <p className="text-sm text-muted-foreground">ID: {customer.id}</p>}
+
+            {/* Customer Name Section */}
+            <div className="grid gap-2">
+                <Label htmlFor="name" className="text-blue-900 font-medium">Name</Label>
+                <Input
+                    id="name"
+                    name="name"
+                    value={customer.name}
+                    onChange={handleChange}
+                    placeholder="Enter customer name"
+                    className="bg-white border-blue-200 focus-visible:ring-blue-500"
+                />
+            </div>
         </div>
     )
 }
