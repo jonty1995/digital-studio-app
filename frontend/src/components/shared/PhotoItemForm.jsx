@@ -52,7 +52,7 @@ export function PhotoItemForm({ items, setItems, description, setDescription }) 
         // Calculate Base Price Unit
         const configItem = availableItems.find(i => i.name === newItem.type);
         const basePrice = configItem
-            ? (newItem.isInstant ? (parseFloat(configItem.instantCustomerPrice) || 0) : (parseFloat(configItem.regularCustomerPrice) || 0))
+            ? (newItem.isInstant ? (parseFloat(configItem.instantBasePrice) || 0) : (parseFloat(configItem.regularBasePrice) || 0))
             : 0;
 
         setNewItem(prev => ({
@@ -111,6 +111,7 @@ export function PhotoItemForm({ items, setItems, description, setDescription }) 
                         <Input
                             type="number"
                             min="1"
+                            onWheel={(e) => e.target.blur()}
                             className="w-20 bg-white border-green-200 focus-visible:ring-green-500"
                             value={newItem.quantity}
                             onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}

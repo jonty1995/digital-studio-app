@@ -98,6 +98,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
+                        min="0"
+                        onWheel={(e) => e.target.blur()}
                         value={newItem.regularBasePrice}
                         onChange={(e) => setNewItem({ ...newItem, regularBasePrice: e.target.value })}
                         placeholder="0"
@@ -108,6 +110,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
+                        min="0"
+                        onWheel={(e) => e.target.blur()}
                         value={newItem.regularCustomerPrice}
                         onChange={(e) => setNewItem({ ...newItem, regularCustomerPrice: e.target.value })}
                         placeholder="0"
@@ -118,6 +122,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
+                        min="0"
+                        onWheel={(e) => e.target.blur()}
                         value={newItem.instantBasePrice}
                         onChange={(e) => setNewItem({ ...newItem, instantBasePrice: e.target.value })}
                         placeholder="0"
@@ -128,6 +134,8 @@ export function PhotoItemConfig() {
                     <Input
                         type="number"
                         step="1"
+                        min="0"
+                        onWheel={(e) => e.target.blur()}
                         value={newItem.instantCustomerPrice}
                         onChange={(e) => setNewItem({ ...newItem, instantCustomerPrice: e.target.value })}
                         placeholder="0"

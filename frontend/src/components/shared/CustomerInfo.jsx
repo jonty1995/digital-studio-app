@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { customerService } from "@/services/customerService"
 
-export function CustomerInfo({ customer, setCustomer, onSearch, instanceId }) {
+export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disabled }) {
     const [fetchedSequence, setFetchedSequence] = useState(null);
 
     useEffect(() => {
@@ -77,6 +77,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId }) {
                     onKeyDown={(e) => e.key === 'Enter' && onSearch()}
                     placeholder="Enter mobile number"
                     className="bg-white border-blue-200 focus-visible:ring-blue-500"
+                    disabled={disabled}
                 />
 
                 <p className="text-xs text-blue-600">
@@ -94,6 +95,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId }) {
                     onChange={handleChange}
                     placeholder="Enter customer name"
                     className="bg-white border-blue-200 focus-visible:ring-blue-500"
+                    disabled={disabled}
                 />
             </div>
         </div>

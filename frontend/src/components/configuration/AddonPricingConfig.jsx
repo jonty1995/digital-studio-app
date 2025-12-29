@@ -163,6 +163,8 @@ export function AddonPricingConfig() {
                                 <Input
                                     type="number"
                                     step="1"
+                                    min="0"
+                                    onWheel={(e) => e.target.blur()}
                                     value={newPrice.base}
                                     onChange={(e) => setNewPrice({ ...newPrice, base: e.target.value })}
                                     placeholder="Enter Base Price"
@@ -173,6 +175,8 @@ export function AddonPricingConfig() {
                                 <Input
                                     type="number"
                                     step="1"
+                                    min="0"
+                                    onWheel={(e) => e.target.blur()}
                                     value={newPrice.customer}
                                     onChange={(e) => setNewPrice({ ...newPrice, customer: e.target.value })}
                                     placeholder="Enter custom price"

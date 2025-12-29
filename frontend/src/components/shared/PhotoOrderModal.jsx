@@ -5,6 +5,7 @@ import { CustomerInfo } from "./CustomerInfo";
 import { PaymentMode } from "./PaymentMode";
 import { ImageUpload } from "./ImageUpload";
 import { PhotoItemForm } from "./PhotoItemForm";
+import { configurationService } from "@/services/configurationService";
 
 
 export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder }) {
@@ -13,6 +14,11 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     const [description, setDescription] = useState("");
     const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
     const [image, setImage] = useState(null);
+    const [configItems, setConfigItems] = useState([]);
+
+    useEffect(() => {
+        configurationService.getItems().then(data => setConfigItems(data || []));
+    }, []);
 
     useEffect(() => {
         if (editOrder) {
@@ -47,16 +53,23 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     // But if there was a discrepancy, it might auto-correct. Which is usually good.
     useEffect(() => {
         const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
-        const totalBasePrice = items.reduce((sum, item) => sum + ((parseFloat(item.basePrice) || 0) * item.quantity), 0);
+
+        const totalBasePrice = items.reduce((sum, item) => {
+            let bp = parseFloat(item.basePrice);
+            if (isNaN(bp) && configItems.length > 0) {
+                const cfg = configItems.find(c => c.name === item.type);
+                if (cfg) {
+                    bp = item.isInstant ? parseFloat(cfg.instantCustomerPrice) : parseFloat(cfg.regularCustomerPrice);
+                }
+            }
+            return sum + ((bp || 0) * item.quantity);
+        }, 0);
 
         setPayment(prev => {
             if (prev.total === totalAmount && prev.advance === totalBasePrice) return prev;
-            // Only update total and recommended advance, preserve paid/discount if possible?
-            // But payment total MUST match items total.
-            // So updating is correct.
-            return { ...prev, total: totalAmount };
+            return { ...prev, total: totalAmount, advance: totalBasePrice };
         });
-    }, [items]);
+    }, [items, configItems]);
 
     const handleSearchCustomer = () => {
         if (customer.mobile === '9999999999') {
@@ -96,6 +109,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                             setCustomer={setCustomer}
                             onSearch={handleSearchCustomer}
                             instanceId={instanceId}
+                            disabled={!!editOrder}
                         />
                         <ImageUpload
                             image={image}
