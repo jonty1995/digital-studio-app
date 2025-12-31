@@ -91,4 +91,51 @@ public class ConfigurationService {
         pricingRuleRepository.deleteAll();
         pricingRuleRepository.saveAll(rules);
     }
+    // Full Config
+    public com.digitalstudio.app.dto.ConfigExportDTO exportFullConfig() {
+        com.digitalstudio.app.dto.ConfigExportDTO dto = new com.digitalstudio.app.dto.ConfigExportDTO();
+        dto.setPhotoItems(photoItemRepository.findAll());
+        dto.setAddons(addonRepository.findAll());
+        dto.setPricingRules(pricingRuleRepository.findAll());
+        return dto;
+    }
+
+    public void importFullConfig(com.digitalstudio.app.dto.ConfigExportDTO dto) {
+        pricingRuleRepository.deleteAllInBatch();
+        addonRepository.deleteAllInBatch();
+        photoItemRepository.deleteAllInBatch();
+        
+        if (dto.getPhotoItems() != null) {
+            dto.getPhotoItems().forEach(item -> item.setId(null));
+            photoItemRepository.saveAll(dto.getPhotoItems());
+        }
+        if (dto.getAddons() != null) {
+            dto.getAddons().forEach(addon -> addon.setId(null));
+            addonRepository.saveAll(dto.getAddons());
+        }
+        if (dto.getPricingRules() != null) {
+            dto.getPricingRules().forEach(rule -> rule.setId(null));
+            pricingRuleRepository.saveAll(dto.getPricingRules());
+        }
+    }
+
+    // Value Configurations
+    @Autowired
+    private com.digitalstudio.app.repository.ValueConfigurationRepository valueConfigurationRepository;
+
+    public List<com.digitalstudio.app.model.ValueConfiguration> getAllValues() {
+        return valueConfigurationRepository.findAll();
+    }
+
+    public List<com.digitalstudio.app.model.ValueConfiguration> saveValues(List<com.digitalstudio.app.model.ValueConfiguration> values) {
+        // Full replace strategy for simple config management
+        valueConfigurationRepository.deleteAll();
+        return valueConfigurationRepository.saveAll(values);
+    }
+
+    public String getValue(String key) {
+        return valueConfigurationRepository.findById(key)
+                .map(com.digitalstudio.app.model.ValueConfiguration::getValue)
+                .orElse(null);
+    }
 }

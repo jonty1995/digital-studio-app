@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Trash2, Plus, ChevronDown } from "lucide-react"
 import { configurationService } from "@/services/configurationService"
 
-export function PhotoItemForm({ items, setItems, description, setDescription }) {
+export function PhotoItemForm({ items, setItems }) {
     const [availableItems, setAvailableItems] = useState([]);
     const [availableAddons, setAvailableAddons] = useState([]);
     const [pricingRules, setPricingRules] = useState([]);
@@ -265,16 +265,6 @@ export function PhotoItemForm({ items, setItems, description, setDescription }) 
                 </div>
             </div>
 
-            <div className="grid gap-2 pt-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                    id="description"
-                    placeholder="Add special instructions..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="min-h-[80px]"
-                />
-            </div>
         </div>
     );
 }

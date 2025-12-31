@@ -6,5 +6,9 @@ export const customerService = {
     },
     getUniqueSequence: async (instanceId) => {
         return await api.get(`/customers/sequence?instanceId=${instanceId}`);
+    },
+    search: async (query) => {
+        console.log("customerService.search called with:", query);
+        return await api.get(`/customers/search?query=${query}`);
     }
 };

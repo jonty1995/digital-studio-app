@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { CustomerInfo } from "./CustomerInfo";
 import { PaymentMode } from "./PaymentMode";
-import { ImageUpload } from "./ImageUpload";
+import { FileUpload } from "./FileUpload";
 import { PhotoItemForm } from "./PhotoItemForm";
 import { configurationService } from "@/services/configurationService";
+import { customerService } from "@/services/customerService";
 
 
 export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder }) {
@@ -37,8 +40,12 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 mode: editOrder.payment?.paymentMode || 'Cash',
                 total: editOrder.payment?.totalAmount || 0,
                 discount: editOrder.payment?.discountAmount || 0,
+                discount: editOrder.payment?.discountAmount || 0,
                 advance: editOrder.payment?.advanceAmount || 0
             });
+
+            // Set existing image/uploadId for preview
+            setImage(editOrder.uploadId || editOrder.image || null);
 
             setDescription(editOrder.description || "");
         }
@@ -66,40 +73,127 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
         }, 0);
 
         setPayment(prev => {
-            if (prev.total === totalAmount && prev.advance === totalBasePrice) return prev;
-            return { ...prev, total: totalAmount, advance: totalBasePrice };
+            if (prev.total === totalAmount) return prev;
+            return { ...prev, total: totalAmount };
         });
     }, [items, configItems]);
 
-    const handleSearchCustomer = () => {
-        if (customer.mobile === '9999999999') {
-            setCustomer({ ...customer, name: 'Existing User', id: 'CUST001' })
-        } else {
-            alert("Customer not found (Mock)");
+    const handleSearchCustomer = async () => {
+        console.log("handleSearchCustomer Triggered. Mobile:", customer.mobile);
+        if (!customer.mobile) return;
+
+        // Allow 9 digits (Generated ID) or 10 digits (Mobile)
+        if (!/^\d{9,10}$/.test(customer.mobile)) {
+            alert("Please enter a valid Mobile Number (10 digits) or Customer ID (9 digits).");
+            return;
+        }
+
+        try {
+            const found = await customerService.search(customer.mobile);
+            if (found) {
+                setCustomer(prev => ({
+                    ...prev,
+                    name: found.name || '',
+                    id: found.id || prev.mobile
+                }));
+            }
+        } catch (error) {
+            // Not found (New Customer) -> Do nothing
         }
     }
 
     const handleSave = () => {
-        if (!customer.mobile && !editOrder && !customer.id) {
-            // Basic mobile check? 
-            // If editing, maybe mobile is missing in object but ID exists? 
-            // Frontend form requires mobile usually.
+        if (!items || items.length === 0) {
+            alert("Please add at least one item to save the order.");
+            return;
         }
 
-        const newOrder = {
-            orderId: editOrder?.orderId,
-            customer,
-            items,
-            description,
-            payment,
-            image
-        };
-        onSave(newOrder);
+        // If Mobile is NOT provided, Name is Mandatory
+        if (!customer.mobile && !customer.name.trim()) {
+            alert("Customer Name is mandatory when Mobile Number is not provided.");
+            return;
+        }
+
+        if (!customer.mobile && !editOrder && !customer.id) {
+            // Basic mobile check? 
+        }
+
+        const instantItems = items.filter(i => i.isInstant);
+        const regularItems = items.filter(i => !i.isInstant);
+
+        // Check for SPLIT condition: Mixed items AND not editing an existing order (assuming we don't split on edit for now)
+        if (instantItems.length > 0 && regularItems.length > 0 && !editOrder) {
+            // --- SPLIT LOGIC ---
+
+            // 1. Calculate Totals
+            const calculateTotal = (itemList) => itemList.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+            const instantTotal = calculateTotal(instantItems);
+            const regularTotal = calculateTotal(regularItems);
+            const totalAmount = instantTotal + regularTotal;
+
+            // 2. Distribute Discount (Proportional)
+            // instantDiscount = (instantTotal / totalAmount) * totalDiscount
+            const totalDiscount = parseFloat(payment.discount) || 0;
+            const instantDiscount = Math.round((instantTotal / totalAmount) * totalDiscount);
+            const regularDiscount = totalDiscount - instantDiscount;
+
+            // 3. Distribute Advance (Priority to Instant)
+            // Allocation Rule: "Applied to Instant order (up to its full value)"
+            // "Full Value" usually means the Payable Amount (Total - Discount)
+            const totalAdvance = parseFloat(payment.advance) || 0;
+            const instantPayable = instantTotal - instantDiscount;
+
+            const instantAdvance = Math.min(totalAdvance, instantPayable);
+            const regularAdvance = totalAdvance - instantAdvance; // Remainder to Regular
+
+            // 4. Create Two Orders
+            const instantOrder = {
+                customer,
+                items: instantItems,
+                description: description ? `[INSTANT PART] ${description}` : "",
+                payment: {
+                    mode: payment.mode,
+                    total: instantTotal,
+                    discount: instantDiscount,
+                    advance: instantAdvance
+                },
+                image: (image && image instanceof File) ? image.name : image,
+                status: 'Pending'
+            };
+
+            const regularOrder = {
+                customer,
+                items: regularItems,
+                description: description ? `[REGULAR PART] ${description}` : "",
+                payment: {
+                    mode: payment.mode,
+                    total: regularTotal,
+                    discount: regularDiscount,
+                    advance: regularAdvance
+                },
+                image: (image && image instanceof File) ? image.name : image,
+                status: 'Pending'
+            };
+
+            onSave([instantOrder, regularOrder]);
+
+        } else {
+            // --- NORMAL LOGIC (Single Order) ---
+            const newOrder = {
+                orderId: editOrder?.orderId,
+                customer,
+                items,
+                description,
+                payment,
+                image: (image && image instanceof File) ? image.name : image
+            };
+            onSave(newOrder);
+        }
         onClose();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="New Photo Order" className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <Modal isOpen={isOpen} onClose={onClose} title="New Photo Order" className="max-w-4xl h-[90vh] flex flex-col p-0" noBodyPadding={true}>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left Column */}
@@ -111,12 +205,22 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                             instanceId={instanceId}
                             disabled={!!editOrder}
                         />
-                        <ImageUpload
-                            image={image}
+                        <FileUpload
+                            file={image}
                             onUpload={setImage}
                             onRemove={() => setImage(null)}
-                            photoId={customer.id ? `IMG_${customer.id}` : null}
+                            source="Photo Order"
                         />
+                        <div className="grid gap-2">
+                            <Label htmlFor="description">Description (Optional)</Label>
+                            <Textarea
+                                id="description"
+                                placeholder="Add special instructions..."
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="min-h-[80px]"
+                            />
+                        </div>
                     </div>
 
                     {/* Right Column */}
@@ -124,8 +228,6 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                         <PhotoItemForm
                             items={items}
                             setItems={setItems}
-                            description={description}
-                            setDescription={setDescription}
                         />
                         <PaymentMode
                             payment={payment}

@@ -86,4 +86,22 @@ public class CustomerService {
     public List<Customer> getAllCustomers() {
         return customerRepository.findAll();
     }
+
+    public java.util.Optional<Customer> searchCustomer(String query) {
+        if (query == null) return java.util.Optional.empty();
+        query = query.trim();
+        
+        // If 10 digits, search ONLY Mobile
+        if (query.matches("\\d{10}")) {
+             return customerRepository.findByMobile(query);
+        }
+        
+        // Otherwise search ID
+        try {
+            long id = Long.parseLong(query);
+            return customerRepository.findById(id);
+        } catch (NumberFormatException e) {
+            return java.util.Optional.empty();
+        }
+    }
 }

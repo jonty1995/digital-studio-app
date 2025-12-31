@@ -17,7 +17,7 @@ public class PhotoOrder {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
-    private Long uploadId;
+    private String uploadId;
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "payment_id")
@@ -38,4 +38,6 @@ public class PhotoOrder {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+    @Transient
+    private String originalFilename;
 }

@@ -57,11 +57,11 @@ export function PaymentMode({ payment, setPayment, minAdvance }) {
                     <Input type="number" name="discount" min="0" onWheel={(e) => e.target.blur()} value={payment.discount} onChange={handleChange} />
                 </div>
                 <div className="grid gap-2">
-                    <Label>Advance Amount <span className="text-xs text-green-600 font-normal ml-1">(Min: ₹{(minAdvance || 0).toFixed(2)})</span></Label>
+                    <Label>Advance <span className="text-xs text-green-600 font-normal ml-1">(Min: ₹{(minAdvance || 0).toFixed(2)})</span></Label>
                     <Input type="number" name="advance" min="0" onWheel={(e) => e.target.blur()} value={payment.advance} onChange={handleChange} />
                 </div>
                 <div className="grid gap-2">
-                    <Label>Due Amount</Label>
+                    <Label>Due</Label>
                     <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-medium">
                         {due.toFixed(2)}
                     </div>

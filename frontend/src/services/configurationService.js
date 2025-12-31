@@ -53,12 +53,13 @@ export const configurationService = {
         }
     },
     savePricingRules: async (rules) => {
-        const cleanRules = rules.map(r => ({ ...r, id: null }));
-        try {
-            await api.post(ENDPOINTS.PRICING, cleanRules);
-        } catch (error) {
-            console.error("Failed to save pricing rules", error);
-        }
+        return await api.post("/config/pricing-rules", rules);
+    },
+    exportFull: async () => {
+        return await api.get("/config/full");
+    },
+    importFull: async (data) => {
+        return await api.post("/config/full", data);
     },
 
     // Helper to calculate price (Synchronous helper relying on loaded data? No, data is async now.)

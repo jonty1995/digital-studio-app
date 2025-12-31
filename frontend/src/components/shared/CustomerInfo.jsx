@@ -8,52 +8,117 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
     const [fetchedSequence, setFetchedSequence] = useState(null);
 
     useEffect(() => {
-        // Fetch the sequence only once when the component mounts or instanceId changes
         const fetchSequence = async () => {
             if (!instanceId) return;
             try {
                 const data = await customerService.getUniqueSequence(instanceId);
-                if (data && typeof data.sequence === 'number') {
-                    setFetchedSequence(data.sequence);
-                } else {
-                    setFetchedSequence(1);
-                }
+                setFetchedSequence(data && typeof data.sequence === 'number' ? data.sequence : 1);
             } catch (error) {
                 console.error("Failed to fetch customer ID sequence:", error);
-                // Fallback to 1 as requested
                 setFetchedSequence(1);
             }
         };
         fetchSequence();
-    }, []);
+    }, [instanceId]);
 
+    // Helper: Generate ID (YYMMDDSequence)
+    const generateNewId = () => {
+        if (!fetchedSequence) return null;
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const nnn = String(fetchedSequence).padStart(3, '0');
+        return `${yy}${mm}${dd}${nnn}`;
+    };
+
+    // Auto-Populate Generated ID when Mobile is Empty (Default "New Customer" State)
     useEffect(() => {
-        if (customer.mobile && customer.mobile.length > 0) {
-            // If mobile is provided, ID is the mobile number
-            // Only update if it's different to avoid loops
-            if (customer.id !== customer.mobile) {
-                setCustomer(prev => ({ ...prev, id: prev.mobile }));
-            }
-        } else {
-            // If no mobile, use Generated ID
-            if (fetchedSequence !== null) {
-                const now = new Date();
-                const yy = String(now.getFullYear()).slice(-2);
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(now.getDate()).padStart(2, '0');
-                const nnn = String(fetchedSequence).padStart(3, '0');
-                const generatedId = `${yy}${mm}${dd}${nnn}`;
-
-                if (customer.id !== generatedId) {
-                    setCustomer(prev => ({ ...prev, id: generatedId }));
-                }
+        if (!customer.mobile && fetchedSequence) {
+            const newId = generateNewId();
+            if (newId && customer.id !== newId) {
+                setCustomer(prev => ({ ...prev, id: newId }));
             }
         }
     }, [customer.mobile, fetchedSequence, setCustomer, customer.id]);
 
+    const handleSearch = async () => {
+        const value = customer.mobile;
+        if (!value) return;
+
+        console.log("Searching for:", value);
+
+        // Reset customer Name/ID (keep mobile unless invalid ID) before search to avoid stale data
+        // Actually, let's keep it until we confirm status.
+
+        // Pattern Matching
+        const isId = /^[0-9]{9}$/.test(value);      // 9 digits = Customer ID
+        const isMobile = /^[0-9]{10}$/.test(value); // 10 digits = Mobile
+
+        try {
+            const res = await customerService.search(value);
+            if (res) {
+                // FOUND (Existing Customer)
+                // Whether it was entered as ID or Mobile, if found, we load it.
+                // res should contain { id, mobile, name, ... }
+                setCustomer(res);
+                onSearch && onSearch(); // Propagate event
+            } else {
+                // NOT FOUND
+                if (isId) {
+                    // Scenario: 9-Digit ID NOT FOUND
+                    // STRICT RULE: ERROR and BLOCK.
+                    alert("Customer ID not found.");
+                    setCustomer(prev => ({ ...prev, mobile: '', id: '', name: '' })); // Clear Input
+                } else {
+                    // Scenario: Mobile (10 digits) or Other -> Treat as NEW Customer
+
+                    if (isMobile) {
+                        // Valid Mobile -> ID is Mobile
+                        setCustomer(prev => ({ ...prev, mobile: value, id: value, name: '' }));
+                    } else {
+                        // Other format -> Use Generated ID
+                        const newId = generateNewId();
+                        setCustomer(prev => ({ ...prev, mobile: value, id: newId || '', name: '' }));
+                    }
+                    onSearch && onSearch();
+                }
+            }
+        } catch (error) {
+            console.error("Search error:", error);
+            if (isId) {
+                alert("Customer ID not found.");
+                setCustomer(prev => ({ ...prev, mobile: '', id: '', name: '' }));
+            } else {
+                // Assume New
+                if (isMobile) {
+                    setCustomer(prev => ({ ...prev, mobile: value, id: value, name: '' }));
+                } else {
+                    const newId = generateNewId();
+                    setCustomer(prev => ({ ...prev, mobile: value, id: newId || '', name: '' }));
+                }
+                onSearch && onSearch();
+            }
+        }
+    };
+
     const handleChange = (e) => {
-        setCustomer({ ...customer, [e.target.name]: e.target.value })
-    }
+        const { name, value } = e.target;
+        setCustomer(prev => {
+            // If changing mobile input, live-update the ID badge as well
+            if (name === 'mobile') {
+                return { ...prev, mobile: value, id: value };
+            }
+            return { ...prev, [name]: value };
+        });
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent form submission
+            handleSearch();
+        }
+    };
 
     return (
         <div className="space-y-4 rounded-md border border-blue-200 p-4 bg-blue-50/30">
@@ -62,7 +127,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
             {/* Mobile Number & Customer ID Section */}
             <div className="space-y-2">
                 <div className="flex justify-between items-end">
-                    <Label htmlFor="mobile" className="text-blue-900 font-medium">Mobile Number (Optional)</Label>
+                    <Label htmlFor="mobile" className="text-blue-900 font-medium">Mobile / Customer ID</Label>
                     <div className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded border border-blue-200">
                         Customer ID: {customer.id || '...'}
                     </div>
@@ -73,9 +138,9 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                     name="mobile"
                     value={customer.mobile}
                     onChange={handleChange}
-                    onBlur={onSearch}
-                    onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-                    placeholder="Enter mobile number"
+                    onBlur={handleSearch}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter Mobile (10 digits) or ID (9 digits)"
                     className="bg-white border-blue-200 focus-visible:ring-blue-500"
                     disabled={disabled}
                 />
@@ -95,7 +160,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                     onChange={handleChange}
                     placeholder="Enter customer name"
                     className="bg-white border-blue-200 focus-visible:ring-blue-500"
-                    disabled={disabled}
+                // Name is always editable
                 />
             </div>
         </div>

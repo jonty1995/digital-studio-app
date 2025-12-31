@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
-export function Modal({ isOpen, onClose, title, children, className }) {
+export function Modal({ isOpen, onClose, title, children, className, noBodyPadding = false }) {
     const overlayRef = useRef(null);
 
     useEffect(() => {
@@ -36,11 +36,11 @@ export function Modal({ isOpen, onClose, title, children, className }) {
         >
             <div
                 className={cn(
-                    "relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-background p-6 shadow-lg animate-in zoom-in-95 duration-200",
+                    "relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-background shadow-lg animate-in zoom-in-95 duration-200",
                     className
                 )}
             >
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
                     <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
                     <button
                         onClick={onClose}
@@ -50,7 +50,7 @@ export function Modal({ isOpen, onClose, title, children, className }) {
                         <span className="sr-only">Close</span>
                     </button>
                 </div>
-                <div>{children}</div>
+                <div className={noBodyPadding ? "" : "px-6 pb-6"}>{children}</div>
             </div>
         </div>,
         document.body

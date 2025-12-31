@@ -24,7 +24,24 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PhotoOrder>> getAllOrders() {
-        return ResponseEntity.ok(orderService.getAllOrders());
+    public ResponseEntity<org.springframework.data.domain.Page<PhotoOrder>> getAllOrders(
+            @RequestParam(required = false) java.time.LocalDate startDate,
+            @RequestParam(required = false) java.time.LocalDate endDate,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "true") boolean instant,
+            @RequestParam(defaultValue = "true") boolean regular,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        // Resolve Type Filter
+        Boolean isInstant = null;
+        if (instant && !regular) {
+            isInstant = true;
+        } else if (!instant && regular) {
+            isInstant = false;
+        }
+        // If both true or both false, isInstant remains null (no filter)
+
+        return ResponseEntity.ok(orderService.getAllOrders(startDate, endDate, search, isInstant, page, size));
     }
 }

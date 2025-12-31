@@ -7,6 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface PhotoOrderRepository extends JpaRepository<PhotoOrder, Long> {
+public interface PhotoOrderRepository extends JpaRepository<PhotoOrder, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<PhotoOrder> {
     List<PhotoOrder> findByOrderByCreatedAtDesc();
 }

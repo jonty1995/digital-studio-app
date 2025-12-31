@@ -53,11 +53,15 @@ public class OrderService {
                 java.util.Optional<Customer> existing = customerRepository.findByMobile(mobile);
                 if (existing.isPresent()) {
                     customer = existing.get();
-                    customer.setName(name);
+                    if (name != null && !name.trim().equals(customer.getName())) {
+                         appendHistory(customer, "Modified", "Name updated: " + customer.getName() + " -> " + name);
+                         customer.setName(name);
+                    }
                 } else {
                     customer = new Customer();
                     customer.setMobile(mobile);
                     customer.setName(name);
+                    appendHistory(customer, "Created", "Via New Photo Order");
                     try {
                         customer.setId(Long.parseLong(mobile));
                     } catch (NumberFormatException e) {
@@ -103,6 +107,7 @@ public class OrderService {
                     customer = new Customer();
                     customer.setName(name);
                     customer.setId(customerService.generateNewCustomerId());
+                    appendHistory(customer, "Created", "New Generated ID");
                 }
             }
             customer = customerRepository.save(customer);
@@ -152,11 +157,67 @@ public class OrderService {
         order.setIsInstant(instant);
 
         order.setStatus((payment != null && payment.getDueAmount() <= 0) ? "Completed" : "Pending");
+        
+        // Map Image/File ID
+        // Map Image/File ID
+        order.setUploadId(request.getImage());
 
         return photoOrderRepository.save(order);
     }
 
-    public List<PhotoOrder> getAllOrders() {
-        return photoOrderRepository.findByOrderByCreatedAtDesc();
+    private void appendHistory(Customer customer, String action, String details) {
+        try {
+            java.util.List<java.util.Map<String, Object>> history;
+            if (customer.getEditHistoryJson() != null && !customer.getEditHistoryJson().isEmpty()) {
+                history = objectMapper.readValue(customer.getEditHistoryJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            } else {
+                history = new java.util.ArrayList<>();
+            }
+            
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("action", action);
+            entry.put("details", details);
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            history.add(0, entry); // Add to top
+            
+            customer.setEditHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error appending history: " + e.getMessage());
+        }
+    }
+
+    @Autowired
+    private com.digitalstudio.app.repository.UploadRepository uploadRepository;
+
+    public org.springframework.data.domain.Page<PhotoOrder> getAllOrders(java.time.LocalDate startDate, java.time.LocalDate endDate, String search, Boolean isInstant, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
+        org.springframework.data.domain.Page<PhotoOrder> orderPage = photoOrderRepository.findAll(com.digitalstudio.app.repository.specification.OrderSpecification.filterOrders(startDate, endDate, search, isInstant), pageable);
+        
+        // Dynamic Extension Fix & Original Filename Population
+        for (PhotoOrder order : orderPage.getContent()) {
+            String currentUploadId = order.getUploadId();
+            if (currentUploadId != null) {
+                // 1. Determine Raw ID (Strip extension if present for lookup)
+                String rawId = currentUploadId;
+                if (currentUploadId.contains(".")) {
+                    rawId = currentUploadId.substring(0, currentUploadId.lastIndexOf('.'));
+                }
+
+                // 2. Lookup Upload
+                String finalRawId = rawId; // effective final for lambda
+                uploadRepository.findById(finalRawId).ifPresent(upload -> {
+                    // Populate Original Filename
+                    order.setOriginalFilename(upload.getOriginalFilename());
+                    
+                    // Fix Extension if missing in Order but present in Upload
+                    if (!currentUploadId.contains(".") && upload.getExtension() != null) {
+                        order.setUploadId(currentUploadId + upload.getExtension());
+                    }
+                });
+            }
+        }
+        
+        return orderPage;
     }
 }

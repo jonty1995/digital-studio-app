@@ -35,4 +35,11 @@ public class CustomerController {
         response.put("sequence", sequence);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<com.digitalstudio.app.model.Customer> searchCustomer(@org.springframework.web.bind.annotation.RequestParam String query) {
+        return customerService.searchCustomer(query)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
