@@ -299,6 +299,7 @@ export default function PhotoOrders() {
                                             ref={isLast ? lastOrderElementRef : null}
                                             className={`cursor-pointer border-b transition-colors ${hClass} ${isExpanded ? 'bg-muted/50' : 'hover:bg-gray-100/60 dark:hover:bg-gray-800/60'}`}
                                             onClick={() => setExpandedOrderId(isExpanded ? null : order.orderId)}
+                                            title={order.description} // Tooltip on hover
                                         >
                                             <TableCell className={`${pClass} align-middle`}>
                                                 <div
@@ -379,7 +380,7 @@ export default function PhotoOrders() {
                                         {isExpanded && (
                                             <TableRow className="bg-muted/30 border-b animate-in fade-in zoom-in-95 duration-200">
                                                 <TableCell colSpan={11} className="p-4">
-                                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 text-sm pl-4 relative">
+                                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 text-sm pl-4 relative mb-4">
                                                         <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary/20 rounded-full"></div>
 
                                                         {/* Entry Date */}
@@ -418,29 +419,12 @@ export default function PhotoOrders() {
                                                             </div>
                                                         </div>
 
-                                                        {/* Download Action */}
-                                                        <div className="flex items-center justify-end">
-                                                            {hasFile ? (
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="gap-2 border-primary/20 hover:border-primary/50 hover:bg-primary/5 shadow-sm"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const link = document.createElement('a');
-                                                                        link.href = `/api/files/${order.uploadId}`;
-                                                                        link.download = order.originalFilename || order.uploadId;
-                                                                        document.body.appendChild(link);
-                                                                        link.click();
-                                                                        document.body.removeChild(link);
-                                                                    }}
-                                                                >
-                                                                    <Download className="h-4 w-4" />
-                                                                    Download File
-                                                                </Button>
-                                                            ) : (
-                                                                <span className="text-xs text-muted-foreground italic mr-4">No file linked</span>
-                                                            )}
+                                                        {/* Description */}
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Description</span>
+                                                            <div className="bg-background border rounded-md p-2 text-xs max-h-[80px] overflow-y-auto font-mono text-foreground/90 whitespace-pre-wrap shadow-sm">
+                                                                {order.description || <span className="text-muted-foreground italic">No instructions.</span>}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </TableCell>
