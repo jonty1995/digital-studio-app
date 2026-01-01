@@ -1,17 +1,22 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { FilterHeader, useViewMode } from "../components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload } from "lucide-react";
+import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter, Copy } from "lucide-react";
+import { LinkCustomerModal } from "../components/shared/LinkCustomerModal";
+
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
-import { AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Filter } from "lucide-react";
+
 import { FileViewer } from "../components/shared/FileViewer";
 
+import { configurationService } from "../services/configurationService";
+
 export default function Uploads() {
+    const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [uploads, setUploads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewerFileId, setViewerFileId] = useState(null);
@@ -72,33 +77,97 @@ export default function Uploads() {
         try { return JSON.parse(str); } catch (e) { return null; }
     };
 
-    const handleFileSelect = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const [isDragging, setIsDragging] = useState(false);
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("source", "Uploads Page");
+    // Sequential Upload Helper
+    const uploadFiles = async (files) => {
+        if (!files || files.length === 0) return;
 
-        try {
-            const res = await fetch("/api/files/upload", {
-                method: "POST",
-                body: formData
-            });
+        setLoading(true);
+        let successCount = 0;
+        let failCount = 0;
 
-            if (!await checkResponse(res)) return; // Check storage error
+        // Loop sequentially to prevent ID Race Conditions on Backend
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("source", "Uploads Page");
 
-            if (res.ok) {
-                // Refresh list
-                fetchUploads();
+            try {
+                const res = await fetch("/api/files/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!await checkResponse(res)) {
+                    failCount++;
+                    continue; // Stop if storage issue? Or try next? checkResponse handles alert.
+                }
+
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    console.error("Upload failed for", file.name);
+                }
+            } catch (error) {
+                console.error("Error uploading", file.name, error);
+                failCount++;
             }
-        } catch (error) {
-            console.error(error);
-            alert("Error uploading file");
         }
+
+        if (successCount > 0) {
+            fetchUploads();
+        }
+
+        if (failCount > 0 && successCount === 0) {
+            alert(`Failed to upload ${failCount} file(s).`);
+        } else if (failCount > 0) {
+            alert(`Uploaded ${successCount} files. Failed to upload ${failCount} files.`);
+        }
+
+        setLoading(false);
+    };
+
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files || []);
+        await uploadFiles(files);
+        e.target.value = ""; // Reset input
+    };
+
+    // Drag and Drop Handlers
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        if (e.currentTarget.contains(e.relatedTarget)) return; // Ignor child elements
+        setIsDragging(false);
+    };
+
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files || []);
+        // Filter types matches Photo Orders (Images + PDF)
+        const validFiles = files.filter(f =>
+            f.type.startsWith("image/") || f.type === "application/pdf"
+        );
+
+        if (validFiles.length < files.length) {
+            alert(`Skipped ${files.length - validFiles.length} unsupported file(s). Only Images and PDFs are allowed.`);
+        }
+
+        await uploadFiles(validFiles);
     };
 
     const handleDateChange = (type, value) => {
+        if (type === 'range') {
+            setDateRange(value);
+            return;
+        }
         setDateRange(prev => ({ ...prev, [type]: value }));
     };
 
@@ -229,7 +298,21 @@ export default function Uploads() {
     const headClass = `font-medium text-muted-foreground ${paddingClass}`;
 
     return (
-        <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
+        <div
+            className="flex flex-col h-full bg-background animate-in fade-in duration-500 relative"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
+            {isDragging && (
+                <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-[2px] border-4 border-dashed border-primary m-4 rounded-xl flex items-center justify-center pointer-events-none animate-in fade-in zoom-in duration-300">
+                    <div className="bg-background/90 p-8 rounded-full shadow-2xl flex flex-col items-center gap-4">
+                        <Upload className="w-12 h-12 text-primary animate-bounce" />
+                        <h3 className="text-xl font-bold text-primary">Drop files to upload</h3>
+                    </div>
+                </div>
+            )}
+
             <FilterHeader
                 title="Uploads"
                 dateRange={dateRange}
@@ -239,6 +322,15 @@ export default function Uploads() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
             >
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2"
+                    onClick={() => setIsLinkModalOpen(true)}
+                >
+                    <UserPlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Link Customer</span>
+                </Button>
                 <Button
                     variant="outline"
                     size="sm"
@@ -253,6 +345,8 @@ export default function Uploads() {
                 <div className="relative">
                     <input
                         type="file"
+                        multiple
+                        accept="image/png, image/jpeg, image/gif, application/pdf"
                         onChange={handleFileSelect}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
@@ -310,78 +404,41 @@ export default function Uploads() {
                         <TableHeader>
                             <TableRow className="hover:bg-transparent border-b">
                                 <TableHead className={`w-[80px] ${headClass}`}>File</TableHead>
-
-                                <TableHead
-                                    className={`${headClass} cursor-pointer hover:text-foreground transition-colors`}
-                                    onClick={() => handleSort('uploadId')}
-                                >
+                                <TableHead className={`${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('uploadId')}>
                                     <div className="flex items-center gap-1">
-                                        Generated ID
-                                        {sortConfig.key === 'uploadId' && (
-                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                        )}
+                                        Upload ID
+                                        {sortConfig.key === 'uploadId' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
-
-                                <TableHead
-                                    className={`${headClass} cursor-pointer hover:text-foreground transition-colors`}
-                                    onClick={() => handleSort('originalFilename')}
-                                >
+                                <TableHead className={`${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('originalFilename')}>
                                     <div className="flex items-center gap-1">
                                         Original Filename
-                                        {sortConfig.key === 'originalFilename' && (
-                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                        )}
+                                        {sortConfig.key === 'originalFilename' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
-
-                                <TableHead
-                                    className={`${headClass} cursor-pointer hover:text-foreground transition-colors`}
-                                    onClick={() => handleSort('uploadPath')}
-                                >
+                                <TableHead className={`${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('uploadPath')}>
                                     <div className="flex items-center gap-1">
                                         Path
-                                        {sortConfig.key === 'uploadPath' && (
-                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                        )}
+                                        {sortConfig.key === 'uploadPath' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
-
-                                <TableHead
-                                    className={`${headClass} cursor-pointer hover:text-foreground transition-colors`}
-                                    onClick={() => handleSort('createdAt')}
-                                >
+                                <TableHead className={`${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('createdAt')}>
                                     <div className="flex items-center gap-1">
                                         Date
-                                        {sortConfig.key === 'createdAt' && (
-                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                        )}
+                                        {sortConfig.key === 'createdAt' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
-
-                                <TableHead className={headClass}>Linked To</TableHead> {/* Not sorting list for now */}
-
-                                <TableHead
-                                    className={`text-right ${headClass} cursor-pointer hover:text-foreground transition-colors`}
-                                    onClick={() => handleSort('uploadedFrom')}
-                                >
+                                <TableHead className={headClass}>Linked To</TableHead>
+                                <TableHead className={`text-right ${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('uploadedFrom')}>
                                     <div className="flex items-center justify-end gap-1">
                                         Source
-                                        {sortConfig.key === 'uploadedFrom' && (
-                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                        )}
+                                        {sortConfig.key === 'uploadedFrom' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
-
-                                <TableHead
-                                    className={`text-center w-[80px] ${headClass} cursor-pointer hover:text-foreground transition-colors`}
-                                    onClick={() => handleSort('isAvailable')}
-                                >
+                                <TableHead className={`text-center w-[80px] ${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('isAvailable')}>
                                     <div className="flex items-center justify-center gap-1">
                                         Avail.
-                                        {sortConfig.key === 'isAvailable' && (
-                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                        )}
+                                        {sortConfig.key === 'isAvailable' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
                             </TableRow>
@@ -445,7 +502,24 @@ export default function Uploads() {
                                                     </div>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className={`${paddingClass} font-medium font-mono text-xs`}>{upload.uploadId}</TableCell>
+                                            <TableCell className={`${paddingClass} font-medium font-mono text-xs`}>
+                                                <div className="flex items-center gap-2 group/id">
+                                                    {upload.uploadId}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 opacity-0 group-hover/id:opacity-100 transition-opacity"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigator.clipboard.writeText(upload.uploadId);
+                                                            // Optional: Toast or simple visual feedback could be added here
+                                                        }}
+                                                        title="Copy Upload ID"
+                                                    >
+                                                        <Copy className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
                                             <TableCell className={`${paddingClass} max-w-[200px] truncate`} title={upload.originalFilename}>
                                                 {upload.originalFilename}
                                             </TableCell>
@@ -459,7 +533,7 @@ export default function Uploads() {
                                                 {upload.customerIds && upload.customerIds.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
                                                         {upload.customerIds.map(id => (
-                                                            <Badge key={id} variant="secondary" className="text-xs">
+                                                            <Badge key={id} variant="outline" className="text-xs font-mono bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100">
                                                                 {id}
                                                             </Badge>
                                                         ))}
@@ -492,6 +566,14 @@ export default function Uploads() {
                 fileId={viewerFileId}
                 isOpen={!!viewerFileId}
                 onClose={() => setViewerFileId(null)}
+            />
+
+            <LinkCustomerModal
+                isOpen={isLinkModalOpen}
+                onClose={() => setIsLinkModalOpen(false)}
+                onSuccess={() => {
+                    fetchUploads();
+                }}
             />
 
             {showStorageAlert && (

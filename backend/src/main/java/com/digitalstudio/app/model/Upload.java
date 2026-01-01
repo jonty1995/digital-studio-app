@@ -17,9 +17,11 @@ public class Upload {
     private String uploadPath;
     private String extension;
     private String originalFilename;
-    private Boolean isDeleted = false;
+
     private String uploadedFrom; // e.g., "Photo Order"
-    private String fileHash;
+    
+    // Hash calculation removed
+    // private String fileHash;
     
     private Boolean isAvailable; // True if file exists on disk, False if missing
 

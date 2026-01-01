@@ -12,6 +12,7 @@ public class PhotoOrderRequest {
     private String description;
     private PaymentDTO payment;
     private String image; // Base64 or ID? Frontend sends object or null? PhotoOrderModal line 50 sends `image`.
+    private String status; // Allow explicit status setting (e.g. from Split)
 
     @Data
     public static class CustomerDTO {

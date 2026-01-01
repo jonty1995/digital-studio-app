@@ -9,6 +9,7 @@ import { FileUpload } from "./FileUpload";
 import { PhotoItemForm } from "./PhotoItemForm";
 import { configurationService } from "@/services/configurationService";
 import { customerService } from "@/services/customerService";
+import { fileService } from "@/services/fileService";
 
 
 export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder }) {
@@ -102,7 +103,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
         }
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!items || items.length === 0) {
             alert("Please add at least one item to save the order.");
             return;
@@ -116,6 +117,23 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
 
         if (!customer.mobile && !editOrder && !customer.id) {
             // Basic mobile check? 
+        }
+
+        // --- DEFERRED UPLOAD LOGIC ---
+        // If 'image' is a File object, it means it hasn't been uploaded yet (instantUpload=false).
+        // specific 'image' local variable to hold the final ID
+        let finalUploadId = image;
+
+        if (image instanceof File) {
+            try {
+                // Determine source for logging?
+                const res = await fileService.upload(image, "Photo Order");
+                finalUploadId = res.uploadId;
+            } catch (error) {
+                console.error("Deferred upload failed:", error);
+                alert("Failed to upload file. Please try again.");
+                return; // Stop save
+            }
         }
 
         // --- BUCKETING LOGIC ---
@@ -150,7 +168,8 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
         }
 
         // --- SPLIT LOGIC ---
-        if (buckets.length > 1 && !editOrder) {
+        // Allow splitting even in Edit Mode (editOrder is present)
+        if (buckets.length > 1) {
             const calculateTotal = (itemList) => itemList.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
             const grandTotal = calculateTotal(items);
             const totalDiscount = parseFloat(payment.discount) || 0;
@@ -159,28 +178,49 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
             let distributedDiscount = 0;
             let distributedAdvance = 0;
 
+            // Determine Original Order Type (if editing)
+            let originalType = null;
+            if (editOrder) {
+                try {
+                    const originalItems = typeof editOrder.itemsJson === 'string' ? JSON.parse(editOrder.itemsJson) : editOrder.itemsJson;
+                    const isInstant = originalItems.some(i => i.isInstant);
+                    originalType = isInstant ? 'instant' : 'regular';
+                    // Manual check? Assuming manual orders keep 'manual' via some other heuristic or just ID preservation
+                    // For now, let's stick to Instant/Regular split logic
+                } catch (e) { console.error("Error parsing original items", e); }
+            }
+
             const splitOrders = buckets.map((bucket, index) => {
                 const bucketTotal = calculateTotal(bucket.items);
                 const isLast = index === buckets.length - 1;
 
-                // Proportional Discount
+                // Proportional Discount (Keep proportional)
                 const bucketDiscount = isLast
                     ? totalDiscount - distributedDiscount
                     : Math.round((bucketTotal / grandTotal) * totalDiscount);
 
                 distributedDiscount += bucketDiscount;
 
-                // Pay Priority: Instant > Regular > Extra
-                // OR Proportional? Using Proportional for fairness unless user specified.
-                // Existing code used Priority for Instant. Let's stick to Proportional for now to be safe with 3 buckets.
-                // Actually, "Extras" are usually paid later? No, let's do proportional.
-                const bucketAdvance = isLast
-                    ? totalAdvance - distributedAdvance
-                    : Math.round((bucketTotal / grandTotal) * totalAdvance);
+                // Advance Priority: Instant > Regular (Buckets are already ordered Instant then Regular)
+                // Consume Advance up to Bucket Total
+                const remainingAdvance = totalAdvance - distributedAdvance;
+                const bucketAdvance = Math.min(bucketTotal, remainingAdvance); // Saturation Strategy
 
                 distributedAdvance += bucketAdvance;
 
+                // ID Logic: Try to preserve ID for the matching bucket type
+                let orderIdToUse = null;
+                if (editOrder) {
+                    if (bucket.type === originalType) {
+                        orderIdToUse = editOrder.orderId;
+                    }
+                    // If we have a 'manual' split, this logic might be tricky. 
+                    // Fallback: If no match found yet and this is the first bucket, maybe assign it? 
+                    // Let's stick to strict type matching for Instant/Regular safety.
+                }
+
                 return {
+                    orderId: orderIdToUse, // IMPORTANT: Pass ID if updating
                     customer,
                     items: bucket.items,
                     description: description ? `[${bucket.label.toUpperCase()}] ${description}` : "",
@@ -190,8 +230,8 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                         discount: bucketDiscount,
                         advance: bucketAdvance
                     },
-                    image: (image && image instanceof File) ? image.name : image,
-                    status: 'Pending'
+                    image: (finalUploadId && finalUploadId instanceof File) ? finalUploadId.name : finalUploadId,
+                    status: 'Pending' // User Request: Split orders (segregated) should always reset to Pending
                 };
             });
 
@@ -205,7 +245,8 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 items,
                 description,
                 payment,
-                image: (image && image instanceof File) ? image.name : image
+                image: (finalUploadId && finalUploadId instanceof File) ? finalUploadId.name : finalUploadId,
+                status: editOrder ? editOrder.status : 'Pending'
             };
             onSave(newOrder);
         }
@@ -230,6 +271,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                             onUpload={setImage}
                             onRemove={() => setImage(null)}
                             source="Photo Order"
+                            instantUpload={false}
                         />
                         <div className="grid gap-2">
                             <Label htmlFor="description">Description (Optional)</Label>

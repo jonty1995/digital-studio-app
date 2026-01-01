@@ -62,20 +62,88 @@ public class ConfigurationService {
         return addonRepository.saveAll(addons);
     }
 
-    // Pricing Rules
+    // Pricing Rules - REFACTORED to use PhotoItem.addonCombinations
+    // We no longer natively use pricingRuleRepository for source of truth.
+    // However, we reuse the AddonPricingRule class as a DTO to maintain API compatibility.
+    
+    private final com.fasterxml.jackson.databind.ObjectMapper jsonMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
     public List<AddonPricingRule> getAllPricingRules() {
-        return pricingRuleRepository.findAll();
+        List<AddonPricingRule> allRules = new java.util.ArrayList<>();
+        List<PhotoItem> items = photoItemRepository.findAll();
+        
+        for (PhotoItem item : items) {
+            String json = item.getAddonCombinations();
+            if (json != null && !json.isEmpty()) {
+                try {
+                    List<java.util.Map<String, Object>> ruleMaps = jsonMapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<List<java.util.Map<String, Object>>>(){});
+                    for (java.util.Map<String, Object> map : ruleMaps) {
+                        AddonPricingRule rule = new AddonPricingRule();
+                        rule.setItem(item.getName());
+                        // Handle potential integer/double conversion issues from JSON
+                        rule.setBasePrice(map.get("basePrice") != null ? Integer.parseInt(map.get("basePrice").toString()) : 0);
+                        rule.setCustomerPrice(map.get("customerPrice") != null ? Integer.parseInt(map.get("customerPrice").toString()) : 0);
+                        rule.setAddons((List<String>) map.get("addons"));
+                        
+                        // Generate deterministic synthetic ID based on content
+                        String idSource = item.getName() + "_" + (rule.getAddons() != null ? rule.getAddons().stream().sorted().collect(java.util.stream.Collectors.joining(",")) : "");
+                        rule.setId((long) Math.abs(idSource.hashCode()));
+                        
+                        allRules.add(rule);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to parse addonCombinations for " + item.getName() + ": " + e.getMessage());
+                }
+            }
+        }
+        return allRules;
     }
     
     public List<AddonPricingRule> savePricingRules(List<AddonPricingRule> rules) {
-        return pricingRuleRepository.saveAll(rules);
+        // Group rules by Item Name
+        java.util.Map<String, List<AddonPricingRule>> rulesByItem = rules.stream()
+            .collect(java.util.stream.Collectors.groupingBy(AddonPricingRule::getItem));
+            
+        List<PhotoItem> items = photoItemRepository.findAll();
+        
+        for (PhotoItem item : items) {
+            // Find rules for this item
+            List<AddonPricingRule> itemRules = rulesByItem.get(item.getName());
+            
+            if (itemRules != null && !itemRules.isEmpty()) {
+                // Serialize to JSON
+                try {
+                     List<java.util.Map<String, Object>> ruleDtos = itemRules.stream().map(r -> {
+                        java.util.Map<String, Object> dto = new java.util.HashMap<>();
+                        dto.put("addons", r.getAddons());
+                        dto.put("basePrice", r.getBasePrice());
+                        dto.put("customerPrice", r.getCustomerPrice());
+                        return dto;
+                    }).collect(java.util.stream.Collectors.toList());
+                    
+                    String json = jsonMapper.writeValueAsString(ruleDtos);
+                    item.setAddonCombinations(json);
+                } catch (Exception e) {
+                     System.err.println("Failed to serialize rules for " + item.getName());
+                }
+            } else {
+                // Determine logic: If no rules passed for this item, do we clear them?
+                // Frontend usually sends "All" rules. If an item is missing from the list, it probably has no rules.
+                // UNLESS it's a partial update. 
+                // But `savePricingRules` (POST) typically replaced everything in old logic.
+                // So YES, we should clear it if missing?
+                // Or maybe the input excludes items with no rules.
+                // Let's assume clear is safer to match "Replace All" behavior.
+                item.setAddonCombinations(null); // Clear
+            }
+        }
+        photoItemRepository.saveAll(items);
+        
+        // Return re-converted list to confirm save
+        return getAllPricingRules();
     }
     
-    // Deletion Helpers (if needed individually, or we rely on saveAll/deleteAll from frontend logic)
-    // Actually frontend logic in service currently does "saveItems(items)" which implies a full state push.
-    // If I just saveAll, the deleted ones in frontend won't be deleted in DB!
-    // I need "sync" logic or explicit delete endpoints.
-    // Since previous frontend logic was localStorage (full replace), I should support "Replace All" for simplest migration.
+    // Deletion Helpers
     
     public void replaceAllPhotoItems(List<PhotoItem> items) {
         photoItemRepository.deleteAll();
@@ -88,34 +156,43 @@ public class ConfigurationService {
     }
 
     public void replaceAllPricingRules(List<AddonPricingRule> rules) {
-        pricingRuleRepository.deleteAll();
-        pricingRuleRepository.saveAll(rules);
+        // Redirect to new save logic
+        savePricingRules(rules);
     }
     // Full Config
     public com.digitalstudio.app.dto.ConfigExportDTO exportFullConfig() {
         com.digitalstudio.app.dto.ConfigExportDTO dto = new com.digitalstudio.app.dto.ConfigExportDTO();
         dto.setPhotoItems(photoItemRepository.findAll());
         dto.setAddons(addonRepository.findAll());
-        dto.setPricingRules(pricingRuleRepository.findAll());
+        dto.setPricingRules(getAllPricingRules()); // Use getter
+        dto.setValues(getAllValues());
         return dto;
     }
 
     public void importFullConfig(com.digitalstudio.app.dto.ConfigExportDTO dto) {
-        pricingRuleRepository.deleteAllInBatch();
-        addonRepository.deleteAllInBatch();
-        photoItemRepository.deleteAllInBatch();
-        
-        if (dto.getPhotoItems() != null) {
-            dto.getPhotoItems().forEach(item -> item.setId(null));
-            photoItemRepository.saveAll(dto.getPhotoItems());
-        }
+        // Order matters? Addons should be loaded first maybe?
         if (dto.getAddons() != null) {
+            addonRepository.deleteAllInBatch();
             dto.getAddons().forEach(addon -> addon.setId(null));
             addonRepository.saveAll(dto.getAddons());
         }
+        
+        // Items must be loaded before Pricing Rules because Rules attach to Items now!
+        if (dto.getPhotoItems() != null) {
+            photoItemRepository.deleteAllInBatch();
+             dto.getPhotoItems().forEach(item -> item.setId(null));
+            photoItemRepository.saveAll(dto.getPhotoItems());
+        }
+        
+        // Now apply Pricing Rules
         if (dto.getPricingRules() != null) {
-            dto.getPricingRules().forEach(rule -> rule.setId(null));
-            pricingRuleRepository.saveAll(dto.getPricingRules());
+            savePricingRules(dto.getPricingRules());
+        }
+
+        // Values
+        if (dto.getValues() != null) {
+            valueConfigurationRepository.deleteAllInBatch();
+            valueConfigurationRepository.saveAll(dto.getValues());
         }
     }
 

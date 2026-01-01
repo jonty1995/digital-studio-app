@@ -77,10 +77,11 @@ public class FileController {
             upload.setExtension(ext);
             upload.setUploadPath(path.toString());
             upload.setUploadedFrom(source);
-            upload.setIsDeleted(false);
+
+            
             
             // Hash calculation removed (Reverted)
-            upload.setFileHash("0");
+            // upload.setFileHash("0");
             
             uploadRepository.save(upload);
 

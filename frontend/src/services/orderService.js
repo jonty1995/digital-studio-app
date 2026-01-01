@@ -22,5 +22,9 @@ export const orderService = {
 
     updateBulkStatus: async (ids, status) => {
         return await api.put("/orders/bulk-status", { ids, status });
+    },
+
+    updateOrder: async (id, data) => {
+        return await api.put(`/orders/${id}`, data);
     }
 };

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { Plus, Pencil, FileText, Loader2, Download, Edit2 } from "lucide-react";
+import { Plus, Pencil, FileText, Loader2, Download, Edit2, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { orderService } from "../services/orderService";
+import { configurationService } from "../services/configurationService";
 import { PhotoOrderModal } from "@/components/shared/PhotoOrderModal";
 import { useRef, useCallback } from "react";
 import { format } from "date-fns";
@@ -81,7 +82,6 @@ export default function PhotoOrders() {
         return newId;
     });
 
-    // Filter Change Effect
     useEffect(() => {
         console.log("Filter Effect Triggered", filters, dateRange, searchQuery);
         if (isFirstLoad.current) {
@@ -131,6 +131,11 @@ export default function PhotoOrders() {
     };
 
     const handleDateChange = (type, value) => {
+        if (type === 'range') {
+            setDateRange(value);
+            return;
+        }
+
         setDateRange(prev => {
             const newRange = { ...prev, [type]: value };
             // Validation: Start cannot be after End
@@ -202,14 +207,14 @@ export default function PhotoOrders() {
 
     const handleSaveOrder = async (orderData) => {
         try {
-            if (Array.isArray(orderData)) {
-                // Handle Split Orders (Array)
-                for (const order of orderData) {
+            const ordersToProcess = Array.isArray(orderData) ? orderData : [orderData];
+
+            for (const order of ordersToProcess) {
+                if (order.orderId) {
+                    await orderService.updateOrder(order.orderId, order);
+                } else {
                     await orderService.createOrder(order);
                 }
-            } else {
-                // Handle Single Order
-                await orderService.createOrder(orderData);
             }
 
             await loadOrders(0, true);
@@ -543,7 +548,23 @@ export default function PhotoOrders() {
                                                         {/* Upload ID */}
                                                         <div className="flex flex-col gap-1">
                                                             <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Upload ID</span>
-                                                            <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
+                                                                {order.uploadId && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-5 w-5 bg-background border shadow-sm" // Slightly visible to encourage use
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            navigator.clipboard.writeText(order.uploadId);
+                                                                        }}
+                                                                        title="Copy"
+                                                                    >
+                                                                        <Copy className="h-3 w-3" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
                                                         </div>
 
                                                         {/* Original File Name */}

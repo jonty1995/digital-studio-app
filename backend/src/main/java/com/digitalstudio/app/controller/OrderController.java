@@ -23,6 +23,13 @@ public class OrderController {
         return ResponseEntity.ok(saved);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<PhotoOrder> updateOrder(@PathVariable Long id, @RequestBody PhotoOrderRequest request) {
+        request.setOrderId(id); // Ensure ID matches path
+        PhotoOrder saved = orderService.saveOrder(request);
+        return ResponseEntity.ok(saved);
+    }
+
     @PutMapping("/{id}/status")
     public ResponseEntity<PhotoOrder> updateStatus(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
         String newStatus = body.get("status");

@@ -13,15 +13,11 @@ public class PhotoItem {
 
     private String name;
 
-    @Column(name = "regular_base_price")
-    private Integer regularBasePrice;
 
-    @Column(name = "regular_customer_price")
-    private Integer regularCustomerPrice;
-
-    @Column(name = "instant_base_price")
-    private Integer instantBasePrice;
-
-    @Column(name = "instant_customer_price")
-    private Integer instantCustomerPrice;
+    
+    // Legacy price columns removed from DB - removing from Entity to prevent recreation/errors
+    
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "addon_combinations", columnDefinition = "TEXT")
+    private String addonCombinations; // Stores JSON array of pricing rules for this item
 }

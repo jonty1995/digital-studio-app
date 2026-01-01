@@ -1,11 +1,11 @@
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Upload, X, Link, Loader2, FileText } from "lucide-react"
+import { Upload, X, Link, Loader2, FileText, Copy } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fileService } from "@/services/fileService";
 
-export function FileUpload({ file, onUpload, onRemove, source }) {
+export function FileUpload({ file, onUpload, onRemove, source, instantUpload = true }) {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [fileType, setFileType] = useState("image");
@@ -69,6 +69,11 @@ export function FileUpload({ file, onUpload, onRemove, source }) {
             setFileType(selectedFile.type.includes("pdf") ? "pdf" : "image");
             setLinkMessage("");
 
+            if (!instantUpload) {
+                onUpload(selectedFile);
+                return;
+            }
+
             setUploading(true);
             try {
                 const res = await fileService.upload(selectedFile, source);
@@ -100,13 +105,53 @@ export function FileUpload({ file, onUpload, onRemove, source }) {
         }
     }
 
+    const handlePaste = async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                const pastedFile = items[i].getAsFile();
+                if (pastedFile && (pastedFile.type.startsWith("image/") || pastedFile.type === "application/pdf")) {
+                    e.preventDefault();
+                    // Re-use logic
+                    const objectUrl = URL.createObjectURL(pastedFile);
+                    setPreviewUrl(objectUrl);
+                    setFileType(pastedFile.type.includes("pdf") ? "pdf" : "image");
+                    setLinkMessage("");
+
+                    if (!instantUpload) {
+                        onUpload(pastedFile);
+                        return;
+                    }
+
+                    setUploading(true);
+                    try {
+                        const res = await fileService.upload(pastedFile, source);
+                        onUpload(res.uploadId);
+                    } catch (err) {
+                        console.error(err);
+                        alert("Upload failed");
+                        onRemove();
+                    } finally {
+                        setUploading(false);
+                    }
+                    return; // Verify one file only for now as per this component design
+                }
+            }
+        }
+    };
+
     return (
-        <div className="w-full p-4 border border-pink-200 rounded-lg bg-pink-50/50 space-y-4">
+        <div
+            className="w-full p-4 border border-pink-200 rounded-lg bg-pink-50/50 space-y-4"
+            onPaste={handlePaste}
+        >
             <h3 className="font-bold text-pink-900 uppercase text-sm tracking-wide">File Upload</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Upload Box */}
-                <div className="relative border-2 border-dashed border-pink-300 rounded-lg bg-white p-6 flex flex-col items-center justify-center text-center space-y-2 hover:bg-pink-50/30 transition-colors cursor-pointer group">
+                <div className="relative border-2 border-dashed border-pink-300 rounded-lg bg-white p-6 flex flex-col items-center justify-center text-center space-y-2 hover:bg-pink-50/30 transition-colors cursor-pointer group focus-within:ring-2 focus-within:ring-pink-500 focus-within:ring-offset-2 outline-none">
                     <input
                         type="file"
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -120,6 +165,9 @@ export function FileUpload({ file, onUpload, onRemove, source }) {
                     <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-900">
                             {uploading ? "Uploading..." : "Click to upload"} <span className="text-pink-600 font-normal">{!uploading && "or drag and drop"}</span>
+                        </p>
+                        <p className="text-xs text-pink-400">
+                            Paste (Ctrl+V) also supported
                         </p>
                         <p className="text-xs text-pink-400">PDF, PNG, JPG up to 10MB</p>
                     </div>
@@ -147,8 +195,18 @@ export function FileUpload({ file, onUpload, onRemove, source }) {
 
                     {/* Show Generated ID after upload */}
                     {(typeof file === 'string' && !file.startsWith('blob:') && !linkMessage) && (
-                        <div className="text-xs font-semibold text-pink-600">
-                            Generated Upload ID : {file.split('.')[0]}
+                        <div className="text-xs font-semibold text-pink-600 flex items-center gap-2">
+                            <span>Upload ID : {file.split('.')[0]}</span>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 bg-pink-100 hover:bg-pink-200 text-pink-700"
+                                onClick={() => navigator.clipboard.writeText(file.split('.')[0])}
+                                title="Copy ID"
+                            >
+                                <Copy className="h-3 w-3" />
+                            </Button>
                         </div>
                     )}
 

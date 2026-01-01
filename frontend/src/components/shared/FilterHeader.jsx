@@ -3,6 +3,8 @@ import { PageHeader } from "./PageHeader";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { Search } from "lucide-react";
+import { configurationService } from "@/services/configurationService";
+import { format } from "date-fns";
 
 export const useViewMode = (storageKey = "app-view-mode") => {
     const [viewMode, setViewMode] = useState(() => localStorage.getItem(storageKey) || "cozy");
@@ -25,9 +27,33 @@ export const FilterHeader = ({
     action,
     children
 }) => {
-    // Initialize defaults on mount
-    // Defaults now handled by parent components
+    // Determine default date range from config on mount
+    useEffect(() => {
+        const loadConfig = async () => {
+            const values = await configurationService.getValues();
+            const rangeConfig = values.find(v => v.name === "DATE_RANGE");
+            if (rangeConfig && rangeConfig.value) {
+                const days = parseInt(rangeConfig.value, 10);
+                if (!isNaN(days) && days > 0) {
+                    const d = new Date();
+                    const end = format(d, 'yyyy-MM-dd');
+                    d.setDate(d.getDate() - (days - 1));
+                    const start = format(d, 'yyyy-MM-dd');
 
+                    // Call handler with special 'range' type or both
+                    if (onDateChange) {
+                        // Assuming onDateChange can handle custom updates or we add support
+                        // We'll treat 'start' and 'end' updates sequentially or support a bulk update convention
+                        // Let's propose sending 'range' as key
+                        onDateChange('range', { start, end });
+                    }
+                }
+            }
+        };
+        // Only run if we aren't already set to something custom?
+        // Ideally we only run this once on mount.
+        loadConfig();
+    }, []); // Run once on mount
 
     return (
         <PageHeader title={title}>

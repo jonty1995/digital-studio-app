@@ -55,6 +55,15 @@ export const configurationService = {
     savePricingRules: async (rules) => {
         return await api.post("/config/pricing-rules", rules);
     },
+    getValues: async () => {
+        try {
+            const response = await api.get("/config/values");
+            return Array.isArray(response) ? response : [];
+        } catch (error) {
+            console.error("Failed to fetch values", error);
+            return [];
+        }
+    },
     exportFull: async () => {
         return await api.get("/config/full");
     },

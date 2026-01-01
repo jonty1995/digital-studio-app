@@ -8,8 +8,24 @@ import { configurationService } from "../services/configurationService";
 import { Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 export default function Configuration() {
     const [activeTab, setActiveTab] = useState("items");
+
+    // Alert State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
+    const showAlert = (title, message) => {
+        setAlertConfig({ isOpen: true, title, message });
+    };
 
     const tabs = [
         { id: "items", label: "Photo Items" },
@@ -32,7 +48,7 @@ export default function Configuration() {
             document.body.removeChild(a);
         } catch (e) {
             console.error(e);
-            alert("Export Failed");
+            showAlert("Export Failed", "Failed to export configuration.");
         }
     };
 
@@ -44,12 +60,13 @@ export default function Configuration() {
             try {
                 const data = JSON.parse(event.target.result);
                 await configurationService.importFull(data);
-                alert("Configuration Imported Successfully!");
-                window.location.reload();
+                showAlert("Success", "Configuration Imported Successfully! The page will reload.");
+                // Delay reload to let user read
+                setTimeout(() => window.location.reload(), 2000);
             } catch (err) {
                 console.error(err);
                 const msg = err.response?.data || err.message || "Unknown Error";
-                alert(`Import Failed: ${msg}`);
+                showAlert("Import Failed", `Failed to import configuration: ${msg}`);
             }
         };
         reader.readAsText(file);
@@ -139,6 +156,21 @@ export default function Configuration() {
                     )}
                 </div>
             </div>
+
+            {/* Alert Dialog */}
+            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {alertConfig.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

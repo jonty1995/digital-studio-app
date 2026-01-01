@@ -12,4 +12,5 @@ public class ConfigExportDTO {
     private List<PhotoItem> photoItems;
     private List<Addon> addons;
     private List<AddonPricingRule> pricingRules;
+    private List<com.digitalstudio.app.model.ValueConfiguration> values;
 }

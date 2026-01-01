@@ -156,7 +156,15 @@ public class OrderService {
         }
         order.setIsInstant(instant);
 
-        order.setStatus((payment != null && payment.getDueAmount() <= 0) ? "Completed" : "Pending");
+        // Status Logic: Prefer Request Status > Auto logic based on Payment
+        if (request.getStatus() != null && !request.getStatus().isEmpty()) {
+            order.setStatus(request.getStatus());
+        } else {
+            // Auto logic: If paid fully, mark completed? 
+            // CAUTION: This might be legacy behavior. 
+            // Ideally new orders should be pending unless explicitly completed.
+            order.setStatus((payment != null && payment.getDueAmount() <= 0) ? "Completed" : "Pending");
+        }
         
         // Map Image/File ID
         // Map Image/File ID

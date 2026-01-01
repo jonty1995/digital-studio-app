@@ -4,10 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 export function ValueConfig() {
     const [values, setValues] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // Alert State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
+    const showAlert = (title, message) => {
+        setAlertConfig({ isOpen: true, title, message });
+    };
 
     useEffect(() => {
         fetchValues();
@@ -52,13 +68,13 @@ export function ValueConfig() {
             });
             if (res.ok) {
                 setValues(await res.json());
-                alert("Saved Successfully!");
+                showAlert("Success", "Configuration saved successfully.");
             } else {
-                alert("Failed to save.");
+                showAlert("Error", "Failed to save configuration.");
             }
         } catch (error) {
             console.error("Failed to save", error);
-            alert("Error saving values.");
+            showAlert("Error", "An unexpected error occurred while saving.");
         } finally {
             setSaving(false);
         }
@@ -127,6 +143,21 @@ export function ValueConfig() {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Alert Dialog */}
+            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {alertConfig.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
