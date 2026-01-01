@@ -23,6 +23,47 @@ public class OrderController {
         return ResponseEntity.ok(saved);
     }
 
+    @PutMapping("/{id}/status")
+    public ResponseEntity<PhotoOrder> updateStatus(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        String newStatus = body.get("status");
+        if (newStatus == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(orderService.updateStatus(id, newStatus));
+    }
+
+    @PutMapping("/bulk-status")
+    public ResponseEntity<?> bulkUpdateStatus(@RequestBody java.util.Map<String, Object> body) {
+        System.out.println("DEBUG: bulkUpdateStatus Payload: " + body);
+        try {
+            List<?> idsRaw = (List<?>) body.get("ids");
+            String status = (String) body.get("status");
+            
+            if (idsRaw == null || idsRaw.isEmpty() || status == null) {
+                System.out.println("DEBUG: Missing ids or status");
+                return ResponseEntity.badRequest().body("Missing 'ids' or 'status'");
+            }
+            
+            // Safer conversion: Handle Integer, Long, or whatever Number Jackson gives
+            List<Long> ids = idsRaw.stream()
+                .filter(item -> item instanceof Number)
+                .map(item -> ((Number) item).longValue())
+                .collect(java.util.stream.Collectors.toList());
+
+            if (ids.isEmpty()) {
+                 System.out.println("DEBUG: No valid numeric IDs found");
+                 return ResponseEntity.badRequest().body("No valid numeric IDs found");
+            }
+
+            System.out.println("DEBUG: Updating IDs: " + ids + " to status: " + status);
+            orderService.bulkUpdateStatus(ids, status);
+            return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+        }
+    }
+
     @GetMapping
     public ResponseEntity<org.springframework.data.domain.Page<PhotoOrder>> getAllOrders(
             @RequestParam(required = false) java.time.LocalDate startDate,

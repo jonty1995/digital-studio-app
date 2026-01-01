@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
-import { FilterHeader, useViewMode } from "../components/shared/FilterHeader";
+import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Plus, Pencil, FileText, Loader2, Download, Edit2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { orderService } from "../services/orderService";
-import { PhotoOrderModal } from "../components/shared/PhotoOrderModal";
+import { PhotoOrderModal } from "@/components/shared/PhotoOrderModal";
 import { useRef, useCallback } from "react";
 import { format } from "date-fns";
+import { OrderStatus, getAvailableTransitions } from "@/components/shared/OrderStatus";
+import { StatusTimeline } from "@/components/shared/StatusTimeline";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { FileViewer } from "../components/shared/FileViewer";
 
@@ -15,6 +26,12 @@ export default function PhotoOrders() {
     const [orders, setOrders] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState({ instant: true, regular: true });
+
+    // Alert State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
+    const showAlert = (title, message) => {
+        setAlertConfig({ isOpen: true, title, message });
+    };
 
     // Refs
     const isFirstLoad = useRef(true);
@@ -25,8 +42,15 @@ export default function PhotoOrders() {
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useViewMode("photo-orders-view-mode"); // 'compact' | 'cozy'
 
-    // Initialize date range (Defaults handled by FilterHeader)
-    const [dateRange, setDateRange] = useState({ start: "", end: "" });
+    // Initialize date range with Today (YYYY-MM-DD)
+    const [dateRange, setDateRange] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        return { start: today, end: today };
+    });
 
     const observer = useRef();
     const lastOrderElementRef = useCallback(node => {
@@ -89,12 +113,10 @@ export default function PhotoOrders() {
             const newOrders = data.content || [];
 
             setOrders(prev => {
-                if (isReset || pageNum === 0) return newOrders;
-                // De-dup
-                const existingIds = new Set(prev.map(o => o.orderId));
-                const uniqueNew = newOrders.filter(o => !existingIds.has(o.orderId));
-                return [...prev, ...uniqueNew];
+                const updated = isReset || pageNum === 0 ? newOrders : [...prev, ...newOrders.filter(o => !prev.some(p => p.orderId === o.orderId))];
+                return updated;
             });
+            if (isReset || pageNum === 0) setPage(0); // Sync page state
             setHasMore(!data.last); // 'last' is true if last page
         } catch (error) {
             console.error("Failed to load orders:", error);
@@ -197,15 +219,32 @@ export default function PhotoOrders() {
             sessionStorage.setItem("photoOrderSessionId", newId);
         } catch (error) {
             console.error("Failed to save order:", error);
-            alert("Failed to save order. Check console.");
+            showAlert("Save Failed", "Failed to save order. Please check the console for details.");
         }
     };
 
-    const formatItems = (json) => {
+    const formatItems = (json, returnJsx = false) => {
         try {
             const items = JSON.parse(json);
             if (Array.isArray(items)) {
-                return items.map(i => `${i.type} x ${i.quantity}`).join(", ");
+                if (returnJsx) {
+                    return items.map((i, index) => (
+                        <div key={index} className="flex items-center gap-1 mb-1 last:mb-0">
+                            <span className="font-medium text-gray-900">{i.type}</span>
+                            {i.addons && i.addons.map((addon, aIdx) => (
+                                <span key={aIdx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 shadow-sm mx-0.5">
+                                    {addon}
+                                </span>
+                            ))}
+                            <span className="text-gray-400 text-xs">x</span>
+                            <span>{i.quantity}</span>
+                        </div>
+                    ));
+                }
+                return items.map(i => {
+                    const addonsStr = (i.addons && i.addons.length > 0) ? ` + ${i.addons.join(", ")}` : "";
+                    return `${i.type}${addonsStr} x ${i.quantity}`;
+                }).join(", ");
             }
             return "Invalid Items";
         } catch {
@@ -218,8 +257,88 @@ export default function PhotoOrders() {
         return sortConfig.direction === 'asc' ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
     };
 
+    const [selectedIds, setSelectedIds] = useState([]);
+    const actionBarRef = useRef(null);
+
+    // Click Outside Listener to Clear Selection
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (selectedIds.length === 0) return;
+
+            // 1. Clicked Action Bar? -> Keep
+            if (actionBarRef.current && actionBarRef.current.contains(event.target)) {
+                return;
+            }
+
+            // 2. Clicked Row with Ctrl? -> Keep (Let row handler handle it)
+            if (event.target.closest('tr') && (event.ctrlKey || event.metaKey)) {
+                return;
+            }
+
+            // Otherwise -> Clear
+            setSelectedIds([]);
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [selectedIds]);
+
+    // Bulk Actions
+    const handleSelectRow = (orderId) => {
+        const orderToSelect = orders.find(o => o.orderId === orderId);
+        if (!orderToSelect) return;
+
+        setSelectedIds(prev => {
+            const isSelected = prev.includes(orderId);
+            if (isSelected) {
+                return prev.filter(id => id !== orderId);
+            } else {
+                // Check constraints
+                if (prev.length > 0) {
+                    const firstOrder = orders.find(o => o.orderId === prev[0]);
+                    if (firstOrder) {
+                        // 1. Status Constraint
+                        if (firstOrder.status !== orderToSelect.status) return prev;
+
+                        // 2. Type Constraint (Instant vs Regular)
+                        const firstIsInstant = isInstantOrder(firstOrder);
+                        const currentIsInstant = isInstantOrder(orderToSelect);
+                        if (firstIsInstant !== currentIsInstant) return prev;
+                    }
+                }
+                return [...prev, orderId];
+            }
+        });
+    };
+
+    const handleBulkStatusUpdate = async (newStatus) => {
+        try {
+            await orderService.updateBulkStatus(selectedIds, newStatus);
+            setSelectedIds([]);
+            loadOrders(0, true);
+        } catch (error) {
+            console.error("Bulk update failed:", error);
+            const msg = error.response?.data || error.message || "Unknown error";
+            showAlert("Update Failed", `Failed to update status: ${typeof msg === 'object' ? JSON.stringify(msg) : msg}`);
+        }
+    };
+
+    // Determine allowed actions based on selected status
+    const getBulkActions = () => {
+        if (selectedIds.length === 0) return [];
+        const firstOrder = orders.find(o => o.orderId === selectedIds[0]);
+        if (!firstOrder) return [];
+
+        const s = firstOrder.status;
+        const isInstant = firstOrder.isInstant !== undefined ? firstOrder.isInstant : isInstantOrder(firstOrder); // Fallback for safety
+
+        return getAvailableTransitions(s, isInstant);
+    };
+
+    const bulkOptions = getBulkActions();
+
     return (
-        <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
+        <div className="flex flex-col h-full bg-background animate-in fade-in duration-500 relative">
             <FilterHeader
                 title="Photo Orders"
                 dateRange={dateRange}
@@ -246,7 +365,7 @@ export default function PhotoOrders() {
             </FilterHeader>
 
 
-            <div className="p-6 flex-1 overflow-auto">
+            <div className="p-6 flex-1 overflow-auto pb-24">
                 <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
                     <Table>
                         <TableHeader>
@@ -293,12 +412,23 @@ export default function PhotoOrders() {
                                 const isPdf = fileId && fileId.toLowerCase().endsWith('.pdf');
                                 const hasFile = !!fileId;
 
+                                const isSelected = selectedIds.includes(order.orderId);
+
                                 return (
                                     <React.Fragment key={order.orderId}>
                                         <TableRow
                                             ref={isLast ? lastOrderElementRef : null}
-                                            className={`cursor-pointer border-b transition-colors ${hClass} ${isExpanded ? 'bg-muted/50' : 'hover:bg-gray-100/60 dark:hover:bg-gray-800/60'}`}
-                                            onClick={() => setExpandedOrderId(isExpanded ? null : order.orderId)}
+                                            className={`cursor-pointer border-b transition-colors ${hClass} ${isExpanded ? 'bg-muted/50' : 'hover:bg-gray-100/60 dark:hover:bg-gray-800/60'} ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 shadow-inner' : ''}`}
+                                            onClick={(e) => {
+                                                if (e.ctrlKey || e.metaKey) {
+                                                    // Allow Toggle Selection even if expanded
+                                                    e.preventDefault();
+                                                    handleSelectRow(order.orderId);
+                                                } else {
+                                                    // Normal Click -> Toggle Expand
+                                                    setExpandedOrderId(isExpanded ? null : order.orderId);
+                                                }
+                                            }}
                                             title={order.description} // Tooltip on hover
                                         >
                                             <TableCell className={`${pClass} align-middle`}>
@@ -358,7 +488,11 @@ export default function PhotoOrders() {
                                                 {isInstant && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 shadow-sm">Instant</span>}
                                             </TableCell>
                                             <TableCell className={`${pClass} align-middle text-muted-foreground`}>{order.customer?.id ? order.customer.id : "-"}</TableCell>
-                                            <TableCell className={`${pClass} align-middle max-w-[200px] text-sm`} title={formatItems(order.itemsJson)}>{formatItems(order.itemsJson)}</TableCell>
+                                            <TableCell className={`${pClass} align-middle max-w-[200px] text-sm`}>
+                                                <div title={formatItems(order.itemsJson)}>
+                                                    {formatItems(order.itemsJson, true)}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className={`${pClass} align-middle text-right font-medium`}>₹{order.payment?.totalAmount || 0}</TableCell>
                                             <TableCell className={`${pClass} align-middle text-right text-muted-foreground`}>₹{order.payment?.discountAmount || 0}</TableCell>
                                             <TableCell className={`${pClass} align-middle text-right`}>₹{order.payment?.advanceAmount || 0}</TableCell>
@@ -366,9 +500,7 @@ export default function PhotoOrders() {
                                                 ₹{order.payment?.dueAmount || 0}
                                             </TableCell>
                                             <TableCell className={`${pClass} align-middle text-center`}>
-                                                <Badge variant={order.status === 'Completed' ? 'default' : 'secondary'} className={`${order.status === 'Completed' ? 'bg-emerald-500 hover:bg-emerald-600' : ''} shadow-sm`}>
-                                                    {order.status}
-                                                </Badge>
+                                                <OrderStatus order={order} onUpdate={() => loadOrders(0, false)} />
                                             </TableCell>
                                             <TableCell className={`${pClass} align-middle text-right`}>
                                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit Order" onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setIsModalOpen(true); }}>
@@ -380,16 +512,13 @@ export default function PhotoOrders() {
                                         {isExpanded && (
                                             <TableRow className="bg-muted/30 border-b animate-in fade-in zoom-in-95 duration-200">
                                                 <TableCell colSpan={11} className="p-4">
-                                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 text-sm pl-4 relative mb-4">
-                                                        <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary/20 rounded-full"></div>
+                                                    {/* Timeline Section */}
+                                                    <div className="mb-6 px-4 bg-background/50 rounded-lg border py-2">
+                                                        <StatusTimeline order={order} />
+                                                    </div>
 
-                                                        {/* Entry Date */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Entry Date</span>
-                                                            <span className="font-medium text-foreground/80 font-mono">
-                                                                {order.createdAt ? format(new Date(order.createdAt), "dd MMM yyyy, hh:mm a") : "N/A"}
-                                                            </span>
-                                                        </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm pl-4 relative mb-4">
+                                                        <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary/20 rounded-full"></div>
 
                                                         {/* Payment Mode */}
                                                         <div className="flex flex-col gap-1">
@@ -403,6 +532,12 @@ export default function PhotoOrders() {
                                                                     <span className="text-muted-foreground italic">N/A</span>
                                                                 )}
                                                             </span>
+                                                        </div>
+
+                                                        {/* Order ID */}
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Order ID</span>
+                                                            <span className="font-mono text-foreground font-medium">{order.orderId}</span>
                                                         </div>
 
                                                         {/* Upload ID */}
@@ -420,7 +555,7 @@ export default function PhotoOrders() {
                                                         </div>
 
                                                         {/* Description */}
-                                                        <div className="flex flex-col gap-1">
+                                                        <div className="flex flex-col gap-1 md:col-span-4">
                                                             <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Description</span>
                                                             <div className="bg-background border rounded-md p-2 text-xs max-h-[80px] overflow-y-auto font-mono text-foreground/90 whitespace-pre-wrap shadow-sm">
                                                                 {order.description || <span className="text-muted-foreground italic">No instructions.</span>}
@@ -448,6 +583,47 @@ export default function PhotoOrders() {
                 </div>
             </div>
 
+            {/* Floating Bulk Action Bar */}
+            {selectedIds.length > 0 && (
+                <div ref={actionBarRef} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="bg-primary text-primary-foreground shadow-lg rounded-full px-6 py-3 flex items-center gap-4">
+                        <span className="font-medium text-sm">{selectedIds.length} orders selected</span>
+
+                        <div className="h-4 w-px bg-primary-foreground/30"></div>
+
+                        {bulkOptions.length > 0 ? (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium opacity-90">Mark as:</span>
+                                <select
+                                    className="h-8 rounded overflow-hidden bg-primary-foreground text-primary font-medium text-sm border-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-white outline-none cursor-pointer pl-2 pr-8"
+                                    onChange={(e) => {
+                                        if (e.target.value) handleBulkStatusUpdate(e.target.value);
+                                        e.target.value = "";
+                                    }}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled className="bg-white text-gray-500">Select Status...</option>
+                                    {bulkOptions.map(option => (
+                                        <option key={option} value={option} className="bg-white text-gray-900">{option}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <span className="text-xs opacity-80 italic">Status cannot be changed</span>
+                        )}
+
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 ml-2 hover:bg-white/20 rounded-full"
+                            onClick={() => setSelectedIds([])}
+                        >
+                            <span className="text-lg leading-none">&times;</span>
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {isModalOpen && (
                 <PhotoOrderModal
                     isOpen={isModalOpen}
@@ -463,6 +639,20 @@ export default function PhotoOrders() {
                 isOpen={!!viewerFileId}
                 onClose={() => setViewerFileId(null)}
             />
+            {/* Alert Dialog */}
+            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {alertConfig.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

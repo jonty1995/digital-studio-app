@@ -220,4 +220,43 @@ public class OrderService {
         
         return orderPage;
     }
+
+    public PhotoOrder updateStatus(Long orderId, String newStatus) {
+        PhotoOrder order = photoOrderRepository.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        String oldStatus = order.getStatus();
+        
+        // Append to History
+        try {
+            java.util.List<java.util.Map<String, Object>> history;
+            if (order.getStatusHistoryJson() != null && !order.getStatusHistoryJson().isEmpty()) {
+                history = objectMapper.readValue(order.getStatusHistoryJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            } else {
+                history = new java.util.ArrayList<>();
+                // If initializing history for the first time, maybe we should add the *original* creation event?
+                // But for now, let's just assume list is empty.
+                // Or better, if it's empty, and we are changing status, we assume previous was "Pending" at createdAt.
+            }
+
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("status", newStatus);
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+            // entry.put("previousStatus", oldStatus); // Optional, but usually list order is enough
+            
+            history.add(entry); // Add to end (Chronological)
+            
+            order.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error updating status history: " + e.getMessage());
+        }
+
+        order.setStatus(newStatus);
+        return photoOrderRepository.save(order);
+    }
+    public void bulkUpdateStatus(List<Long> ids, String newStatus) {
+        for (Long id : ids) {
+            updateStatus(id, newStatus);
+        }
+    }
 }

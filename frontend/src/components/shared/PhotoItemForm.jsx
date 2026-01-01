@@ -17,6 +17,7 @@ export function PhotoItemForm({ items, setItems }) {
         addons: [],
         quantity: 1,
         isInstant: false,
+        isSeparate: false,
         price: 0,
         unitPrice: 0
     });
@@ -71,6 +72,7 @@ export function PhotoItemForm({ items, setItems }) {
             addons: [],
             quantity: 1,
             isInstant: false,
+            isSeparate: false,
             price: 0,
             unitPrice: 0,
             basePrice: 0
@@ -91,6 +93,111 @@ export function PhotoItemForm({ items, setItems }) {
     const removeItem = (index) => {
         setItems(items.filter((_, i) => i !== index));
     };
+
+    // --- DRAG AND DROP GROUPING LOGIC ---
+    const [groups, setGroups] = useState([1]); // IDs of active groups
+    const [draggedItemIndex, setDraggedItemIndex] = useState(null);
+    const [draggedAddon, setDraggedAddon] = useState(null); // { parentIndex, name }
+
+    const handleDragStart = (e, index, addonName = null) => {
+        if (addonName) {
+            setDraggedAddon({ parentIndex: index, name: addonName });
+            setDraggedItemIndex(null);
+            // Prevent the parent item row from being dragged instead
+            e.stopPropagation();
+        } else {
+            setDraggedItemIndex(index);
+            setDraggedAddon(null);
+        }
+        e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault(); // Necessary for onDrop to fire
+        e.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = (e, targetGroupId) => {
+        e.preventDefault();
+
+        const updatedItems = [...items];
+
+        // Case A: Moving Whole Item
+        if (draggedItemIndex !== null) {
+            updatedItems[draggedItemIndex] = { ...updatedItems[draggedItemIndex], groupId: targetGroupId };
+            setItems(updatedItems);
+            setDraggedItemIndex(null);
+            return;
+        }
+
+        // Case B: Detaching Addon -> New Item
+        if (draggedAddon) {
+            const { parentIndex, name } = draggedAddon;
+            const sourceItem = updatedItems[parentIndex];
+            if (!sourceItem) return;
+
+            // 1. Remove Addon from Source
+            const newAddons = sourceItem.addons.filter(a => a !== name);
+            const updatedSource = { ...sourceItem, addons: newAddons };
+
+            // Recalculate Source Price
+            const srcConfig = availableItems.find(i => i.name === updatedSource.type);
+            const srcBase = srcConfig
+                ? (updatedSource.isInstant ? (parseFloat(srcConfig.instantCustomerPrice) || 0) : (parseFloat(srcConfig.regularCustomerPrice) || 0))
+                : 0;
+            const srcUnit = configurationService.calculatePrice(updatedSource.type, newAddons, updatedSource.isInstant, true, availableItems, pricingRules);
+
+            // Calculate Addon Contribution (Price Delta)
+            const prevUnit = configurationService.calculatePrice(sourceItem.type, sourceItem.addons, sourceItem.isInstant, true, availableItems, pricingRules);
+            const addonContribution = prevUnit - srcUnit;
+
+            updatedSource.unitPrice = srcUnit;
+            updatedSource.basePrice = srcBase;
+            updatedSource.price = srcUnit * updatedSource.quantity;
+
+            updatedItems[parentIndex] = updatedSource;
+
+            // 2. Create New Item for Addon
+            // Use Addon Contribution to preserve Total Price
+            let newAddonItem = {
+                type: name,
+                addons: [],
+                quantity: sourceItem.quantity,
+                isInstant: sourceItem.isInstant,
+                groupId: targetGroupId,
+                sourceLabel: sourceItem.type, // Track where this addon came from
+                price: 0,
+                unitPrice: 0,
+                basePrice: 0
+            };
+
+            const newUnit = addonContribution;
+            const newBase = addonContribution;
+
+            newAddonItem.unitPrice = newUnit;
+            newAddonItem.basePrice = newBase;
+            newAddonItem.price = newUnit * newAddonItem.quantity;
+
+            updatedItems.push(newAddonItem);
+
+            setItems(updatedItems);
+            setDraggedAddon(null);
+        }
+    };
+
+    const addGroup = () => {
+        const nextId = Math.max(...groups) + 1;
+        setGroups([...groups, nextId]);
+    };
+
+    // Clean up empty groups (optional, maybe on save?) 
+    // For now, let's keep them explicit so user can drag back and forth.
+
+    // Group items for rendering
+    const groupedItems = groups.map(gId => ({
+        id: gId,
+        items: items.filter(i => (i.groupId || 1) === gId) // Default to 1 if missing
+    }));
 
     return (
         <div className="space-y-6 bg-card">
@@ -173,96 +280,146 @@ export function PhotoItemForm({ items, setItems }) {
             </div>
 
             {/* SELECTED PHOTO ITEMS SECTION (Purple) */}
-            <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4 space-y-4">
-                <h3 className="font-bold text-purple-900 uppercase text-sm tracking-wide">Selected Photo Items</h3>
-
-                <div className="space-y-2">
-                    {items.map((item, index) => {
-                        // Calculate base price for breakdown display
-                        const configItem = availableItems.find(i => i.name === item.type);
-                        const baseItemPrice = configItem
-                            ? (item.isInstant ? (parseFloat(configItem.instantCustomerPrice) || 0) : (parseFloat(configItem.regularCustomerPrice) || 0))
-                            : 0;
-                        const addonsTotal = item.unitPrice - baseItemPrice;
-                        const isExpanded = expandedItem === index;
-
-                        return (
-                            <div key={index} className="bg-white border border-purple-100 rounded-md shadow-sm overflow-hidden transition-all">
-                                <div
-                                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-purple-50/30"
-                                    onClick={() => setExpandedItem(isExpanded ? null : index)}
-                                >
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-                                            <ChevronDown className="h-4 w-4 text-purple-400" />
-                                        </div>
-                                        <span className="font-semibold text-purple-900">{item.type}</span>
-                                        <span className="text-purple-400 text-xs">x</span>
-                                        <span className="font-medium text-purple-800">{item.quantity}</span>
-
-                                        {item.isInstant && (
-                                            <span className="bg-red-100 text-red-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-red-200">
-                                                Instant
-                                            </span>
-                                        )}
-
-                                        {item.addons.length > 0 && (
-                                            <div className="flex gap-1 ml-2">
-                                                {item.addons.map(a => (
-                                                    <span key={a} className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded">
-                                                        {a}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold text-purple-900">₹{item.price.toFixed(2)}</span>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); removeItem(index); }}
-                                            className="text-purple-300 hover:text-purple-600 transition-colors p-1"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Expanded Cost Breakup */}
-                                {isExpanded && (
-                                    <div className="bg-purple-50/30 border-t border-purple-100 px-4 py-3 text-sm text-purple-800 space-y-1">
-                                        <div className="flex justify-between items-center text-xs text-purple-600 uppercase tracking-wider font-semibold mb-2">
-                                            Cost Breakup (Per Unit)
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span>Base Price ({item.type})</span>
-                                            <span>₹{baseItemPrice.toFixed(2)}</span>
-                                        </div>
-                                        {item.addons.length > 0 && (
-                                            <div className="flex justify-between items-center">
-                                                <span>Addons ({item.addons.join(", ")})</span>
-                                                <span>₹{addonsTotal.toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between items-center border-t border-purple-200 pt-1 mt-1 font-medium">
-                                            <span>Unit Price</span>
-                                            <span>₹{item.unitPrice.toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center font-bold text-purple-900 pt-1">
-                                            <span>Total ({item.quantity} qty)</span>
-                                            <span>₹{item.price.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                    {items.length === 0 && (
-                        <div className="text-center py-6 text-purple-300 italic text-sm border-2 border-dashed border-purple-100 rounded-md">
-                            No items added to order yet.
-                        </div>
-                    )}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-purple-900 uppercase text-sm tracking-wide">Selected Photo Items</h3>
+                    <Button onClick={addGroup} size="sm" variant="outline" className="h-7 text-xs border-purple-200 text-purple-700 hover:bg-purple-100">
+                        <Plus className="h-3 w-3 mr-1" /> New Order Group
+                    </Button>
                 </div>
+
+                {groupedItems.map(group => (
+                    <div
+                        key={group.id}
+                        className={`rounded-lg border-2 border-dashed transition-colors p-4 space-y-2 ${group.id === 1 ? 'border-purple-200 bg-purple-50/30' : 'border-amber-200 bg-amber-50/30'}`}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, group.id)}
+                    >
+                        <div className="flex items-center justify-between mb-2">
+                            <span className={`text-xs font-bold uppercase tracking-wider ${group.id === 1 ? 'text-purple-700' : 'text-amber-700'}`}>
+                                {group.id === 1 ? "Main Order" : `Split Order #${group.id}`}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono">
+                                Total: ₹{group.items.reduce((s, i) => s + i.price, 0).toFixed(2)}
+                            </span>
+                        </div>
+
+                        {group.items.length === 0 ? (
+                            <div className="text-center py-4 text-gray-400 italic text-xs">
+                                Drag items here to split order
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {group.items.map((item) => {
+                                    const originalIndex = items.indexOf(item);
+
+                                    // Calculate base price for breakdown display
+                                    const configItem = availableItems.find(i => i.name === item.type);
+                                    let baseItemPrice = 0;
+
+                                    if (item.sourceLabel) {
+                                        baseItemPrice = item.unitPrice;
+                                    } else {
+                                        baseItemPrice = configItem
+                                            ? (item.isInstant ? (parseFloat(configItem.instantCustomerPrice) || 0) : (parseFloat(configItem.regularCustomerPrice) || 0))
+                                            : 0;
+                                    }
+                                    const addonsTotal = item.unitPrice - baseItemPrice;
+                                    const isExpanded = expandedItem === originalIndex;
+
+                                    return (
+                                        <div
+                                            key={originalIndex}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, originalIndex)}
+                                            className="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden transition-all cursor-move hover:shadow-md"
+                                        >
+                                            <div
+                                                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                                                onClick={() => setExpandedItem(isExpanded ? null : originalIndex)}
+                                            >
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                                                    </div>
+                                                    <span className="font-semibold text-gray-900 flex items-center flex-wrap">
+                                                        {item.type}
+                                                        {item.sourceLabel && (
+                                                            <span className="ml-2 bg-indigo-50 text-indigo-600 text-[10px] px-2 py-0.5 rounded border border-indigo-100 font-medium whitespace-nowrap flex items-center">
+                                                                {item.sourceLabel}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                    <span className="text-gray-400 text-xs">x</span>
+                                                    <span className="font-medium text-gray-800">{item.quantity}</span>
+
+                                                    {item.isInstant && (
+                                                        <span className="bg-red-100 text-red-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-red-200">
+                                                            Instant
+                                                        </span>
+                                                    )}
+
+                                                    {item.addons.length > 0 && (
+                                                        <div className="flex gap-1 ml-2">
+                                                            {item.addons.map(a => (
+                                                                <span
+                                                                    key={a}
+                                                                    draggable
+                                                                    onDragStart={(e) => handleDragStart(e, originalIndex, a)}
+                                                                    className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 cursor-grab hover:bg-gray-200 hover:shadow-sm"
+                                                                    title="Drag to detach into separate order"
+                                                                >
+                                                                    {a}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center gap-4">
+                                                    <span className="font-bold text-gray-900">₹{item.price.toFixed(2)}</span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); removeItem(originalIndex); }}
+                                                        className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Cost Breakup */}
+                                            {isExpanded && (
+                                                <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 text-sm text-gray-700 space-y-1">
+                                                    <div className="flex justify-between items-center text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                                                        Cost Breakup (Per Unit)
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span>{item.sourceLabel ? "Addon Price" : `Base Price (${item.type})`}</span>
+                                                        <span>₹{baseItemPrice.toFixed(2)}</span>
+                                                    </div>
+                                                    {item.addons.length > 0 && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span>Addons ({item.addons.join(", ")})</span>
+                                                            <span>₹{addonsTotal.toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-between items-center border-t border-gray-200 pt-1 mt-1 font-medium">
+                                                        <span>Unit Price</span>
+                                                        <span>₹{item.unitPrice.toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center font-bold text-gray-900 pt-1">
+                                                        <span>Total ({item.quantity} qty)</span>
+                                                        <span>₹{item.price.toFixed(2)}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                ))}
             </div>
 
         </div>

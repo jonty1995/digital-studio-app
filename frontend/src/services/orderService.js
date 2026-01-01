@@ -18,5 +18,9 @@ export const orderService = {
         });
 
         return await api.get(`/orders?${params.toString()}`);
+    },
+
+    updateBulkStatus: async (ids, status) => {
+        return await api.put("/orders/bulk-status", { ids, status });
     }
 };

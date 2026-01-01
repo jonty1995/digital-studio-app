@@ -32,8 +32,11 @@ public class PhotoOrder {
     @Column(columnDefinition = "TEXT")
     private String itemsJson;
 
+    @Column(columnDefinition = "TEXT")
+    private String statusHistoryJson;
+
     @CreationTimestamp
-    @Column(updatable = false)
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp

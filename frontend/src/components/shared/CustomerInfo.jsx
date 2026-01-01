@@ -104,9 +104,14 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+
         setCustomer(prev => {
             // If changing mobile input, live-update the ID badge as well
             if (name === 'mobile') {
+                // RESTRICTION: Only allow numbers
+                if (value && !/^\d*$/.test(value)) {
+                    return prev; // Ignore non-numeric input
+                }
                 return { ...prev, mobile: value, id: value };
             }
             return { ...prev, [name]: value };

@@ -21,9 +21,13 @@ export default function Uploads() {
     const [searchQuery, setSearchQuery] = useState("");
     const [viewMode, setViewMode] = useViewMode("uploads-view-mode");
 
-    const [dateRange, setDateRange] = useState({
-        start: undefined,
-        end: undefined
+    const [dateRange, setDateRange] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        return { start: today, end: today };
     });
     const [excludedSources, setExcludedSources] = useState([]);
 

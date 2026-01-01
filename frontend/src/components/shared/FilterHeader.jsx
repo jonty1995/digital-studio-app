@@ -26,16 +26,8 @@ export const FilterHeader = ({
     children
 }) => {
     // Initialize defaults on mount
-    useEffect(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
+    // Defaults now handled by parent components
 
-        if (!dateRange.start) onDateChange('start', today);
-        if (!dateRange.end) onDateChange('end', today);
-    }, []); // Run once on mount
 
     return (
         <PageHeader title={title}>
