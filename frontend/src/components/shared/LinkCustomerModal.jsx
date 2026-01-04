@@ -8,12 +8,19 @@ import { CustomerInfo } from "./CustomerInfo";
 import { customerService } from "@/services/customerService";
 
 import { ChevronsRight, Loader2, Check, X, AlertCircle } from "lucide-react";
+
 import { fileService } from "@/services/fileService";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 export function LinkCustomerModal({ isOpen, onClose, onSuccess }) {
     const [uploadId, setUploadId] = useState("");
     const [customer, setCustomer] = useState({ mobile: '', name: '', id: '' });
     const [loading, setLoading] = useState(false);
+    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    const showAlert = (title, description) => {
+        setAlertState({ open: true, title, description });
+    };
 
     // Verification State
     const [verificationStatus, setVerificationStatus] = useState('idle'); // idle, loading, valid, invalid
@@ -78,11 +85,11 @@ export function LinkCustomerModal({ isOpen, onClose, onSuccess }) {
 
     const handleSubmit = async () => {
         if (verificationStatus !== 'valid') {
-            alert("Please provide a valid Upload ID.");
+            showAlert("Invalid Upload ID", "Please provide a valid Upload ID.");
             return;
         }
         if (!customer.name.trim()) {
-            alert("Customer Name is required.");
+            showAlert("Name Required", "Customer Name is required.");
             return;
         }
 
@@ -112,11 +119,11 @@ export function LinkCustomerModal({ isOpen, onClose, onSuccess }) {
                 onClose();
             } else {
                 const text = await res.text();
-                alert("Failed to link customer: " + text);
+                showAlert("Link Failed", "Failed to link customer: " + text);
             }
         } catch (error) {
             console.error("Link error:", error);
-            alert("Error linking customer: " + error.message);
+            showAlert("Link Error", "Error linking customer: " + error.message);
         } finally {
             setLoading(false);
         }
@@ -173,6 +180,13 @@ export function LinkCustomerModal({ isOpen, onClose, onSuccess }) {
                     {loading ? "Linking..." : "Link Customer"}
                 </Button>
             </div>
-        </Modal>
+
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
+        </Modal >
     );
 }

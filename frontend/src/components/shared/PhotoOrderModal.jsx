@@ -10,6 +10,7 @@ import { PhotoItemForm } from "./PhotoItemForm";
 import { configurationService } from "@/services/configurationService";
 import { customerService } from "@/services/customerService";
 import { fileService } from "@/services/fileService";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 
 export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder }) {
@@ -19,6 +20,11 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
     const [image, setImage] = useState(null);
     const [configItems, setConfigItems] = useState([]);
+    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    const showAlert = (title, description) => {
+        setAlertState({ open: true, title, description });
+    };
 
     useEffect(() => {
         configurationService.getItems().then(data => setConfigItems(data || []));
@@ -85,7 +91,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
 
         // Allow 9 digits (Generated ID) or 10 digits (Mobile)
         if (!/^\d{9,10}$/.test(customer.mobile)) {
-            alert("Please enter a valid Mobile Number (10 digits) or Customer ID (9 digits).");
+            showAlert("Invalid Input", "Please enter a valid Mobile Number (10 digits) or Customer ID (9 digits).");
             return;
         }
 
@@ -105,13 +111,13 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
 
     const handleSave = async () => {
         if (!items || items.length === 0) {
-            alert("Please add at least one item to save the order.");
+            showAlert("Items Required", "Please add at least one item to save the order.");
             return;
         }
 
         // If Mobile is NOT provided, Name is Mandatory
         if (!customer.mobile && !customer.name.trim()) {
-            alert("Customer Name is mandatory when Mobile Number is not provided.");
+            showAlert("Missing Name", "Customer Name is mandatory when Mobile Number is not provided.");
             return;
         }
 
@@ -131,7 +137,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 finalUploadId = res.uploadId;
             } catch (error) {
                 console.error("Deferred upload failed:", error);
-                alert("Failed to upload file. Please try again.");
+                showAlert("Upload Failed", "Failed to upload file. Please try again.");
                 return; // Stop save
             }
         }
@@ -304,6 +310,12 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleSave}>Save Order</Button>
             </div>
-        </Modal>
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
+        </Modal >
     );
 }

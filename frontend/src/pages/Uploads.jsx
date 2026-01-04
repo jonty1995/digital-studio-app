@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
 
+import { SimpleAlert } from "../components/shared/SimpleAlert";
+
 import { FileViewer } from "../components/shared/FileViewer";
 
 import { configurationService } from "../services/configurationService";
@@ -21,6 +23,11 @@ export default function Uploads() {
     const [loading, setLoading] = useState(true);
     const [viewerFileId, setViewerFileId] = useState(null);
     const [showStorageAlert, setShowStorageAlert] = useState(false);
+    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    const showAlert = (title, description) => {
+        setAlertState({ open: true, title, description });
+    };
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
@@ -121,9 +128,9 @@ export default function Uploads() {
         }
 
         if (failCount > 0 && successCount === 0) {
-            alert(`Failed to upload ${failCount} file(s).`);
+            showAlert("Upload Failed", `Failed to upload ${failCount} file(s).`);
         } else if (failCount > 0) {
-            alert(`Uploaded ${successCount} files. Failed to upload ${failCount} files.`);
+            showAlert("Upload Incomplete", `Uploaded ${successCount} files. Failed to upload ${failCount} files.`);
         }
 
         setLoading(false);
@@ -157,7 +164,7 @@ export default function Uploads() {
         );
 
         if (validFiles.length < files.length) {
-            alert(`Skipped ${files.length - validFiles.length} unsupported file(s). Only Images and PDFs are allowed.`);
+            showAlert("Files Skipped", `Skipped ${files.length - validFiles.length} unsupported file(s). Only Images and PDFs are allowed.`);
         }
 
         await uploadFiles(validFiles);
@@ -278,16 +285,16 @@ export default function Uploads() {
 
             if (res.ok) {
                 const data = await res.json();
-                alert(`Check Complete:\nAvailable: ${data.available}\nMissing: ${data.missing}`);
+                showAlert("Check Complete", `Available: ${data.available}\nMissing: ${data.missing}`);
                 fetchUploads(); // Reload list
             } else {
                 const text = await res.text();
                 console.error("Availability Check Failed:", text);
-                alert("Failed to check availability: " + (res.statusText || "Unknown Error"));
+                showAlert("Check Failed", "Failed to check availability: " + (res.statusText || "Unknown Error"));
             }
         } catch (e) {
             console.error("Availability Check Error:", e);
-            alert("Availability check failed: " + e.message);
+            showAlert("Error", "Availability check failed: " + e.message);
         } finally {
             setLoading(false);
         }
@@ -599,6 +606,13 @@ export default function Uploads() {
                     </div>
                 </div>
             )}
+
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
         </div>
     );
 }

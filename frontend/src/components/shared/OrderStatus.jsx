@@ -8,16 +8,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { api } from "@/services/api";
 import { Loader2 } from "lucide-react";
 
@@ -158,23 +149,14 @@ export function OrderStatus({ order, onUpdate }) {
                 </DialogContent>
             </Dialog>
 
-            {/* Rollback Alert */}
-            <AlertDialog open={showRollbackAlert} onOpenChange={setShowRollbackAlert}>
-                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Rollback Order?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This order is currently <b>{currentStatus}</b>. Do you want to reopen it and set it back to <b>Pending</b>?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleStatusUpdate("Pending")}>
-                            Confirm Rollback
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <SimpleAlert
+                open={showRollbackAlert}
+                onOpenChange={setShowRollbackAlert}
+                title="Rollback Order?"
+                description={<>This order is currently <b>{currentStatus}</b>. Do you want to reopen it and set it back to <b>Pending</b>?</>}
+                confirmText="Confirm Rollback"
+                onConfirm={() => handleStatusUpdate("Pending")}
+            />
         </>
     );
 }

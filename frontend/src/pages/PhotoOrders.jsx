@@ -11,15 +11,7 @@ import { useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { OrderStatus, getAvailableTransitions } from "@/components/shared/OrderStatus";
 import { StatusTimeline } from "@/components/shared/StatusTimeline";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 import { FileViewer } from "../components/shared/FileViewer";
 
@@ -661,19 +653,12 @@ export default function PhotoOrders() {
                 onClose={() => setViewerFileId(null)}
             />
             {/* Alert Dialog */}
-            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {alertConfig.message}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}>OK</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <SimpleAlert
+                open={alertConfig.isOpen}
+                onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}
+                title={alertConfig.title}
+                description={alertConfig.message}
+            />
         </div>
     );
 }

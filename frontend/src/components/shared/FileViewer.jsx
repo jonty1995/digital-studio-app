@@ -1,12 +1,19 @@
 import React, { useEffect } from 'react';
 import { X, Download, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { useState } from 'react';
 
 export function FileViewer({ fileId, isOpen, onClose }) {
     if (!isOpen || !fileId) return null;
 
     const fileUrl = `/api/files/${fileId}`;
     const isPdf = fileId.toLowerCase().endsWith('.pdf');
+    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    const showAlert = (title, description) => {
+        setAlertState({ open: true, title, description });
+    };
 
     useEffect(() => {
         const handleEsc = (e) => {
@@ -30,7 +37,7 @@ export function FileViewer({ fileId, isOpen, onClose }) {
             document.body.removeChild(a);
         } catch (error) {
             console.error("Download failed:", error);
-            alert("Failed to download file.");
+            showAlert("Download Failed", "Failed to download file.");
         }
     };
 
@@ -79,6 +86,13 @@ export function FileViewer({ fileId, isOpen, onClose }) {
                     )}
                 </div>
             </div>
-        </div>
+
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
+        </div >
     );
 }

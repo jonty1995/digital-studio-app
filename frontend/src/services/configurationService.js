@@ -22,6 +22,7 @@ export const configurationService = {
             await api.post(ENDPOINTS.ITEMS, cleanItems);
         } catch (error) {
             console.error("Failed to save items", error);
+            throw error; // Re-throw to allow component handling
         }
     },
 

@@ -1,11 +1,13 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { SimpleAlert } from "@/components/shared/SimpleAlert"
 import { useEffect, useState } from "react"
 import { customerService } from "@/services/customerService"
 
 export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disabled }) {
     const [fetchedSequence, setFetchedSequence] = useState(null);
+    const [showNotFoundAlert, setShowNotFoundAlert] = useState(false);
 
     useEffect(() => {
         const fetchSequence = async () => {
@@ -42,7 +44,20 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
         }
     }, [customer.mobile, fetchedSequence, setCustomer, customer.id]);
 
-    const handleSearch = async () => {
+    // Auto-Search on 9 or 10 digits
+    useEffect(() => {
+        if (disabled) return;
+        const len = customer.mobile?.length;
+        if (len === 9 || len === 10) {
+            const timer = setTimeout(() => {
+                handleSearch(false);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [customer.mobile]);
+
+    const handleSearch = async (interactive = true) => {
+        const isInteractive = typeof interactive === 'boolean' ? interactive : true;
         const value = customer.mobile;
         if (!value) return;
 
@@ -68,8 +83,10 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                 if (isId) {
                     // Scenario: 9-Digit ID NOT FOUND
                     // STRICT RULE: ERROR and BLOCK.
-                    alert("Customer ID not found.");
-                    setCustomer(prev => ({ ...prev, mobile: '', id: '', name: '' })); // Clear Input
+                    if (isInteractive) {
+                        setShowNotFoundAlert(true);
+                        setCustomer(prev => ({ ...prev, mobile: '', id: '', name: '' })); // Clear Input
+                    }
                 } else {
                     // Scenario: Mobile (10 digits) or Other -> Treat as NEW Customer
 
@@ -87,8 +104,10 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
         } catch (error) {
             console.error("Search error:", error);
             if (isId) {
-                alert("Customer ID not found.");
-                setCustomer(prev => ({ ...prev, mobile: '', id: '', name: '' }));
+                if (isInteractive) {
+                    setShowNotFoundAlert(true);
+                    setCustomer(prev => ({ ...prev, mobile: '', id: '', name: '' }));
+                }
             } else {
                 // Assume New
                 if (isMobile) {
@@ -112,7 +131,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                 if (value && !/^\d*$/.test(value)) {
                     return prev; // Ignore non-numeric input
                 }
-                return { ...prev, mobile: value, id: value };
+                return { ...prev, mobile: value, id: value, name: '' };
             }
             return { ...prev, [name]: value };
         });
@@ -121,7 +140,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault(); // Prevent form submission
-            handleSearch();
+            handleSearch(true);
         }
     };
 
@@ -168,6 +187,14 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                 // Name is always editable
                 />
             </div>
-        </div>
+
+
+            <SimpleAlert
+                open={showNotFoundAlert}
+                onOpenChange={setShowNotFoundAlert}
+                title="Customer Not Found"
+                description="The Customer ID you entered does not exist in the database."
+            />
+        </div >
     )
 }

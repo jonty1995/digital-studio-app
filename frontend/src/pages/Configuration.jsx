@@ -8,15 +8,7 @@ import { configurationService } from "../services/configurationService";
 import { Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 export default function Configuration() {
     const [activeTab, setActiveTab] = useState("items");
@@ -158,19 +150,12 @@ export default function Configuration() {
             </div>
 
             {/* Alert Dialog */}
-            <AlertDialog open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{alertConfig.title}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {alertConfig.message}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}>OK</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <SimpleAlert
+                open={alertConfig.isOpen}
+                onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}
+                title={alertConfig.title}
+                description={alertConfig.message}
+            />
         </div>
     );
 }

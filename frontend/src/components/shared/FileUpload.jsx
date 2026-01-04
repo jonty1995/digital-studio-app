@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Upload, X, Link, Loader2, FileText, Copy } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fileService } from "@/services/fileService";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 export function FileUpload({ file, onUpload, onRemove, source, instantUpload = true }) {
     const [previewUrl, setPreviewUrl] = useState(null);
@@ -11,6 +12,11 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
     const [fileType, setFileType] = useState("image");
     const [linkId, setLinkId] = useState("");
     const [linkMessage, setLinkMessage] = useState("");
+    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    const showAlert = (title, description) => {
+        setAlertState({ open: true, title, description });
+    };
 
     useEffect(() => {
         if (!file) {
@@ -81,7 +87,7 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                 onUpload(res.uploadId);
             } catch (err) {
                 console.error(err);
-                alert("Upload failed");
+                showAlert("Upload Error", "Upload failed. Please try again.");
                 onRemove();
             } finally {
                 setUploading(false);
@@ -99,7 +105,7 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
             setFileType(res.filename.toLowerCase().endsWith(".pdf") ? "pdf" : "image");
             setLinkId("");
         } catch (error) {
-            alert("File ID not found");
+            showAlert("Not Found", "File ID not found.");
         } finally {
             setUploading(false);
         }
@@ -131,7 +137,7 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                         onUpload(res.uploadId);
                     } catch (err) {
                         console.error(err);
-                        alert("Upload failed");
+                        showAlert("Upload Error", "Upload failed. Please try again.");
                         onRemove();
                     } finally {
                         setUploading(false);
@@ -240,6 +246,12 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                     )}
                 </div>
             </div>
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
         </div>
     )
 }

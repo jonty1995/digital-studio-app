@@ -3,7 +3,7 @@ package com.digitalstudio.app.service;
 import com.digitalstudio.app.model.Addon;
 import com.digitalstudio.app.model.AddonPricingRule;
 import com.digitalstudio.app.model.PhotoItem;
-import com.digitalstudio.app.repository.AddonPricingRuleRepository;
+
 import com.digitalstudio.app.repository.AddonRepository;
 import com.digitalstudio.app.repository.PhotoItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +22,7 @@ public class ConfigurationService {
     @Autowired
     private AddonRepository addonRepository;
 
-    @Autowired
-    private AddonPricingRuleRepository pricingRuleRepository;
+
 
     // Photo Items
     public List<PhotoItem> getAllPhotoItems() {
@@ -31,25 +30,26 @@ public class ConfigurationService {
     }
 
     public List<PhotoItem> savePhotoItems(List<PhotoItem> items) {
-        // Simple replace all strategy or intelligent merge?
-        // Frontend sends "all items". The repository.saveAll works.
-        // But if IDs are missing, it inserts. If present, updates.
-        // If user deleted on frontend, strictly speaking we should delete from DB.
-        // For simplicity: Replace all logic: delete all and save all? 
-        // Or trust frontend to manage IDs.
-        // Frontend generates `Date.now()` derived IDs which are huge numbers. Database usually wants GeneratedValue.
-        // If I use `Date.now()` as ID, that might conflict or be weird if I use @GeneratedValue(IDENTITY).
-        // I should stick to DB generated IDs.
-        // Frontend logic uses `Date.now()` locally. When saving to backend, if I send ID, it assumes it exists.
-        // But `Date.now()` ID definitely doesn't exist in DB initially.
-        // So backend should handle: if ID is large/timestamp-like, treat as null/new? 
-        // Or better: Use @GeneratedValue. Frontend should send null ID for new items.
-        // But frontend assigns ID to track it in UI.
-        // Strategy: 
-        // 1. Delete all and rewrite? Safe but IDs change.
-        // 2. Ideally, frontend should separate "temp ID" from "db ID".
-        // Let's implement safeSave: 
-        // Allow saving list. 
+        // Preserve addonCombinations by matching Item Name
+        List<PhotoItem> existingItems = photoItemRepository.findAll();
+        java.util.Map<String, String> addonsMap = existingItems.stream()
+            .filter(i -> i.getAddonCombinations() != null)
+            .collect(java.util.stream.Collectors.toMap(PhotoItem::getName, PhotoItem::getAddonCombinations, (a, b) -> a));
+
+        for (PhotoItem item : items) {
+             // Restore addon combinations if existing
+             if (addonsMap.containsKey(item.getName())) {
+                 item.setAddonCombinations(addonsMap.get(item.getName()));
+             }
+             // Ensure prices are not null
+             if (item.getRegularBasePrice() == null) item.setRegularBasePrice(0.0);
+             if (item.getRegularCustomerPrice() == null) item.setRegularCustomerPrice(0.0);
+             if (item.getInstantBasePrice() == null) item.setInstantBasePrice(0.0);
+             if (item.getInstantCustomerPrice() == null) item.setInstantCustomerPrice(0.0);
+        }
+        
+        // Replace all items with new list (which contains merged addon data)
+        photoItemRepository.deleteAll();
         return photoItemRepository.saveAll(items);
     }
     
@@ -81,8 +81,8 @@ public class ConfigurationService {
                         AddonPricingRule rule = new AddonPricingRule();
                         rule.setItem(item.getName());
                         // Handle potential integer/double conversion issues from JSON
-                        rule.setBasePrice(map.get("basePrice") != null ? Integer.parseInt(map.get("basePrice").toString()) : 0);
-                        rule.setCustomerPrice(map.get("customerPrice") != null ? Integer.parseInt(map.get("customerPrice").toString()) : 0);
+                        rule.setBasePrice(map.get("basePrice") != null ? Double.parseDouble(map.get("basePrice").toString()) : 0.0);
+                        rule.setCustomerPrice(map.get("customerPrice") != null ? Double.parseDouble(map.get("customerPrice").toString()) : 0.0);
                         rule.setAddons((List<String>) map.get("addons"));
                         
                         // Generate deterministic synthetic ID based on content
@@ -111,18 +111,24 @@ public class ConfigurationService {
             List<AddonPricingRule> itemRules = rulesByItem.get(item.getName());
             
             if (itemRules != null && !itemRules.isEmpty()) {
-                // Serialize to JSON
+                // Serialize to JSON, strictly enforcing NON-EMPTY addons
                 try {
-                     List<java.util.Map<String, Object>> ruleDtos = itemRules.stream().map(r -> {
-                        java.util.Map<String, Object> dto = new java.util.HashMap<>();
-                        dto.put("addons", r.getAddons());
-                        dto.put("basePrice", r.getBasePrice());
-                        dto.put("customerPrice", r.getCustomerPrice());
-                        return dto;
-                    }).collect(java.util.stream.Collectors.toList());
+                     List<java.util.Map<String, Object>> ruleDtos = itemRules.stream()
+                        .filter(r -> r.getAddons() != null && !r.getAddons().isEmpty())
+                        .map(r -> {
+                            java.util.Map<String, Object> dto = new java.util.HashMap<>();
+                            dto.put("addons", r.getAddons());
+                            dto.put("basePrice", r.getBasePrice());
+                            dto.put("customerPrice", r.getCustomerPrice());
+                            return dto;
+                        }).collect(java.util.stream.Collectors.toList());
                     
-                    String json = jsonMapper.writeValueAsString(ruleDtos);
-                    item.setAddonCombinations(json);
+                    if (!ruleDtos.isEmpty()) {
+                        String json = jsonMapper.writeValueAsString(ruleDtos);
+                        item.setAddonCombinations(json);
+                    } else {
+                        item.setAddonCombinations(null);
+                    }
                 } catch (Exception e) {
                      System.err.println("Failed to serialize rules for " + item.getName());
                 }
@@ -147,7 +153,7 @@ public class ConfigurationService {
     
     public void replaceAllPhotoItems(List<PhotoItem> items) {
         photoItemRepository.deleteAll();
-        photoItemRepository.saveAll(items);
+        savePhotoItems(items); // Use logic
     }
 
     public void replaceAllAddons(List<Addon> addons) {
@@ -181,7 +187,7 @@ public class ConfigurationService {
         if (dto.getPhotoItems() != null) {
             photoItemRepository.deleteAllInBatch();
              dto.getPhotoItems().forEach(item -> item.setId(null));
-            photoItemRepository.saveAll(dto.getPhotoItems());
+            savePhotoItems(dto.getPhotoItems()); // Use logic
         }
         
         // Now apply Pricing Rules

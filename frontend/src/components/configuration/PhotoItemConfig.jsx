@@ -3,13 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Edit2, X } from "lucide-react";
+
 import { configurationService } from "@/services/configurationService";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 export function PhotoItemConfig() {
     // Mock data for now
     const [items, setItems] = useState([]);
     const [newItem, setNewItem] = useState({ name: "", regularBasePrice: "", regularCustomerPrice: "", instantBasePrice: "", instantCustomerPrice: "" });
     const [editingId, setEditingId] = useState(null);
+    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    const showAlert = (title, description) => {
+        setAlertState({ open: true, title, description });
+    };
 
     useEffect(() => {
         loadItems();
@@ -22,8 +29,14 @@ export function PhotoItemConfig() {
 
     const saveItems = async (newItems) => {
         setItems(newItems); // Optimistic update
-        await configurationService.saveItems(newItems);
-        loadItems(); // Refresh to get DB IDs
+        try {
+            await configurationService.saveItems(newItems);
+            loadItems(); // Refresh locally to get DB IDs
+        } catch (e) {
+            console.error(e);
+            showAlert("Save Failed", "Failed to save items. Changes reverted.");
+            loadItems(); // Revert to server state
+        }
     }
 
     const handleSave = () => {
@@ -33,13 +46,14 @@ export function PhotoItemConfig() {
         const nameExists = items.some(item =>
             item.name.toLowerCase() === newItem.name.toLowerCase() && item.id !== editingId
         );
+
         if (nameExists) {
-            alert("Item name must be unique.");
+            showAlert("Duplicate Name", "Item name must be unique.");
             return;
         }
 
         const parsePrice = (val) => {
-            const parsed = parseInt(val, 10);
+            const parsed = parseFloat(val);
             return isNaN(parsed) ? 0 : parsed;
         };
 
@@ -195,6 +209,13 @@ export function PhotoItemConfig() {
                     </TableBody>
                 </Table>
             </div>
-        </div>
+
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
+        </div >
     );
 }
