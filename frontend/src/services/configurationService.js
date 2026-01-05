@@ -41,6 +41,7 @@ export const configurationService = {
             await api.post(ENDPOINTS.ADDONS, cleanAddons);
         } catch (error) {
             console.error("Failed to save addons", error);
+            throw error;
         }
     },
 
@@ -54,7 +55,12 @@ export const configurationService = {
         }
     },
     savePricingRules: async (rules) => {
-        return await api.post("/config/pricing-rules", rules);
+        try {
+            return await api.post("/config/pricing-rules", rules);
+        } catch (error) {
+            console.error("Failed to save pricing rules", error);
+            throw error;
+        }
     },
     getValues: async () => {
         try {

@@ -8,7 +8,6 @@ import lombok.Data;
 @Table(name = "photo_items")
 public class PhotoItem {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String name;
@@ -18,8 +17,11 @@ public class PhotoItem {
     // Legacy price columns removed from DB - removing from Entity to prevent recreation/errors
     
     @com.fasterxml.jackson.annotation.JsonIgnore
-    @Column(name = "addon_combinations", columnDefinition = "TEXT")
-    private String addonCombinations; // Stores JSON array of pricing rules for this item
+    @Column(name = "pricing_configurations", columnDefinition = "TEXT")
+    private String pricingConfigurations; // Stores JSON array of pricing rules for this item
+
+    @Transient
+    private String originalName; // Used for tracking renames during updates
 
     @Column(name = "regular_base_price")
     private Double regularBasePrice;

@@ -86,7 +86,7 @@ export default function Configuration() {
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
-                            <Download className="w-4 h-4" />
+                            <Upload className="w-4 h-4" />
                             Export
                         </Button>
                         <div className="relative">
@@ -97,7 +97,7 @@ export default function Configuration() {
                                 onChange={handleImport}
                             />
                             <Button variant="outline" size="sm" className="gap-2">
-                                <Upload className="w-4 h-4" />
+                                <Download className="w-4 h-4" />
                                 Import
                             </Button>
                         </div>
@@ -113,7 +113,7 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Photo Items Management</h2>
                                 <p className="text-sm text-muted-foreground">Configure base items and their standard rates.</p>
                             </div>
-                            <PhotoItemConfig />
+                            <PhotoItemConfig showAlert={showAlert} />
                         </div>
                     )}
 
@@ -123,7 +123,7 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Addons Management</h2>
                                 <p className="text-sm text-muted-foreground">Define available addons like frames, lamination, etc.</p>
                             </div>
-                            <AddonConfig />
+                            <AddonConfig showAlert={showAlert} />
                         </div>
                     )}
 
@@ -133,7 +133,7 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Addon Pricing Configuration</h2>
                                 <p className="text-sm text-muted-foreground">Set prices for specific combinations of Photo Items and Addons.</p>
                             </div>
-                            <AddonPricingConfig />
+                            <AddonPricingConfig showAlert={showAlert} />
                         </div>
                     )}
 
@@ -143,7 +143,7 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Value Configuration</h2>
                                 <p className="text-sm text-muted-foreground">Manage generic key-value settings.</p>
                             </div>
-                            <ValueConfig />
+                            <ValueConfig showAlert={showAlert} />
                         </div>
                     )}
                 </div>
