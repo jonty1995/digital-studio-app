@@ -9,7 +9,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import com.digitalstudio.app.model.Customer;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -24,12 +27,13 @@ public class CustomerController {
     }
 
     @GetMapping
-    public ResponseEntity<java.util.List<com.digitalstudio.app.model.Customer>> getAllCustomers() {
+    public ResponseEntity<List<Customer>> getAllCustomers() {
         return ResponseEntity.ok(customerService.getAllCustomers());
     }
 
     @GetMapping("/sequence")
-    public ResponseEntity<Map<String, Integer>> getUniqueSequence(@org.springframework.web.bind.annotation.RequestParam String instanceId) {
+    public ResponseEntity<Map<String, Integer>> getUniqueSequence(
+            @org.springframework.web.bind.annotation.RequestParam String instanceId) {
         int sequence = customerService.getNextSequence(instanceId);
         Map<String, Integer> response = new HashMap<>();
         response.put("sequence", sequence);
@@ -37,7 +41,7 @@ public class CustomerController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<com.digitalstudio.app.model.Customer> searchCustomer(@org.springframework.web.bind.annotation.RequestParam String query) {
+    public ResponseEntity<Customer> searchCustomer(@org.springframework.web.bind.annotation.RequestParam String query) {
         return customerService.searchCustomer(query)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { PageHeader } from "./PageHeader";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { configurationService } from "@/services/configurationService";
 import { format } from "date-fns";
 
@@ -107,10 +107,19 @@ export const FilterHeader = ({
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search..."
-                        className="pl-9 h-9"
+                        className="pl-9 pr-8 h-9"
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                     />
+                    {searchQuery && (
+                        <button
+                            onClick={() => onSearchChange("")}
+                            className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground focus:outline-none"
+                            aria-label="Clear search"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
 
                 {/* View Toggle */}

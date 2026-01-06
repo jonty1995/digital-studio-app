@@ -35,25 +35,26 @@ export function AddonPricingConfig() {
     };
 
     const [selectedItem, setSelectedItem] = useState("");
-    const [selectedAddons, setSelectedAddons] = useState([]);
+    const [selectedAddonIds, setSelectedAddonIds] = useState([]);
     const [newPrice, setNewPrice] = useState({ base: "", customer: "" });
     const [editingRuleId, setEditingRuleId] = useState(null);
     const [filterPhotoItem, setFilterPhotoItem] = useState("");
 
     // Auto-populate prices if a rule exists for the selected combination
     useEffect(() => {
-        if (!selectedItem || selectedAddons.length === 0) {
+        if (!selectedItem || selectedAddonIds.length === 0) {
             setNewPrice({ base: "", customer: "" });
             setEditingRuleId(null);
             return;
         }
 
-        // Sort addons to ensure "Frame, Lamination" is treated same as "Lamination, Frame"
-        const sortedSelection = [...selectedAddons].sort().join(",");
+        // Sort IDs numerically
+        const sortedSelection = [...selectedAddonIds].sort((a, b) => a - b).join(",");
 
         const existingRule = pricingRules.find(rule =>
             rule.item === selectedItem &&
-            [...rule.addons].sort().join(",") === sortedSelection
+            rule.addonIds && // rules from backend now have addonIds
+            [...rule.addonIds].sort((a, b) => a - b).join(",") === sortedSelection
         );
 
         if (existingRule) {
@@ -63,27 +64,30 @@ export function AddonPricingConfig() {
             setNewPrice({ base: "", customer: "" });
             setEditingRuleId(null);
         }
-    }, [selectedItem, selectedAddons, pricingRules]);
+    }, [selectedItem, selectedAddonIds, pricingRules]);
 
-    const handleAddonToggle = (addonName) => {
-        if (selectedAddons.includes(addonName)) {
-            setSelectedAddons(selectedAddons.filter(a => a !== addonName));
+    const handleAddonToggle = (addonId) => {
+        if (selectedAddonIds.includes(addonId)) {
+            setSelectedAddonIds(selectedAddonIds.filter(id => id !== addonId));
         } else {
-            setSelectedAddons([...selectedAddons, addonName]);
+            setSelectedAddonIds([...selectedAddonIds, addonId]);
         }
     };
 
     const handleSave = () => {
-        if (!selectedItem || selectedAddons.length === 0 || !newPrice.base || !newPrice.customer) return;
+        if (!selectedItem || selectedAddonIds.length === 0 || !newPrice.base || !newPrice.customer) return;
 
         const parsePrice = (val) => {
             const parsed = parseFloat(val);
             return isNaN(parsed) ? 0 : parsed;
         };
 
+        const resolvedAddons = selectedAddonIds.map(id => addonsStart.find(a => a.id === id)?.name || "Unknown");
+
         const ruleData = {
             item: selectedItem,
-            addons: selectedAddons,
+            addonIds: selectedAddonIds, // Use IDs
+            addons: resolvedAddons, // Provide names for Optimistic UI
             basePrice: parsePrice(newPrice.base),
             customerPrice: parsePrice(newPrice.customer)
         };
@@ -98,14 +102,14 @@ export function AddonPricingConfig() {
 
         // Reset inputs
         setNewPrice({ base: "", customer: "" });
-        setSelectedAddons([]);
+        setSelectedAddonIds([]);
         setSelectedItem("");
         setEditingRuleId(null);
     };
 
     const handleResetForm = () => {
         setSelectedItem("");
-        setSelectedAddons([]);
+        setSelectedAddonIds([]);
         setNewPrice({ base: "", customer: "" });
         setEditingRuleId(null);
     };
@@ -119,7 +123,8 @@ export function AddonPricingConfig() {
 
     const handleEdit = (rule) => {
         setSelectedItem(rule.item);
-        setSelectedAddons(rule.addons);
+        // Use IDs from the rule
+        setSelectedAddonIds(rule.addonIds || []);
         setNewPrice({ base: rule.basePrice, customer: rule.customerPrice });
         setEditingRuleId(rule.id);
         // Ensure the filter doesn't hide the item being edited
@@ -158,8 +163,8 @@ export function AddonPricingConfig() {
                                         <input
                                             type="checkbox"
                                             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary disabled:opacity-50"
-                                            checked={selectedAddons.includes(addon.name)}
-                                            onChange={() => handleAddonToggle(addon.name)}
+                                            checked={selectedAddonIds.includes(addon.id)}
+                                            onChange={() => handleAddonToggle(addon.id)}
                                             disabled={!!editingRuleId}
                                         />
                                         <span>{addon.name}</span>
@@ -252,7 +257,7 @@ export function AddonPricingConfig() {
                                     <TableCell className="font-medium py-2">{rule.item}</TableCell>
                                     <TableCell className="py-2">
                                         <div className="flex gap-1 flex-wrap">
-                                            {rule.addons.map(a => (
+                                            {(rule.addons || []).map(a => (
                                                 <span key={a} className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
                                                     {a}
                                                 </span>

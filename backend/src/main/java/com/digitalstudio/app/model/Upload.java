@@ -5,6 +5,7 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "uploads")
@@ -19,10 +20,10 @@ public class Upload {
     private String originalFilename;
 
     private String uploadedFrom; // e.g., "Photo Order"
-    
+
     // Hash calculation removed
     // private String fileHash;
-    
+
     private Boolean isAvailable; // True if file exists on disk, False if missing
 
     @CreationTimestamp
@@ -33,5 +34,5 @@ public class Upload {
     private LocalDateTime updatedAt;
 
     @Transient
-    private java.util.List<String> customerIds;
+    private List<String> customerIds;
 }

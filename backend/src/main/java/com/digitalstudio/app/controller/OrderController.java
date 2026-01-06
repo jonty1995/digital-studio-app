@@ -7,7 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -31,7 +35,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<PhotoOrder> updateStatus(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+    public ResponseEntity<PhotoOrder> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String newStatus = body.get("status");
         if (newStatus == null) {
             return ResponseEntity.badRequest().build();
@@ -40,31 +44,31 @@ public class OrderController {
     }
 
     @PutMapping("/bulk-status")
-    public ResponseEntity<?> bulkUpdateStatus(@RequestBody java.util.Map<String, Object> body) {
+    public ResponseEntity<?> bulkUpdateStatus(@RequestBody Map<String, Object> body) {
         System.out.println("DEBUG: bulkUpdateStatus Payload: " + body);
         try {
             List<?> idsRaw = (List<?>) body.get("ids");
             String status = (String) body.get("status");
-            
+
             if (idsRaw == null || idsRaw.isEmpty() || status == null) {
                 System.out.println("DEBUG: Missing ids or status");
                 return ResponseEntity.badRequest().body("Missing 'ids' or 'status'");
             }
-            
+
             // Safer conversion: Handle Integer, Long, or whatever Number Jackson gives
             List<Long> ids = idsRaw.stream()
-                .filter(item -> item instanceof Number)
-                .map(item -> ((Number) item).longValue())
-                .collect(java.util.stream.Collectors.toList());
+                    .filter(item -> item instanceof Number)
+                    .map(item -> ((Number) item).longValue())
+                    .collect(Collectors.toList());
 
             if (ids.isEmpty()) {
-                 System.out.println("DEBUG: No valid numeric IDs found");
-                 return ResponseEntity.badRequest().body("No valid numeric IDs found");
+                System.out.println("DEBUG: No valid numeric IDs found");
+                return ResponseEntity.badRequest().body("No valid numeric IDs found");
             }
 
             System.out.println("DEBUG: Updating IDs: " + ids + " to status: " + status);
             orderService.bulkUpdateStatus(ids, status);
-            return ResponseEntity.ok(java.util.Collections.singletonMap("success", true));
+            return ResponseEntity.ok(Collections.singletonMap("success", true));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
@@ -73,14 +77,14 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<org.springframework.data.domain.Page<PhotoOrder>> getAllOrders(
-            @RequestParam(required = false) java.time.LocalDate startDate,
-            @RequestParam(required = false) java.time.LocalDate endDate,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "true") boolean instant,
             @RequestParam(defaultValue = "true") boolean regular,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
+
         // Resolve Type Filter
         Boolean isInstant = null;
         if (instant && !regular) {

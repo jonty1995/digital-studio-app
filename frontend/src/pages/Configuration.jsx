@@ -4,6 +4,7 @@ import { PhotoItemConfig } from "../components/configuration/PhotoItemConfig";
 import { AddonConfig } from "../components/configuration/AddonConfig";
 import { AddonPricingConfig } from "../components/configuration/AddonPricingConfig";
 import { ValueConfig } from "../components/configuration/ValueConfig";
+import { AuditLogs } from "../components/configuration/AuditLogs";
 import { configurationService } from "../services/configurationService";
 import { Download, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -24,6 +25,7 @@ export default function Configuration() {
         { id: "addons", label: "Addons" },
         { id: "pricing", label: "Addon Pricing" },
         { id: "values", label: "Values" },
+        { id: "audit", label: "Audit Trail" },
     ];
 
     const handleExport = async () => {
@@ -144,6 +146,16 @@ export default function Configuration() {
                                 <p className="text-sm text-muted-foreground">Manage generic key-value settings.</p>
                             </div>
                             <ValueConfig showAlert={showAlert} />
+                        </div>
+                    )}
+
+                    {activeTab === "audit" && (
+                        <div className="animate-in slide-in-from-left-4 fade-in duration-300">
+                            <div className="mb-4">
+                                <h2 className="text-lg font-semibold">Configuration Audit Trail</h2>
+                                <p className="text-sm text-muted-foreground">View change history for all configuration items.</p>
+                            </div>
+                            <AuditLogs />
                         </div>
                     )}
                 </div>

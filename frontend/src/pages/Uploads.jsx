@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { FilterHeader, useViewMode } from "../components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter, Copy } from "lucide-react";
+import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
 import { LinkCustomerModal } from "../components/shared/LinkCustomerModal";
 
 import { format } from "date-fns";
@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { SimpleAlert } from "../components/shared/SimpleAlert";
 
 import { FileViewer } from "../components/shared/FileViewer";
+import { CopyButton } from "@/components/shared/CopyButton";
 
 import { configurationService } from "../services/configurationService";
 
@@ -512,19 +513,11 @@ export default function Uploads() {
                                             <TableCell className={`${paddingClass} font-medium font-mono text-xs`}>
                                                 <div className="flex items-center gap-2 group/id">
                                                     {upload.uploadId}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
+                                                    <CopyButton
+                                                        text={upload.uploadId}
                                                         className="h-6 w-6 opacity-0 group-hover/id:opacity-100 transition-opacity"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigator.clipboard.writeText(upload.uploadId);
-                                                            // Optional: Toast or simple visual feedback could be added here
-                                                        }}
                                                         title="Copy Upload ID"
-                                                    >
-                                                        <Copy className="h-3 w-3" />
-                                                    </Button>
+                                                    />
                                                 </div>
                                             </TableCell>
                                             <TableCell className={`${paddingClass} max-w-[200px] truncate`} title={upload.originalFilename}>
@@ -539,8 +532,8 @@ export default function Uploads() {
                                             <TableCell className={paddingClass}>
                                                 {upload.customerIds && upload.customerIds.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {upload.customerIds.map(id => (
-                                                            <Badge key={id} variant="outline" className="text-xs font-mono bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100">
+                                                        {upload.customerIds.map((id, index) => (
+                                                            <Badge key={`${id}-${index}`} variant="outline" className="text-xs font-mono bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100">
                                                                 {id}
                                                             </Badge>
                                                         ))}

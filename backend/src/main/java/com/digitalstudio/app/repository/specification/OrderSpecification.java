@@ -22,12 +22,15 @@ public class OrderSpecification {
                 predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate.atTime(23, 59, 59)));
             }
 
-            // Search (Name or ID)
+            // Search (Customer Name, Customer ID, Order ID, Upload ID)
             if (search != null && !search.trim().isEmpty()) {
                 String searchLike = "%" + search.trim().toLowerCase() + "%";
                 Predicate nameLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("customer").get("name")), searchLike);
-                Predicate idLike = criteriaBuilder.like(root.get("customer").get("id").as(String.class), searchLike);
-                predicates.add(criteriaBuilder.or(nameLike, idLike));
+                Predicate custIdLike = criteriaBuilder.like(root.get("customer").get("id").as(String.class), searchLike);
+                Predicate orderIdLike = criteriaBuilder.like(root.get("orderId").as(String.class), searchLike);
+                Predicate uploadIdLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("uploadId")), searchLike);
+                
+                predicates.add(criteriaBuilder.or(nameLike, custIdLike, orderIdLike, uploadIdLike));
             }
 
             // Instant Filter

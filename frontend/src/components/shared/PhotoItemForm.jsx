@@ -213,7 +213,12 @@ export function PhotoItemForm({ items, setItems }) {
                             onChange={(e) => setNewItem({ ...newItem, type: e.target.value })}
                         >
                             <option value="">Select Photo Item</option>
-                            {(availableItems || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                            {(availableItems || []).map(t => {
+                                const price = newItem.isInstant
+                                    ? (parseFloat(t.instantCustomerPrice) || 0)
+                                    : (parseFloat(t.regularCustomerPrice) || 0);
+                                return <option key={t.id} value={t.name}>{t.name} (₹{price})</option>
+                            })}
                         </select>
                         <Input
                             type="number"
@@ -246,17 +251,30 @@ export function PhotoItemForm({ items, setItems }) {
                                     const allowedAddons = new Set(itemRules.flatMap(r => r.addons));
                                     return allowedAddons.has(addon.name);
                                 })
-                                .map(addon => (
-                                    <label key={addon.id} className="flex items-center space-x-1 text-xs cursor-pointer bg-white border border-green-100 px-2 py-1 rounded-md text-green-800 shadow-sm hover:bg-green-100">
-                                        <input
-                                            type="checkbox"
-                                            checked={newItem.addons.includes(addon.name)}
-                                            onChange={() => toggleNewItemAddon(addon.name)}
-                                            className="rounded border-green-300 text-green-600 focus:ring-green-500 h-3 w-3"
-                                        />
-                                        <span>{addon.name}</span>
-                                    </label>
-                                ))}
+                                .map(addon => {
+                                    // Calculate Price Impact (Option A: Standalone Cost)
+                                    // Use current isInstant setting
+                                    const basePriceOnly = configurationService.calculatePrice(newItem.type, [], newItem.isInstant, true, availableItems, pricingRules);
+                                    const withAddonPrice = configurationService.calculatePrice(newItem.type, [addon.name], newItem.isInstant, true, availableItems, pricingRules);
+                                    const priceDiff = withAddonPrice - basePriceOnly;
+
+                                    return (
+                                        <label key={addon.id} className="flex items-center space-x-1 text-xs cursor-pointer bg-white border border-green-100 px-2 py-1 rounded-md text-green-800 shadow-sm hover:bg-green-100">
+                                            <input
+                                                type="checkbox"
+                                                checked={newItem.addons.includes(addon.name)}
+                                                onChange={() => toggleNewItemAddon(addon.name)}
+                                                className="rounded border-green-300 text-green-600 focus:ring-green-500 h-3 w-3"
+                                            />
+                                            <span>{addon.name}</span>
+                                            {priceDiff > 0 && (
+                                                <span className="text-muted-foreground font-medium ml-1">
+                                                    (+₹{priceDiff})
+                                                </span>
+                                            )}
+                                        </label>
+                                    );
+                                })}
                             {availableAddons.filter(addon => {
                                 const itemRules = pricingRules.filter(r => r.item === newItem.type);
                                 const allowedAddons = new Set(itemRules.flatMap(r => r.addons));

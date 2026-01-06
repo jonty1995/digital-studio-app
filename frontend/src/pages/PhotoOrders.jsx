@@ -14,6 +14,7 @@ import { StatusTimeline } from "@/components/shared/StatusTimeline";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 import { FileViewer } from "../components/shared/FileViewer";
+import { CopyButton } from "@/components/shared/CopyButton";
 
 export default function PhotoOrders() {
     const [orders, setOrders] = useState([]);
@@ -484,7 +485,19 @@ export default function PhotoOrders() {
                                                 {order.customer?.name || "Unknown"}
                                                 {isInstant && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 shadow-sm">Instant</span>}
                                             </TableCell>
-                                            <TableCell className={`${pClass} align-middle text-muted-foreground`}>{order.customer?.id ? order.customer.id : "-"}</TableCell>
+                                            <TableCell className={`${pClass} align-middle text-muted-foreground`}>
+                                                <div className="flex items-center gap-1 group/cid">
+                                                    <span>{order.customer?.id || "-"}</span>
+                                                    {order.customer?.id && (
+                                                        <CopyButton
+                                                            text={order.customer.id}
+                                                            className="h-5 w-5 opacity-0 group-hover/cid:opacity-100 transition-opacity"
+                                                            title="Copy Customer ID"
+                                                            iconClass="text-muted-foreground"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className={`${pClass} align-middle max-w-[200px] text-sm`}>
                                                 <div title={formatItems(order.itemsJson)}>
                                                     {formatItems(order.itemsJson, true)}
@@ -534,7 +547,14 @@ export default function PhotoOrders() {
                                                         {/* Order ID */}
                                                         <div className="flex flex-col gap-1">
                                                             <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Order ID</span>
-                                                            <span className="font-mono text-foreground font-medium">{order.orderId}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono text-foreground font-medium">{order.orderId}</span>
+                                                                <CopyButton
+                                                                    text={order.orderId}
+                                                                    className="h-5 w-5 bg-background border shadow-sm"
+                                                                    title="Copy Order ID"
+                                                                />
+                                                            </div>
                                                         </div>
 
                                                         {/* Upload ID */}
@@ -543,18 +563,11 @@ export default function PhotoOrders() {
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
                                                                 {order.uploadId && (
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-5 w-5 bg-background border shadow-sm" // Slightly visible to encourage use
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            navigator.clipboard.writeText(order.uploadId);
-                                                                        }}
-                                                                        title="Copy"
-                                                                    >
-                                                                        <Copy className="h-3 w-3" />
-                                                                    </Button>
+                                                                    <CopyButton
+                                                                        text={order.uploadId}
+                                                                        className="h-5 w-5 bg-background border shadow-sm"
+                                                                        title="Copy Upload ID"
+                                                                    />
                                                                 )}
                                                             </div>
                                                         </div>
@@ -662,3 +675,5 @@ export default function PhotoOrders() {
         </div>
     );
 }
+
+

@@ -5,8 +5,10 @@ import com.digitalstudio.app.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -21,7 +23,7 @@ public class CustomerService {
     private volatile long lastPrefix = 0;
 
     private long getTodayPrefix() {
-        java.time.LocalDate now = java.time.LocalDate.now();
+        LocalDate now = LocalDate.now();
         String yy = String.format("%02d", now.getYear() % 100);
         String mm = String.format("%02d", now.getMonthValue());
         String dd = String.format("%02d", now.getDayOfMonth());
@@ -30,10 +32,10 @@ public class CustomerService {
 
     public int getNextSequence(String instanceId) {
         long prefix = getTodayPrefix();
-        
+
         // Reset if day changed
         if (prefix != lastPrefix) {
-            synchronized(this) {
+            synchronized (this) {
                 if (prefix != lastPrefix) {
                     currentSequence.set(0);
                     instanceReservations.clear();
@@ -47,7 +49,7 @@ public class CustomerService {
         long end = start + 999;
         Long dbMaxId = customerRepository.findMaxIdInRange(start, end);
         long dbMaxSeq = (dbMaxId != null) ? (dbMaxId % 1000) : 0;
-        
+
         // Ensure memory counter is ahead of DB
         currentSequence.updateAndGet(curr -> Math.max(curr, dbMaxSeq));
 
@@ -69,7 +71,7 @@ public class CustomerService {
         if (instanceId != null) {
             instanceReservations.put(instanceId, newSeq);
         }
-        
+
         return (int) newSeq;
     }
 
@@ -77,7 +79,7 @@ public class CustomerService {
         // Fallback or internal generation
         // Ensure state is synced
         getNextSequence(null);
-        
+
         long prefix = getTodayPrefix();
         long seq = currentSequence.incrementAndGet();
         return (prefix * 1000) + seq;
@@ -87,21 +89,22 @@ public class CustomerService {
         return customerRepository.findAll();
     }
 
-    public java.util.Optional<Customer> searchCustomer(String query) {
-        if (query == null) return java.util.Optional.empty();
+    public Optional<Customer> searchCustomer(String query) {
+        if (query == null)
+            return Optional.empty();
         query = query.trim();
-        
+
         // If 10 digits, search ONLY Mobile
         if (query.matches("\\d{10}")) {
-             return customerRepository.findByMobile(query);
+            return customerRepository.findByMobile(query);
         }
-        
+
         // Otherwise search ID
         try {
             long id = Long.parseLong(query);
             return customerRepository.findById(id);
         } catch (NumberFormatException e) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
     }
 }

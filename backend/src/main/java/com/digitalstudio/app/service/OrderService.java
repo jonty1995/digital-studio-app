@@ -8,8 +8,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+
+import com.digitalstudio.app.dto.PhotoOrderRequest;
+import com.digitalstudio.app.model.Payment;
+import com.digitalstudio.app.repository.PaymentRepository;
+import com.digitalstudio.app.repository.UploadRepository;
+import com.digitalstudio.app.repository.specification.OrderSpecification;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional
@@ -22,20 +35,20 @@ public class OrderService {
     private CustomerRepository customerRepository;
 
     @Autowired
-    private com.digitalstudio.app.repository.PaymentRepository paymentRepository;
+    private PaymentRepository paymentRepository;
 
     @Autowired
-    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private ObjectMapper objectMapper;
 
     @Autowired
     private CustomerService customerService;
 
-    public PhotoOrder saveOrder(com.digitalstudio.app.dto.PhotoOrderRequest request) {
+    public PhotoOrder saveOrder(PhotoOrderRequest request) {
         // 0. Resolve Order (Edit vs New)
         PhotoOrder order = new PhotoOrder();
         boolean isUpdate = false;
         if (request.getOrderId() != null) {
-            java.util.Optional<PhotoOrder> existingOpt = photoOrderRepository.findById(request.getOrderId());
+            Optional<PhotoOrder> existingOpt = photoOrderRepository.findById(request.getOrderId());
             if (existingOpt.isPresent()) {
                 order = existingOpt.get();
                 isUpdate = true;
@@ -50,12 +63,12 @@ public class OrderService {
             String reqId = request.getCustomer().getId();
 
             if (mobile != null && !mobile.trim().isEmpty()) {
-                java.util.Optional<Customer> existing = customerRepository.findByMobile(mobile);
+                Optional<Customer> existing = customerRepository.findByMobile(mobile);
                 if (existing.isPresent()) {
                     customer = existing.get();
                     if (name != null && !name.trim().equals(customer.getName())) {
-                         appendHistory(customer, "Modified", "Name updated: " + customer.getName() + " -> " + name);
-                         customer.setName(name);
+                        appendHistory(customer, "Modified", "Name updated: " + customer.getName() + " -> " + name);
+                        customer.setName(name);
                     }
                 } else {
                     customer = new Customer();
@@ -74,8 +87,8 @@ public class OrderService {
                 if (reqId != null && !reqId.trim().isEmpty()) {
                     try {
                         long idVal = Long.parseLong(reqId);
-                        java.util.Optional<Customer> existing = customerRepository.findById(idVal);
-                        
+                        Optional<Customer> existing = customerRepository.findById(idVal);
+
                         if (existing.isPresent()) {
                             // ID exists: Check for collision (Same Name?)
                             Customer existCust = existing.get();
@@ -102,7 +115,7 @@ public class OrderService {
                         // Invalid format, fall through to generate
                     }
                 }
-                
+
                 if (!idHandled || customer == null) {
                     customer = new Customer();
                     customer.setName(name);
@@ -114,21 +127,21 @@ public class OrderService {
         }
 
         // 2. Payment
-        com.digitalstudio.app.model.Payment payment;
+        Payment payment;
         if (isUpdate && order.getPayment() != null) {
             payment = order.getPayment();
         } else {
-            payment = new com.digitalstudio.app.model.Payment();
-            payment.setPaymentId(System.nanoTime()); 
+            payment = new Payment();
+            payment.setPaymentId(System.nanoTime());
         }
 
         if (request.getPayment() != null) {
             payment.setTotalAmount(request.getPayment().getTotal());
             payment.setDiscountAmount(request.getPayment().getDiscount());
             payment.setAdvanceAmount(request.getPayment().getAdvance());
-            double due = (request.getPayment().getTotal() != null ? request.getPayment().getTotal() : 0) 
-                        - (request.getPayment().getDiscount() != null ? request.getPayment().getDiscount() : 0) 
-                        - (request.getPayment().getAdvance() != null ? request.getPayment().getAdvance() : 0);
+            double due = (request.getPayment().getTotal() != null ? request.getPayment().getTotal() : 0)
+                    - (request.getPayment().getDiscount() != null ? request.getPayment().getDiscount() : 0)
+                    - (request.getPayment().getAdvance() != null ? request.getPayment().getAdvance() : 0);
             payment.setDueAmount(due);
             payment.setPaymentMode(request.getPayment().getMode());
             payment = paymentRepository.save(payment);
@@ -138,8 +151,10 @@ public class OrderService {
         if (!isUpdate) {
             order.setOrderId(System.currentTimeMillis());
         }
-        if (customer != null) order.setCustomer(customer);
-        if (payment != null) order.setPayment(payment);
+        if (customer != null)
+            order.setCustomer(customer);
+        if (payment != null)
+            order.setPayment(payment);
 
         try {
             order.setItemsJson(objectMapper.writeValueAsString(request.getItems()));
@@ -148,11 +163,11 @@ public class OrderService {
         }
 
         order.setDescription(request.getDescription());
-        
+
         boolean instant = false;
         if (request.getItems() != null) {
             instant = request.getItems().stream()
-                .anyMatch(i -> Boolean.TRUE.equals(i.get("isInstant")));
+                    .anyMatch(i -> Boolean.TRUE.equals(i.get("isInstant")));
         }
         order.setIsInstant(instant);
 
@@ -160,12 +175,12 @@ public class OrderService {
         if (request.getStatus() != null && !request.getStatus().isEmpty()) {
             order.setStatus(request.getStatus());
         } else {
-            // Auto logic: If paid fully, mark completed? 
-            // CAUTION: This might be legacy behavior. 
+            // Auto logic: If paid fully, mark completed?
+            // CAUTION: This might be legacy behavior.
             // Ideally new orders should be pending unless explicitly completed.
             order.setStatus((payment != null && payment.getDueAmount() <= 0) ? "Completed" : "Pending");
         }
-        
+
         // Map Image/File ID
         // Map Image/File ID
         order.setUploadId(request.getImage());
@@ -175,20 +190,21 @@ public class OrderService {
 
     private void appendHistory(Customer customer, String action, String details) {
         try {
-            java.util.List<java.util.Map<String, Object>> history;
+            List<Map<String, Object>> history;
             if (customer.getEditHistoryJson() != null && !customer.getEditHistoryJson().isEmpty()) {
-                history = objectMapper.readValue(customer.getEditHistoryJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+                history = objectMapper.readValue(customer.getEditHistoryJson(), new TypeReference<>() {
+                });
             } else {
-                history = new java.util.ArrayList<>();
+                history = new ArrayList<>();
             }
-            
-            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+
+            Map<String, Object> entry = new HashMap<>();
             entry.put("action", action);
             entry.put("details", details);
-            entry.put("timestamp", java.time.LocalDateTime.now().toString());
-            
+            entry.put("timestamp", LocalDateTime.now().toString());
+
             history.add(0, entry); // Add to top
-            
+
             customer.setEditHistoryJson(objectMapper.writeValueAsString(history));
         } catch (Exception e) {
             System.err.println("Error appending history: " + e.getMessage());
@@ -196,12 +212,15 @@ public class OrderService {
     }
 
     @Autowired
-    private com.digitalstudio.app.repository.UploadRepository uploadRepository;
+    private UploadRepository uploadRepository;
 
-    public org.springframework.data.domain.Page<PhotoOrder> getAllOrders(java.time.LocalDate startDate, java.time.LocalDate endDate, String search, Boolean isInstant, int page, int size) {
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAt").descending());
-        org.springframework.data.domain.Page<PhotoOrder> orderPage = photoOrderRepository.findAll(com.digitalstudio.app.repository.specification.OrderSpecification.filterOrders(startDate, endDate, search, isInstant), pageable);
-        
+    public org.springframework.data.domain.Page<PhotoOrder> getAllOrders(LocalDate startDate, LocalDate endDate,
+            String search, Boolean isInstant, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size,
+                org.springframework.data.domain.Sort.by("createdAt").descending());
+        org.springframework.data.domain.Page<PhotoOrder> orderPage = photoOrderRepository
+                .findAll(OrderSpecification.filterOrders(startDate, endDate, search, isInstant), pageable);
+
         // Dynamic Extension Fix & Original Filename Population
         for (PhotoOrder order : orderPage.getContent()) {
             String currentUploadId = order.getUploadId();
@@ -217,7 +236,7 @@ public class OrderService {
                 uploadRepository.findById(finalRawId).ifPresent(upload -> {
                     // Populate Original Filename
                     order.setOriginalFilename(upload.getOriginalFilename());
-                    
+
                     // Fix Extension if missing in Order but present in Upload
                     if (!currentUploadId.contains(".") && upload.getExtension() != null) {
                         order.setUploadId(currentUploadId + upload.getExtension());
@@ -225,35 +244,39 @@ public class OrderService {
                 });
             }
         }
-        
+
         return orderPage;
     }
 
     public PhotoOrder updateStatus(Long orderId, String newStatus) {
         PhotoOrder order = photoOrderRepository.findById(orderId)
-            .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new RuntimeException("Order not found"));
 
         String oldStatus = order.getStatus();
-        
+
         // Append to History
         try {
-            java.util.List<java.util.Map<String, Object>> history;
+            List<Map<String, Object>> history;
             if (order.getStatusHistoryJson() != null && !order.getStatusHistoryJson().isEmpty()) {
-                history = objectMapper.readValue(order.getStatusHistoryJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+                history = objectMapper.readValue(order.getStatusHistoryJson(), new TypeReference<>() {
+                });
             } else {
-                history = new java.util.ArrayList<>();
-                // If initializing history for the first time, maybe we should add the *original* creation event?
+                history = new ArrayList<>();
+                // If initializing history for the first time, maybe we should add the
+                // *original* creation event?
                 // But for now, let's just assume list is empty.
-                // Or better, if it's empty, and we are changing status, we assume previous was "Pending" at createdAt.
+                // Or better, if it's empty, and we are changing status, we assume previous was
+                // "Pending" at createdAt.
             }
 
-            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            Map<String, Object> entry = new HashMap<>();
             entry.put("status", newStatus);
-            entry.put("timestamp", java.time.LocalDateTime.now().toString());
-            // entry.put("previousStatus", oldStatus); // Optional, but usually list order is enough
-            
+            entry.put("timestamp", LocalDateTime.now().toString());
+            // entry.put("previousStatus", oldStatus); // Optional, but usually list order
+            // is enough
+
             history.add(entry); // Add to end (Chronological)
-            
+
             order.setStatusHistoryJson(objectMapper.writeValueAsString(history));
         } catch (Exception e) {
             System.err.println("Error updating status history: " + e.getMessage());
@@ -262,6 +285,7 @@ public class OrderService {
         order.setStatus(newStatus);
         return photoOrderRepository.save(order);
     }
+
     public void bulkUpdateStatus(List<Long> ids, String newStatus) {
         for (Long id : ids) {
             updateStatus(id, newStatus);

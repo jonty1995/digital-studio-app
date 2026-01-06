@@ -17,9 +17,8 @@ export const configurationService = {
         }
     },
     saveItems: async (items) => {
-        const cleanItems = items.map(i => ({ ...i, id: null }));
         try {
-            await api.post(ENDPOINTS.ITEMS, cleanItems);
+            await api.post(ENDPOINTS.ITEMS, items);
         } catch (error) {
             console.error("Failed to save items", error);
             throw error; // Re-throw to allow component handling
@@ -36,9 +35,8 @@ export const configurationService = {
         }
     },
     saveAddons: async (addons) => {
-        const cleanAddons = addons.map(a => ({ ...a, id: null }));
         try {
-            await api.post(ENDPOINTS.ADDONS, cleanAddons);
+            await api.post(ENDPOINTS.ADDONS, addons);
         } catch (error) {
             console.error("Failed to save addons", error);
             throw error;
@@ -76,6 +74,16 @@ export const configurationService = {
     },
     importFull: async (data) => {
         return await api.post("/config/full", data);
+    },
+    getAuditLogs: async (params) => {
+        try {
+            const query = new URLSearchParams(params).toString();
+            const response = await api.get(`/audit?${query}`);
+            return Array.isArray(response) ? response : [];
+        } catch (error) {
+            console.error("Failed to fetch audit logs", error);
+            return [];
+        }
     },
 
     // Helper to calculate price (Synchronous helper relying on loaded data? No, data is async now.)
