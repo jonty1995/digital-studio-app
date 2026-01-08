@@ -3,12 +3,12 @@ import Layout from "./Layout"
 
 import PhotoOrders from "./pages/PhotoOrders"
 import Configuration from "./pages/Configuration"
+import BillPayment from "./pages/BillPayment"
 
 import Customers from "./pages/Customers"
 import Uploads from "./pages/Uploads"
 
-// Placeholders
-const BillPayment = () => <div className="p-4"><h1 className="text-2xl font-bold">Bill Payment</h1></div>
+<Route path="bill-payment" element={<BillPayment />} />
 
 function App() {
   return (

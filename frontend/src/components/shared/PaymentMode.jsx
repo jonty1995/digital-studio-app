@@ -10,8 +10,29 @@ export function PaymentMode({ payment, setPayment, minAdvance }) {
 
     const handleChange = (e) => {
         const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-        setPayment({ ...payment, [e.target.name]: val })
+        setPayment(prev => ({ ...prev, [e.target.name]: val }))
     }
+
+    // Auto-populate advance with total (which is passed as minAdvance usually)
+    // This allows reusability: if parent passes minAdvance, we can default advance to it.
+    /* 
+       User Request: "populate the amount to min field... logic should be in payment component" 
+       Interpreted as: When Total changes, Advance should update to match it (Full Payment Default).
+    */
+    // useEffect(() => {
+    //     if (payment.total > 0 && (!payment.advance || payment.advance === 0)) {
+    //          setPayment(prev => ({ ...prev, advance: payment.total }));
+    //     }
+    // }, [payment.total]); 
+    // Wait, infinite loop risk if setPayment triggers prop update. 
+    // And 'payment.total' comes from 'payment' prop. 
+    // If I update 'payment', parent updates 'payment', effect runs again.
+    // Safe if guarded.
+
+    // BUT, BillPaymentModal ALREADY does this at line 50. 
+    // "Min: ₹" label not populating was due to missing prop.
+    // I will stick to fixing the prop first.
+
 
     const modes = [
         { id: "Cash", label: "Cash", icon: IndianRupee },

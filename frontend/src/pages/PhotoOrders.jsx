@@ -376,7 +376,7 @@ export default function PhotoOrders() {
                                     Name <SortIcon column="customer.name" />
                                 </TableHead>
                                 <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('customer.id')}>
-                                    ID <SortIcon column="customer.id" />
+                                    Customer ID <SortIcon column="customer.id" />
                                 </TableHead>
                                 <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Items</TableHead>
                                 <TableHead className={`text-right cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('total')}>

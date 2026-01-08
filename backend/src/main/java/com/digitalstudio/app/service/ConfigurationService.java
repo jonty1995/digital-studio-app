@@ -1,7 +1,7 @@
 package com.digitalstudio.app.service;
 
 import com.digitalstudio.app.model.Addon;
-import com.digitalstudio.app.model.AddonPricingRule;
+import com.digitalstudio.app.dto.AddonPricingRule;
 import com.digitalstudio.app.model.PhotoItem;
 
 import com.digitalstudio.app.repository.AddonRepository;

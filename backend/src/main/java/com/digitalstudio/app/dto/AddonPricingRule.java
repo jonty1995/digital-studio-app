@@ -1,4 +1,4 @@
-package com.digitalstudio.app.model;
+package com.digitalstudio.app.dto;
 
 import lombok.Data;
 import java.util.List;
