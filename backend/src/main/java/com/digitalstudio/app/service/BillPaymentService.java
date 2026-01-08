@@ -19,8 +19,11 @@ public class BillPaymentService {
     @Autowired
     private CustomerRepository customerRepository;
 
+    @Autowired
+    private CustomerService customerService;
+
     public Page<BillPaymentTransaction> getAllTransactions(java.time.LocalDate startDate, java.time.LocalDate endDate,
-            String search, int page, int size) {
+            String search, java.util.List<String> transactionTypes, int page, int size) {
         org.springframework.data.jpa.domain.Specification<BillPaymentTransaction> spec = (root, query, cb) -> {
             java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
 
@@ -29,6 +32,13 @@ public class BillPaymentService {
             }
             if (endDate != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDate.atTime(23, 59, 59)));
+            }
+
+            if (transactionTypes != null && !transactionTypes.isEmpty()) {
+                java.util.List<String> validTypes = transactionTypes.stream()
+                        .map(String::toUpperCase)
+                        .collect(java.util.stream.Collectors.toList());
+                predicates.add(root.get("transactionType").as(String.class).in(validTypes));
             }
 
             if (search != null && !search.isEmpty()) {
@@ -54,37 +64,66 @@ public class BillPaymentService {
     }
 
     public BillPaymentTransaction createTransaction(BillPaymentTransaction transaction) {
-        if (transaction.getCustomer() != null && transaction.getCustomer().getId() != null) {
-            Customer existingCustomer = customerRepository.findById(transaction.getCustomer().getId())
-                    .orElse(null);
-            if (existingCustomer != null) {
-                transaction.setCustomer(existingCustomer);
-            }
+        // Generate Payment ID manually (Timestamp based)
+        if (transaction.getPayment() != null && transaction.getPayment().getPaymentId() == null) {
+            transaction.getPayment().setPaymentId(System.currentTimeMillis());
         }
-        // If customer is new/transient, we might need to save it first or let cascade
-        // handle it if configured.
-        // Assuming customer is selected from existing or handled by frontend sending a
-        // saved customer.
-        // For simplicity, we assume the frontend sends a valid customer object or ID.
-        // If the customer object in transaction has no ID but has mobile/name, we
-        // should probably save it?
-        // Let's stick to the pattern:
-        // Check if customer exists by mobile number (if provided)
 
         if (transaction.getCustomer() != null) {
             Customer payloadCustomer = transaction.getCustomer();
-            if (payloadCustomer.getId() == null && payloadCustomer.getMobile() != null) {
-                Customer existing = customerRepository.findByMobile(payloadCustomer.getMobile()).orElse(null);
-                if (existing != null) {
-                    transaction.setCustomer(existing);
+            if (payloadCustomer.getId() == null) {
+                // Determine if this is a new customer or existing by mobile
+                if (payloadCustomer.getMobile() != null && !payloadCustomer.getMobile().isEmpty()) {
+                    Customer existing = customerRepository.findByMobile(payloadCustomer.getMobile()).orElse(null);
+                    if (existing != null) {
+                        transaction.setCustomer(existing);
+                    } else {
+                        // Safe to save new customer with Manual ID
+                        Long newId = customerService.generateNewCustomerId();
+                        payloadCustomer.setId(newId);
+                        transaction.setCustomer(customerRepository.save(payloadCustomer));
+                    }
                 } else {
-                    // Save new customer
+                    // No ID, No Mobile -> Save as new (likely incomplete but safe for persistence)
+                    Long newId = customerService.generateNewCustomerId();
+                    payloadCustomer.setId(newId);
                     transaction.setCustomer(customerRepository.save(payloadCustomer));
                 }
-            } else if (payloadCustomer.getId() != null) {
-                // Ensure it's attached
-                transaction.setCustomer(customerRepository.findById(payloadCustomer.getId()).orElse(payloadCustomer));
+            } else {
+                // ID provided, ensure it's attached
+                transaction.setCustomer(customerRepository.findById(payloadCustomer.getId()).orElseGet(() -> {
+                    // Fallback: If ID provided but not found (rare), treat as new with new ID
+                    Long newId = customerService.generateNewCustomerId();
+                    payloadCustomer.setId(newId);
+                    return customerRepository.save(payloadCustomer);
+                }));
             }
+        }
+
+        return billPaymentRepository.save(transaction);
+    }
+
+    public BillPaymentTransaction updateStatus(Long id, String status) {
+        BillPaymentTransaction transaction = billPaymentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+
+        String oldStatus = transaction.getStatus();
+        transaction.setStatus(status);
+
+        // Update History
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                .ofPattern("yyyy-MM-dd HH:mm:ss");
+        String timestamp = java.time.LocalDateTime.now().format(formatter);
+        String historyEntry = String.format("{\"from\": \"%s\", \"to\": \"%s\", \"timestamp\": \"%s\"}", oldStatus,
+                status, timestamp);
+
+        String currentHistory = transaction.getStatusHistoryJson();
+        if (currentHistory == null || currentHistory.isEmpty()) {
+            transaction.setStatusHistoryJson("[" + historyEntry + "]");
+        } else {
+            // Append to existing array (remove trailing bracket)
+            transaction.setStatusHistoryJson(
+                    currentHistory.substring(0, currentHistory.length() - 1) + "," + historyEntry + "]");
         }
 
         return billPaymentRepository.save(transaction);

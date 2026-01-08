@@ -20,13 +20,21 @@ public class BillPaymentController {
             @RequestParam(required = false) java.time.LocalDate startDate,
             @RequestParam(required = false) java.time.LocalDate endDate,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) java.util.List<String> types,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(billPaymentService.getAllTransactions(startDate, endDate, search, page, size));
+        return ResponseEntity.ok(billPaymentService.getAllTransactions(startDate, endDate, search, types, page, size));
     }
 
     @PostMapping
     public ResponseEntity<BillPaymentTransaction> createTransaction(@RequestBody BillPaymentTransaction transaction) {
         return ResponseEntity.ok(billPaymentService.createTransaction(transaction));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<BillPaymentTransaction> updateStatus(@PathVariable Long id, @RequestBody String status) {
+        // Status may be sent as plain string or JSON string, ensure it's clean
+        String cleanStatus = status.replaceAll("^\"|\"$", "");
+        return ResponseEntity.ok(billPaymentService.updateStatus(id, cleanStatus));
     }
 }

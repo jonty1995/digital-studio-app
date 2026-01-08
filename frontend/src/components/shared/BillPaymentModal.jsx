@@ -26,6 +26,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
 
     // Payment State (Reused Component)
     const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+    const [uploadId, setUploadId] = useState(null);
 
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
 
@@ -77,28 +78,47 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
             showAlert("Missing Amount", "Amount is required.");
             return;
         }
-        if (activeTab === 'ELECTRICITY' && (!transactionDetails.operator || !transactionDetails.referenceId)) {
-            showAlert("Missing Details", "Operator and Consumer ID are required.");
-            return;
+        if (activeTab === 'ELECTRICITY') {
+            if (!transactionDetails.operator || !transactionDetails.billId) {
+                showAlert("Missing Details", "Operator and Consumer ID are required.");
+                return;
+            }
+            if (transactionDetails.operator === "CESC" && transactionDetails.billId.length !== 11) {
+                showAlert("Invalid ID", "CESC Consumer ID must be exactly 11 digits.");
+                return;
+            }
         }
-        if ((activeTab === 'MOBILE' || activeTab === 'DTH') && (!transactionDetails.operator || !transactionDetails.referenceId)) {
-            showAlert("Missing Details", "Operator and Reference ID are required.");
+        if ((activeTab === 'MOBILE' || activeTab === 'DTH') && (!transactionDetails.operator || !transactionDetails.billId)) {
+            showAlert("Missing Details", "Operator and ID/Number are required.");
             return;
         }
 
         const payload = {
             transactionType: activeTab,
-            customer: customer, // Backend handles saving/linking
+            customer: {
+                id: customer.id && customer.id.length > 5 ? customer.id : null,
+                name: customer.name,
+                mobile: customer.mobile
+            },
             operator: transactionDetails.operator,
-            referenceId: transactionDetails.referenceId,
+            billId: transactionDetails.billId,
             billCustomerName: transactionDetails.billCustomerName,
-            amount: parseFloat(transactionDetails.amount),
-            paymentMode: payment.mode
+            status: transactionDetails.status,
+            uploadId: (uploadId && typeof uploadId === 'string') ? uploadId : null,
+            payment: {
+                paymentMode: payment.mode,
+                totalAmount: parseFloat(payment.total) || 0,
+                advanceAmount: parseFloat(payment.total) || 0,
+                amountPaid: parseFloat(payment.advance) || 0,
+                discountAmount: parseFloat(payment.discount) || 0,
+                dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
+            }
         };
 
+        const fileToUpload = (uploadId instanceof File) ? uploadId : null;
         try {
-            await billPaymentService.create(payload);
-            onSave();
+            await onSave(payload, fileToUpload);
+            // onSave(); Removed redundant call
             onClose();
         } catch (error) {
             console.error(error);
@@ -128,8 +148,12 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                             <Label>Consumer ID</Label>
                             <Input
                                 value={transactionDetails.billId}
-                                onChange={(e) => setTransactionDetails({ ...transactionDetails, billId: e.target.value })}
-                                placeholder="Example: 123456789"
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    if (transactionDetails.operator === "CESC" && val.length > 11) return;
+                                    setTransactionDetails({ ...transactionDetails, billId: val });
+                                }}
+                                placeholder="Consumer ID"
                             />
                         </div>
                         <div className="space-y-2">
@@ -173,8 +197,8 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                         <div className="space-y-2">
                             <Label>Mobile Number</Label>
                             <Input
-                                value={transactionDetails.referenceId}
-                                onChange={(e) => setTransactionDetails({ ...transactionDetails, referenceId: e.target.value })}
+                                value={transactionDetails.billId}
+                                onChange={(e) => setTransactionDetails({ ...transactionDetails, billId: e.target.value })}
                                 placeholder="10-digit Number"
                                 maxLength={10}
                             />

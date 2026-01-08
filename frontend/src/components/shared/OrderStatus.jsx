@@ -21,7 +21,7 @@ export const getStatusColor = (status) => {
         case "Processing": return "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200";
         case "Lab Received": return "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200";
         case "Delivered": return "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200";
-        case "Discarded": return "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200 decoration-slice line-through";
+        case "Discard": return "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200 decoration-slice line-through";
         default: return "";
     }
 };
@@ -47,15 +47,15 @@ export const getNextAutoStatus = (status, isInstant) => {
 export const getAvailableTransitions = (status, isInstant) => {
     if (status === "Pending") {
         return isInstant
-            ? ["Processing", "Discarded"]
-            : ["Lab Processing", "Discarded"];
+            ? ["Processing", "Discard"]
+            : ["Lab Processing", "Discard"];
     }
     if (status === "Lab Processing") return ["Lab Received"];
     if (status === "Lab Received") return ["Delivered"];
     if (status === "Processing") return ["Delivered"];
 
     // Terminal -> Rollback
-    if (status === "Delivered" || status === "Discarded") return ["Pending"];
+    if (status === "Delivered" || status === "Discard") return ["Pending"];
 
     return [];
 };
@@ -94,7 +94,7 @@ export function OrderStatus({ order, onUpdate }) {
 
         if (currentStatus === "Pending") {
             setShowPendingModal(true);
-        } else if (currentStatus === "Delivered" || currentStatus === "Discarded") {
+        } else if (currentStatus === "Delivered" || currentStatus === "Discard") {
             setShowRollbackAlert(true);
         } else {
             const next = getNextAutoStatus(currentStatus, isInstant);
@@ -133,7 +133,7 @@ export function OrderStatus({ order, onUpdate }) {
                         <Button
                             variant="destructive"
                             className="flex-1 max-w-[150px]"
-                            onClick={() => handleStatusUpdate("Discarded")}
+                            onClick={() => handleStatusUpdate("Discard")}
                             disabled={isLoading}
                         >
                             Discard
