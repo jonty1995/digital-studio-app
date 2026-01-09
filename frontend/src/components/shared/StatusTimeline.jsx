@@ -25,10 +25,10 @@ export function StatusTimeline({ order }) {
         ];
     }
 
-    // Special Case: Discarded (Replace the rest of the flow or show as terminal?)
+    // Special Case: Discard (Replace the rest of the flow or show as terminal?)
     // If currently Discarded, we might want to show Pending -> Discarded
     // If currently Discard, we might want to show Pending -> Discard
-    if (currentStatus === 'Discard') {
+    if (currentStatus === 'Discard' || currentStatus === 'Discarded') {
         steps = [
             { id: 'Pending', label: 'Pending', icon: ClipboardList },
             { id: 'Discard', label: 'Discard', icon: Trash2, isDestructive: true },

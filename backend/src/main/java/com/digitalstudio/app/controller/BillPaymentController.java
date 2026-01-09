@@ -37,4 +37,10 @@ public class BillPaymentController {
         String cleanStatus = status.replaceAll("^\"|\"$", "");
         return ResponseEntity.ok(billPaymentService.updateStatus(id, cleanStatus));
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<BillPaymentTransaction> updateTransaction(@PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> updates) {
+        return ResponseEntity.ok(billPaymentService.updateTransaction(id, updates));
+    }
 }

@@ -11,14 +11,11 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -26,7 +23,9 @@ import com.digitalstudio.app.model.PhotoOrder;
 import com.digitalstudio.app.model.Upload;
 import com.digitalstudio.app.repository.PhotoOrderRepository;
 import com.digitalstudio.app.repository.UploadRepository;
+import com.digitalstudio.app.repository.CustomerRepository;
 import com.digitalstudio.app.service.ConfigurationService;
+import com.digitalstudio.app.model.Customer;
 
 @RestController
 @RequestMapping("/api/files")
@@ -38,6 +37,9 @@ public class FileController {
 
     @Autowired
     private UploadRepository uploadRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
 
     private String getUploadDir() {
         String path = configurationService.getValue("STORAGE_PATH");
@@ -53,62 +55,109 @@ public class FileController {
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file,
             @RequestParam(value = "source", required = false) String source) {
-        try {
-            String uploadDir = getUploadDir();
-            // Ensure directory exists
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
+
+        int maxRetries = 5;
+        int currentAttempt = 0;
+        Exception lastException = null;
+
+        while (currentAttempt < maxRetries) {
+            currentAttempt++;
+            try {
+                String uploadDir = getUploadDir();
+                // Ensure directory exists
+                File dir = new File(uploadDir);
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+
+                // Generate Generated ID: FYYMMDDNNN
+                // We move generation INSIDE the loop to get a fresh ID on retry
+                String generatedId = generateFileId();
+
+                // Extension
+                String originalName = file.getOriginalFilename();
+                String ext = "";
+                if (originalName != null && originalName.lastIndexOf(".") != -1) {
+                    ext = originalName.substring(originalName.lastIndexOf("."));
+                }
+
+                String finalFilename = generatedId + ext;
+                Path path = Paths.get(uploadDir + finalFilename);
+
+                // Save to DB Object first
+                Upload upload = new Upload();
+                upload.setUploadId(generatedId);
+                upload.setOriginalFilename(originalName);
+                upload.setExtension(ext);
+                upload.setUploadPath(path.toString());
+                upload.setIsAvailable(true); // Default to true as we write file immediately
+
+                // Resolve Source Type
+                if (source != null) {
+                    com.digitalstudio.app.model.SourceType sourceType = com.digitalstudio.app.model.SourceType
+                            .fromString(source);
+                    if (sourceType == null) {
+                        try {
+                            sourceType = com.digitalstudio.app.model.SourceType
+                                    .valueOf(source.toUpperCase().replace(" ", "_"));
+                        } catch (IllegalArgumentException e) {
+                        }
+                    }
+                    upload.setUploadedFrom(sourceType);
+                }
+
+                // Attempt to Save DB -> This might throw ConstraintViolation if ID exists
+                uploadRepository.save(upload);
+
+                // If DB Save succeeds, Write File
+                // (We do this AFTER DB save or concurrently, but if DB fails we don't want
+                // orphan file efficiently.
+                // However, we need 'path' for DB.
+                // Optimally: Write File -> Save DB. If DB error (duplicate), delete file?
+                // Or: Random ID? No, sequential.
+                // If we Save DB first, we reserve the ID. Then we write file.
+                // If write fails, we should delete DB entry?
+                // Actually, existing logic wrote file first.
+                // Problem: If we write file F...014, then DB fail, we have orphan 014 file.
+                // Next retry gets 015.
+                // Orphan 014 is acceptable garbage or we can try to delete it in catch.
+
+                Files.write(path, file.getBytes());
+
+                // Response
+                Map<String, String> response = new HashMap<>();
+                response.put("filename", finalFilename);
+                response.put("uploadId", generatedId + ext);
+                response.put("originalName", originalName);
+                response.put("path", path.toString());
+
+                return ResponseEntity.ok(response);
+
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                // Duplicate Key -> Retry
+                lastException = e;
+                System.out.println("Duplicate Upload ID encountered (Attempt " + currentAttempt + "). Retrying...");
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException ie) {
+                }
+                continue;
+            } catch (RuntimeException e) {
+                if ("STORAGE_PATH_NOT_CONFIGURED".equals(e.getMessage())) {
+                    return ResponseEntity.status(503).body(Map.of("error", "STORAGE_PATH_NOT_CONFIGURED"));
+                }
+                e.printStackTrace();
+                return ResponseEntity.status(500).body(Map.of("error", "Failed to upload: " + e.getMessage()));
+            } catch (Throwable e) {
+                e.printStackTrace();
+                return ResponseEntity.status(500)
+                        .body(Map.of("error", "Failed to upload (Critical): " + e.getMessage()));
             }
-
-            // Generate Generated ID: FYYMMDDNNN
-            String generatedId = generateFileId();
-
-            // Extension
-            String originalName = file.getOriginalFilename();
-            String ext = "";
-            if (originalName != null && originalName.lastIndexOf(".") != -1) {
-                ext = originalName.substring(originalName.lastIndexOf("."));
-            }
-
-            String finalFilename = generatedId + ext;
-
-            // Save File
-            Path path = Paths.get(uploadDir + finalFilename);
-            Files.write(path, file.getBytes());
-
-            // Save to DB
-            Upload upload = new Upload();
-            upload.setUploadId(generatedId);
-            upload.setOriginalFilename(originalName);
-            upload.setExtension(ext);
-            upload.setUploadPath(path.toString());
-            upload.setUploadedFrom(source);
-
-            // Hash calculation removed (Reverted)
-            // upload.setFileHash("0");
-
-            uploadRepository.save(upload);
-
-            // Response
-            Map<String, String> response = new HashMap<>();
-            response.put("filename", finalFilename);
-            response.put("uploadId", generatedId + ext); // Return ID + Ext for frontend detection
-            response.put("originalName", originalName);
-            response.put("path", path.toString());
-
-            return ResponseEntity.ok(response);
-
-        } catch (RuntimeException e) {
-            if ("STORAGE_PATH_NOT_CONFIGURED".equals(e.getMessage())) {
-                return ResponseEntity.status(503).body(Map.of("error", "STORAGE_PATH_NOT_CONFIGURED"));
-            }
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to upload: " + e.getMessage()));
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to upload: " + e.getMessage()));
         }
+
+        return ResponseEntity.status(500)
+                .body(Map.of("error", "Failed to generate unique ID after retries. Last Error: "
+                        + (lastException != null ? lastException.getMessage() : "Unknown")));
     }
 
     @GetMapping("/{filename:.+}")
@@ -171,6 +220,13 @@ public class FileController {
         List<Upload> uploads = uploadRepository.findAll();
 
         for (Upload u : uploads) {
+            // Optimization: If previously checked and missing, assume lost forever per user
+            // request
+            if (Boolean.FALSE.equals(u.getIsAvailable())) {
+                missingCount++;
+                continue;
+            }
+
             try {
                 Path path = Paths.get(u.getUploadPath());
                 boolean exists = Files.exists(path);
@@ -194,6 +250,12 @@ public class FileController {
                 "total", uploads.size()));
     }
 
+    @Autowired
+    private com.digitalstudio.app.repository.BillPaymentRepository billPaymentRepository;
+
+    @Autowired
+    private com.digitalstudio.app.service.FileCleanupService fileCleanupService;
+
     @GetMapping
     public List<Upload> getAllUploads() {
         List<Upload> uploads = uploadRepository.findAll(org.springframework.data.domain.Sort
@@ -201,10 +263,12 @@ public class FileController {
 
         // Fetch all orders to link customers
         List<PhotoOrder> orders = photoOrderRepository.findAll();
+        List<com.digitalstudio.app.model.BillPaymentTransaction> billPayments = billPaymentRepository.findAll();
 
         // Map UploadID -> List of Customer IDs
         Map<String, List<String>> uploadCustomerMap = new HashMap<>();
 
+        // 1. Link Photo Orders
         for (PhotoOrder order : orders) {
             String uId = order.getUploadId();
             if (uId != null && order.getCustomer() != null && order.getCustomer().getId() != null) {
@@ -218,10 +282,28 @@ public class FileController {
             }
         }
 
+        // 2. Link Bill Payments
+        for (com.digitalstudio.app.model.BillPaymentTransaction bp : billPayments) {
+            String uId = bp.getUploadId();
+            if (uId != null && bp.getCustomer() != null && bp.getCustomer().getId() != null) {
+                // Strip extension if present
+                if (uId.contains(".")) {
+                    uId = uId.substring(0, uId.lastIndexOf("."));
+                }
+                uploadCustomerMap.computeIfAbsent(uId, k -> new ArrayList<>())
+                        .add(String.valueOf(bp.getCustomer().getId()));
+            }
+        }
+
         // Populate transient field
         for (Upload upload : uploads) {
             List<String> ids = uploadCustomerMap.getOrDefault(upload.getUploadId(), new ArrayList<>());
-            upload.setCustomerIds(ids);
+            // Add Direct Link
+            if (upload.getLinkedCustomer() != null) {
+                ids.add(String.valueOf(upload.getLinkedCustomer().getId()));
+            }
+            // Dedup
+            upload.setCustomerIds(ids.stream().distinct().collect(java.util.stream.Collectors.toList()));
         }
 
         return uploads;
@@ -234,6 +316,8 @@ public class FileController {
                     Map<String, String> response = new HashMap<>();
                     response.put("filename", upload.getUploadId() + upload.getExtension());
                     response.put("uploadId", upload.getUploadId() + upload.getExtension()); // Return ID + Ext
+                    response.put("source",
+                            upload.getUploadedFrom() != null ? upload.getUploadedFrom().getDisplayName() : null);
                     return ResponseEntity.ok(response);
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -264,5 +348,96 @@ public class FileController {
         }
 
         return prefix + "001";
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteFile(@PathVariable String id, @RequestParam(required = false) String remarks) {
+        try {
+            // Strip extension if present to match DB ID
+            if (id.contains(".")) {
+                id = id.substring(0, id.lastIndexOf("."));
+            }
+
+            Optional<Upload> uploadOpt = uploadRepository.findById(id);
+            if (uploadOpt.isPresent()) {
+                Upload upload = uploadOpt.get();
+
+                // Soft Delete Logic via Service
+                fileCleanupService.markSoftDeletedByUser(upload, remarks);
+
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to delete file: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/recover/{id}")
+    public ResponseEntity<?> recoverFile(@PathVariable String id, @RequestParam(required = false) String remarks) {
+        try {
+            if (id.contains(".")) {
+                id = id.substring(0, id.lastIndexOf("."));
+            }
+
+            Optional<Upload> uploadOpt = uploadRepository.findById(id);
+            if (uploadOpt.isPresent()) {
+                Upload upload = uploadOpt.get();
+
+                if (!upload.isMarkDeleted()) {
+                    return ResponseEntity.badRequest().body("File is not marked for deletion.");
+                }
+
+                fileCleanupService.recoverFile(upload, remarks);
+
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to recover file: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/link")
+    public ResponseEntity<?> linkFile(@RequestBody Map<String, Object> payload) {
+        try {
+            String uploadId = (String) payload.get("uploadId");
+            // Handle ID extraction if needed (remove extension)
+            if (uploadId != null && uploadId.contains(".")) {
+                uploadId = uploadId.substring(0, uploadId.lastIndexOf("."));
+            }
+
+            Object custIdObj = payload.get("customerId");
+            Long customerId = null;
+            if (custIdObj instanceof Integer)
+                customerId = ((Integer) custIdObj).longValue();
+            if (custIdObj instanceof Long)
+                customerId = (Long) custIdObj;
+            if (custIdObj instanceof String)
+                customerId = Long.parseLong((String) custIdObj);
+
+            if (uploadId == null || customerId == null) {
+                return ResponseEntity.badRequest().body("Missing uploadId or customerId");
+            }
+
+            Optional<Upload> uploadOpt = uploadRepository.findById(uploadId);
+            Optional<Customer> customerOpt = customerRepository.findById(customerId);
+
+            if (uploadOpt.isPresent() && customerOpt.isPresent()) {
+                Upload upload = uploadOpt.get();
+                upload.setLinkedCustomer(customerOpt.get());
+                uploadRepository.save(upload);
+                return ResponseEntity.ok().build();
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error linking file: " + e.getMessage());
+        }
     }
 }

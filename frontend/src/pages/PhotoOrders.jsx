@@ -363,10 +363,10 @@ export default function PhotoOrders() {
             </FilterHeader>
 
 
-            <div className="p-6 flex-1 overflow-auto pb-24">
-                <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-                    <Table>
-                        <TableHeader>
+            <div className="p-6 flex-1 flex flex-col min-h-0">
+                <div className="rounded-xl border bg-card text-card-foreground shadow-sm flex-1 flex flex-col min-h-0">
+                    <Table containerClassName="flex-1 overflow-auto h-full pb-24">
+                        <TableHeader className="sticky top-0 z-10 bg-card shadow-sm">
                             <TableRow className="hover:bg-transparent border-b">
                                 <TableHead className={`w-[80px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>File</TableHead>
                                 <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('date')}>
@@ -513,9 +513,17 @@ export default function PhotoOrders() {
                                                 <OrderStatus order={order} onUpdate={() => loadOrders(0, false)} />
                                             </TableCell>
                                             <TableCell className={`${pClass} align-middle text-right`}>
-                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit Order" onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setIsModalOpen(true); }}>
-                                                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                                                </Button>
+                                                {['Pending', 'Discard', 'Discarded'].includes(order.status) && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0"
+                                                        title="Edit Order"
+                                                        onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setIsModalOpen(true); }}
+                                                    >
+                                                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
 

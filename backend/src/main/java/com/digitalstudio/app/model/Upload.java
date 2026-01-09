@@ -19,12 +19,31 @@ public class Upload {
     private String extension;
     private String originalFilename;
 
-    private String uploadedFrom; // e.g., "Photo Order"
+    @Column(columnDefinition = "TEXT")
+    private String remarks;
+
+    @Convert(converter = SourceTypeConverter.class)
+    private SourceType uploadedFrom; // e.g., BILL_PAYMENT
 
     // Hash calculation removed
     // private String fileHash;
 
     private Boolean isAvailable; // True if file exists on disk, False if missing
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "linked_customer_id")
+    private Customer linkedCustomer;
+
+    @Column(name = "mark_deleted")
+    private Boolean markDeleted = false;
+
+    public boolean isMarkDeleted() {
+        return Boolean.TRUE.equals(markDeleted);
+    }
+
+    public void setMarkDeleted(boolean markDeleted) {
+        this.markDeleted = markDeleted;
+    }
 
     @CreationTimestamp
     @Column(updatable = false)

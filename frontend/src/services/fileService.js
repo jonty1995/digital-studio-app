@@ -6,26 +6,22 @@ export const fileService = {
         formData.append("file", file);
         if (source) formData.append("source", source);
 
-        const response = await fetch("http://localhost:8081/api/files/upload", {
-            method: "POST",
-            body: formData,
-        });
-
-        if (!response.ok) {
-            throw new Error("Upload failed");
-        }
-        return await response.json();
+        return await api.post("/files/upload", formData);
     },
 
     getAll: async () => {
-        const response = await fetch("http://localhost:8081/api/files");
-        if (!response.ok) throw new Error("Failed to fetch uploads");
-        return await response.json();
+        return await api.get("/files");
     },
 
     lookup: async (id) => {
-        const response = await fetch(`http://localhost:8081/api/files/lookup/${id}`);
-        if (!response.ok) throw new Error("File not found");
-        return await response.json();
+        return await api.get(`/files/lookup/${id}`);
+    },
+
+    delete: async (id, remarks) => {
+        let url = `/files/${id}`;
+        if (remarks) {
+            url += `?remarks=${encodeURIComponent(remarks)}`;
+        }
+        return await api.delete(url);
     }
 };

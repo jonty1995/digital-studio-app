@@ -69,6 +69,11 @@ public class BillPaymentService {
             transaction.getPayment().setPaymentId(System.currentTimeMillis());
         }
 
+        // Generate Transaction ID manually (Timestamp based) - Matches PhotoOrder logic
+        if (transaction.getId() == null) {
+            transaction.setId(System.currentTimeMillis());
+        }
+
         if (transaction.getCustomer() != null) {
             Customer payloadCustomer = transaction.getCustomer();
             if (payloadCustomer.getId() == null) {
@@ -79,7 +84,7 @@ public class BillPaymentService {
                         transaction.setCustomer(existing);
                     } else {
                         // Safe to save new customer with Manual ID
-                        Long newId = customerService.generateNewCustomerId();
+                        Long newId = java.util.Objects.requireNonNull(customerService.generateNewCustomerId());
                         payloadCustomer.setId(newId);
                         transaction.setCustomer(customerRepository.save(payloadCustomer));
                     }
@@ -93,7 +98,7 @@ public class BillPaymentService {
                 // ID provided, ensure it's attached
                 transaction.setCustomer(customerRepository.findById(payloadCustomer.getId()).orElseGet(() -> {
                     // Fallback: If ID provided but not found (rare), treat as new with new ID
-                    Long newId = customerService.generateNewCustomerId();
+                    Long newId = java.util.Objects.requireNonNull(customerService.generateNewCustomerId());
                     payloadCustomer.setId(newId);
                     return customerRepository.save(payloadCustomer);
                 }));
@@ -127,5 +132,17 @@ public class BillPaymentService {
         }
 
         return billPaymentRepository.save(transaction);
+    }
+
+    public BillPaymentTransaction updateTransaction(Long id, java.util.Map<String, Object> updates) {
+        BillPaymentTransaction existing = billPaymentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+
+        if (updates.containsKey("uploadId")) {
+            existing.setUploadId((String) updates.get("uploadId"));
+        }
+        // Allow updating other fields if necessary in future
+
+        return billPaymentRepository.save(existing);
     }
 }

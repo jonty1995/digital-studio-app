@@ -133,7 +133,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
         if (image instanceof File) {
             try {
                 // Determine source for logging?
-                const res = await fileService.upload(image, "Photo Order");
+                const res = await fileService.upload(image, "Photo Orders");
                 finalUploadId = res.uploadId;
             } catch (error) {
                 console.error("Deferred upload failed:", error);
@@ -276,7 +276,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                             file={image}
                             onUpload={setImage}
                             onRemove={() => setImage(null)}
-                            source="Photo Order"
+                            source="Photo Orders"
                             instantUpload={false}
                         />
                         <div className="grid gap-2">

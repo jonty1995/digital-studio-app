@@ -34,6 +34,23 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
         setAlertState({ open: true, title, description });
     };
 
+    // Reset fields when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            setCustomer({ mobile: '', name: '', id: '' });
+            setActiveTab("ELECTRICITY");
+            setTransactionDetails({
+                operator: "CESC",
+                billId: "",
+                billCustomerName: "",
+                status: "Pending",
+                amount: ""
+            });
+            setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+            setUploadId(null);
+        }
+    }, [isOpen]);
+
     // Reset fields when tab changes
     useEffect(() => {
         setTransactionDetails({
@@ -168,6 +185,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                             <Label>Bill Amount</Label>
                             <Input
                                 type="number"
+                                onWheel={(e) => e.target.blur()}
                                 min="0"
                                 value={transactionDetails.amount}
                                 onChange={(e) => setTransactionDetails({ ...transactionDetails, amount: Math.max(0, parseFloat(e.target.value) || 0) })}
@@ -207,6 +225,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                             <Label>Amount</Label>
                             <Input
                                 type="number"
+                                onWheel={(e) => e.target.blur()}
                                 value={transactionDetails.amount}
                                 onChange={(e) => setTransactionDetails({ ...transactionDetails, amount: e.target.value })}
                                 placeholder="0.00"
@@ -257,6 +276,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                             <Label>Amount</Label>
                             <Input
                                 type="number"
+                                onWheel={(e) => e.target.blur()}
                                 min="0"
                                 value={transactionDetails.amount}
                                 onChange={(e) => setTransactionDetails({ ...transactionDetails, amount: Math.max(0, parseFloat(e.target.value) || 0) })}

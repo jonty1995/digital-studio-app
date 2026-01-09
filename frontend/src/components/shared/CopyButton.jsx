@@ -20,7 +20,7 @@ export function CopyButton({ text, className, iconClass = "", title = "Copy" }) 
             onClick={handleCopy}
             title={title}
         >
-            {copied ? <Check className={`h-3 w-3 text-green-500 ${iconClass}`} /> : <Copy className={`h-3 w-3 ${iconClass}`} />}
+            {copied ? <Check className={`h-3 w-3 text-green-500 animate-in zoom-in duration-300 ${iconClass}`} /> : <Copy className={`h-3 w-3 ${iconClass}`} />}
         </Button>
     );
 }

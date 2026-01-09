@@ -59,41 +59,37 @@ export const FilterHeader = ({
         <PageHeader title={title}>
             <div className="flex flex-wrap gap-4 items-center">
                 {/* Date Range */}
-                <div className="flex items-center gap-2">
-                    <Input
-                        type="date"
-                        className="w-[140px] h-9"
-                        value={dateRange.start || ''}
-                        onChange={(e) => {
-                            const newVal = e.target.value;
-                            // Validate: If Start > End, push End to Start
-                            if (dateRange.end && newVal > dateRange.end) {
-                                onDateChange('end', newVal);
-                            }
-                            onDateChange('start', newVal);
-                        }}
-                        aria-label="Start Date"
-                    />
-                    <span className="text-sm font-medium text-muted-foreground">-</span>
-                    <Input
-                        type="date"
-                        className="w-[140px] h-9"
-                        value={dateRange.end || ''}
-                        onChange={(e) => {
-                            const newVal = e.target.value;
-                            // Validate: If End < Start, ignore or push Start?
-                            // User asked: "from date will be same or greater than to" -> Actually usually "From <= To".
-                            // If user meant "From > To is invalid", then:
-                            // If End is selected < Start, assume user wants to reset Start or block?
-                            // Standard behavior: If End < Start, set Start = End.
-                            if (dateRange.start && newVal < dateRange.start) {
+                {dateRange && onDateChange && (
+                    <div className="flex items-center gap-2">
+                        <Input
+                            type="date"
+                            className="w-[140px] h-9"
+                            value={dateRange.start || ''}
+                            onChange={(e) => {
+                                const newVal = e.target.value;
+                                if (dateRange.end && newVal > dateRange.end) {
+                                    onDateChange('end', newVal);
+                                }
                                 onDateChange('start', newVal);
-                            }
-                            onDateChange('end', newVal);
-                        }}
-                        aria-label="End Date"
-                    />
-                </div>
+                            }}
+                            aria-label="Start Date"
+                        />
+                        <span className="text-sm font-medium text-muted-foreground">-</span>
+                        <Input
+                            type="date"
+                            className="w-[140px] h-9"
+                            value={dateRange.end || ''}
+                            onChange={(e) => {
+                                const newVal = e.target.value;
+                                if (dateRange.start && newVal < dateRange.start) {
+                                    onDateChange('start', newVal);
+                                }
+                                onDateChange('end', newVal);
+                            }}
+                            aria-label="End Date"
+                        />
+                    </div>
+                )}
 
                 {/* Extra Filters (Children) */}
                 {children && (
@@ -103,24 +99,26 @@ export const FilterHeader = ({
                 )}
 
                 {/* Search */}
-                <div className="relative w-64">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search..."
-                        className="pl-9 pr-8 h-9"
-                        value={searchQuery}
-                        onChange={(e) => onSearchChange(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => onSearchChange("")}
-                            className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground focus:outline-none"
-                            aria-label="Clear search"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
-                    )}
-                </div>
+                {onSearchChange && (
+                    <div className="relative w-64">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search..."
+                            className="pl-9 pr-8 h-9"
+                            value={searchQuery || ''}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => onSearchChange("")}
+                                className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground focus:outline-none"
+                                aria-label="Clear search"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* View Toggle */}
                 {onViewModeChange && (

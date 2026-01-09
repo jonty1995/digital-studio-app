@@ -93,10 +93,10 @@ export default function Customers() {
                 </div>
             </PageHeader>
 
-            <div className="p-6 flex-1 overflow-auto">
-                <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-                    <Table>
-                        <TableHeader>
+            <div className="p-6 flex-1 flex flex-col min-h-0">
+                <div className="rounded-xl border bg-card text-card-foreground shadow-sm flex-1 flex flex-col min-h-0">
+                    <Table containerClassName="flex-1 overflow-auto h-full">
+                        <TableHeader className="sticky top-0 z-10 bg-card shadow-sm">
                             <TableRow className="hover:bg-transparent">
                                 <TableHead className="w-[50px]"></TableHead>
                                 <TableHead className="w-[150px] cursor-pointer" onClick={() => handleSort('id')}>

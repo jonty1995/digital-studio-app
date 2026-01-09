@@ -10,5 +10,8 @@ export const customerService = {
     search: async (query) => {
         console.log("customerService.search called with:", query);
         return await api.get(`/customers/search?query=${query}`);
+    },
+    getSuggestions: async (query) => {
+        return await api.get(`/customers/suggestions?query=${query}`);
     }
 };

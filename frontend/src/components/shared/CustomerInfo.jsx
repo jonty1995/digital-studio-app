@@ -8,6 +8,7 @@ import { customerService } from "@/services/customerService"
 export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disabled }) {
     const [fetchedSequence, setFetchedSequence] = useState(null);
     const [showNotFoundAlert, setShowNotFoundAlert] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
 
     useEffect(() => {
         const fetchSequence = async () => {
@@ -55,6 +56,31 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
             return () => clearTimeout(timer);
         }
     }, [customer.mobile]);
+
+    // Suggestions Logic (Debounced)
+    useEffect(() => {
+        const query = customer.mobile;
+        // Don't search if disabled, empty, or looks like specific ID (9 digits)
+        if (disabled || !query || query.length < 3 || /^[0-9]{9}$/.test(query)) {
+            setSuggestions([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                const results = await customerService.getSuggestions(query);
+                // Exclude if exact match is already selected?
+                // Just Show.
+                if (Array.isArray(results)) {
+                    // Limit to 5
+                    setSuggestions(results.slice(0, 5));
+                }
+            } catch (e) {
+                // ignore
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [customer.mobile, disabled]);
 
     const handleSearch = async (interactive = true) => {
         const isInteractive = typeof interactive === 'boolean' ? interactive : true;
@@ -157,17 +183,50 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                     </div>
                 </div>
 
-                <Input
-                    id="mobile"
-                    name="mobile"
-                    value={customer.mobile}
-                    onChange={handleChange}
-                    onBlur={handleSearch}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Enter Mobile (10 digits) or ID (9 digits)"
-                    className="bg-white border-blue-200 focus-visible:ring-blue-500"
-                    disabled={disabled}
-                />
+                <div className="relative">
+                    <Input
+                        id="mobile"
+                        name="mobile"
+                        value={customer.mobile}
+                        onChange={handleChange}
+                        onBlur={() => {
+                            // Delay hiding to allow click
+                            setTimeout(() => setSuggestions([]), 200);
+                            handleSearch();
+                        }}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter Mobile (10 digits) or ID (9 digits)"
+                        className="bg-white border-blue-200 focus-visible:ring-blue-500"
+                        disabled={disabled}
+                        autoComplete="off"
+                    />
+                    {suggestions.length > 0 && (
+                        <div className="absolute z-50 w-full bg-white border border-blue-200 rounded-md shadow-lg mt-1 max-h-48 overflow-auto">
+                            <ul>
+                                {suggestions.map(s => (
+                                    <li
+                                        key={s.id}
+                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-none border-gray-50 text-gray-700"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault(); // Prevent focus loss immediately
+                                            console.log("Selected suggestion (MouseDown):", s);
+                                            setCustomer(prev => ({
+                                                ...prev,
+                                                mobile: s.mobile || '',
+                                                name: s.name || '',
+                                                id: s.id || prev.id
+                                            }));
+                                            setSuggestions([]);
+                                        }}
+                                    >
+                                        <div className="font-medium text-blue-900">{s.mobile}</div>
+                                        <div className="text-xs text-gray-500">{s.name} (ID: {s.id})</div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
 
                 <p className="text-xs text-blue-600">
                     If not provided, an ID will be auto-generated

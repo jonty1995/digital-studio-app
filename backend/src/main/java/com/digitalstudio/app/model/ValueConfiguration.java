@@ -12,4 +12,7 @@ public class ValueConfiguration {
     private String name;
 
     private String value;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
 }

@@ -46,4 +46,10 @@ public class CustomerController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @GetMapping("/suggestions")
+    public ResponseEntity<List<Customer>> getSuggestions(
+            @org.springframework.web.bind.annotation.RequestParam String query) {
+        return ResponseEntity.ok(customerService.getSuggestions(query));
+    }
 }

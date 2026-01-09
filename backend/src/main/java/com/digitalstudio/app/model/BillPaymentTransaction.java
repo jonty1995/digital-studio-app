@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 @Table(name = "bill_payment_transactions")
 public class BillPaymentTransaction {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Enumerated(EnumType.STRING)

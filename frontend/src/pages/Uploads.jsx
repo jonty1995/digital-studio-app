@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { FilterHeader, useViewMode } from "../components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter, Trash2 } from "lucide-react";
 import { LinkCustomerModal } from "../components/shared/LinkCustomerModal";
 
 import { format } from "date-fns";
@@ -15,20 +15,69 @@ import { SimpleAlert } from "../components/shared/SimpleAlert";
 
 import { FileViewer } from "../components/shared/FileViewer";
 import { CopyButton } from "@/components/shared/CopyButton";
+import { UnifiedUploadModal } from "../components/shared/UnifiedUploadModal";
 
 import { configurationService } from "../services/configurationService";
 
 export default function Uploads() {
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [uploads, setUploads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewerFileId, setViewerFileId] = useState(null);
     const [showStorageAlert, setShowStorageAlert] = useState(false);
-    const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+    const [configValues, setConfigValues] = useState({});
+    const [deleteDays, setDeleteDays] = useState("N/A");
+    const [dialogState, setDialogState] = useState({
+        open: false,
+        title: "",
+        description: "",
+        type: "alert", // alert, confirm, prompt
+        inputValue: "",
+        onConfirm: null
+    });
 
     const showAlert = (title, description) => {
-        setAlertState({ open: true, title, description });
+        setDialogState({
+            open: true,
+            title,
+            description,
+            type: "alert",
+            onConfirm: null
+        });
     };
+
+    const confirmAction = (title, description, onConfirm) => {
+        setDialogState({
+            open: true,
+            title,
+            description,
+            type: "confirm",
+            onConfirm
+        });
+    };
+
+    const promptAction = (title, description, placeholder, onConfirm) => {
+        setDialogState({
+            open: true,
+            title,
+            description,
+            type: "prompt",
+            inputValue: "", // Reset input
+            placeholder,
+            onConfirm: () => onConfirm(dialogStateRef.current.inputValue) // Use ref or access state? State access inside closure might be stale.
+            // Better approach: Make SimpleAlert pass value back or use effect?
+            // Actually, `inputValue` is controlled by `dialogState`.
+            // The `onConfirm` closure needs access to the LATEST `inputValue`.
+        });
+    };
+
+    // Ref to access latest input value inside callbacks
+    const dialogStateRef = React.useRef(dialogState);
+    useEffect(() => {
+        dialogStateRef.current = dialogState;
+    }, [dialogState]);
+
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
@@ -51,7 +100,24 @@ export default function Uploads() {
 
     useEffect(() => {
         fetchUploads();
+        fetchConfig();
+        handleCheckAvailability(true); // Auto-check on mount
     }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const values = await configurationService.getValues();
+            // Assuming values is an array of {key, value} objects as typical in this app's pattern
+            // Or if it returns an object directly. Let's assume array based on service code "Array.isArray(response)".
+            const daysConfig = values.find(v => v.key === "FILE_ABSOLUTE_DELETE_DAYS");
+            if (daysConfig) {
+                setDeleteDays(daysConfig.value);
+            }
+            setConfigValues(values);
+        } catch (e) {
+            console.error("Failed to fetch config", e);
+        }
+    };
 
     const fetchUploads = async () => {
         setLoading(true);
@@ -99,7 +165,7 @@ export default function Uploads() {
         for (const file of files) {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("source", "Uploads Page");
+            formData.append("source", "Uploads");
 
             try {
                 const res = await fetch("/api/files/upload", {
@@ -211,11 +277,142 @@ export default function Uploads() {
         setSortConfig({ key, direction });
     };
 
-    const sortedUploads = useMemo(() => {
-        // First filter
-        let filtered = uploads || [];
 
-        // 1. Search (ID, Original Name, or Linked Customer IDs)
+
+
+    const handleCheckAvailability = async (silent = false) => {
+        const runCheck = async () => {
+            // Don't show global loading for background check if silent
+            if (!silent) setLoading(true);
+
+            try {
+                const res = await fetch("/api/files/check-availability", { method: "POST" });
+
+                // Check for Blocking Storage Alert
+                if (!await checkResponse(res)) return;
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (!silent) {
+                        showAlert("Check Complete", `Available: ${data.available}\nMissing: ${data.missing}`);
+                    }
+                    fetchUploads(); // Reload list to show updated status
+                } else {
+                    const text = await res.text();
+                    console.error("Availability Check Failed:", text);
+                    if (!silent) showAlert("Check Failed", "Failed to check availability: " + (res.statusText || "Unknown Error"));
+                }
+            } catch (e) {
+                console.error("Availability Check Error:", e);
+                if (!silent) showAlert("Error", "Availability check failed: " + e.message);
+            } finally {
+                if (!silent) setLoading(false);
+            }
+        };
+
+        if (silent) {
+            runCheck();
+        } else {
+            confirmAction("Check Availability", "Start checking file availability for all uploads? This depends on disk speed.", runCheck);
+        }
+    };
+
+    // Style constants based on viewMode
+    const paddingClass = viewMode === "compact" ? "p-2" : "p-4";
+    const headClass = `font-medium text-muted-foreground ${paddingClass}`;
+
+    const handleRecover = (upload) => {
+        setDialogState({
+            open: true,
+            title: "Recover File",
+            description: "Enter specific remarks for this recovery:",
+            type: "prompt",
+            inputValue: "",
+            placeholder: "e.g., Recovered per request...",
+            onConfirm: () => performRecover(upload)
+        });
+    };
+
+    const performRecover = async (upload) => {
+        const remarks = dialogStateRef.current.inputValue;
+        // Remarks can be optional or required? User usually prompts optional but UI might enforce.
+        // Let's assume optional based on original code.
+
+        setDialogState(prev => ({ ...prev, open: false })); // Close dialog
+        setLoading(true);
+        try {
+            // API call to recover
+            const formData = new FormData();
+            formData.append("remarks", remarks);
+
+            const res = await fetch(`/api/files/recover/${upload.uploadId}`, {
+                method: "POST",
+                body: formData
+            });
+
+            if (res.ok) {
+                showAlert("Recovery Successful", "File has been restored.");
+                fetchUploads();
+            } else {
+                const text = await res.text();
+                showAlert("Recovery Failed", "Failed to recover file: " + text);
+            }
+        } catch (e) {
+            console.error("Recovery error:", e);
+            showAlert("Error", "Failed to recover file.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+    const handleDeleteFile = (upload) => {
+        confirmAction("Delete File", `Are you sure you want to delete ${upload.uploadId}?`, () => {
+            // After Confirm, show Prompt
+            setTimeout(() => { // Timeout to allow modal transition if needed, or just state update
+                setDialogState({
+                    open: true,
+                    title: "Delete Remarks",
+                    description: "Enter remarks for deletion (optional):",
+                    type: "prompt",
+                    inputValue: "",
+                    placeholder: "e.g., Deleted due to...",
+                    onConfirm: () => performDelete(upload)
+                });
+            }, 100);
+        });
+    };
+
+    const performDelete = async (upload) => {
+        const remarks = dialogStateRef.current.inputValue;
+        setDialogState(prev => ({ ...prev, open: false }));
+
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/files/${upload.uploadId}?remarks=${encodeURIComponent(remarks || "")}`, {
+                method: "DELETE"
+            });
+
+            if (res.ok) {
+                showAlert("Deleted", "File marked for deletion.");
+                fetchUploads();
+            } else {
+                showAlert("Error", "Failed to delete file.");
+            }
+        } catch (e) {
+            showAlert("Error", "Failed to delete file.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ... (Existing code for Drag & Drop, etc.)
+
+
+    // Sorting Logic Update
+    const sortedUploads = useMemo(() => {
+        // ... (Existing Filters)
+        let filtered = uploads || [];
         if (searchQuery) {
             const lowerQuery = searchQuery.toLowerCase();
             filtered = filtered.filter(u =>
@@ -225,7 +422,6 @@ export default function Uploads() {
             );
         }
 
-        // 2. Date Range
         if (dateRange.start || dateRange.end) {
             filtered = filtered.filter(u => {
                 if (!u.createdAt) return false;
@@ -236,30 +432,23 @@ export default function Uploads() {
                 return true;
             });
         }
-        // 3. Source Filter
         if (excludedSources.length > 0) {
             filtered = filtered.filter(u => !excludedSources.includes(u.uploadedFrom || "System"));
         }
 
-        // Sorting
         if (sortConfig.key) {
             filtered = [...filtered].sort((a, b) => {
                 let aValue = a[sortConfig.key];
                 let bValue = b[sortConfig.key];
-
-                // Special handling for nulls
                 if (aValue === null) aValue = "";
                 if (bValue === null) bValue = "";
 
-                // Special handling for dates (createdAt)
                 if (sortConfig.key === 'createdAt') {
-                    // Check if valid dates
                     return sortConfig.direction === 'asc'
                         ? new Date(aValue) - new Date(bValue)
                         : new Date(bValue) - new Date(aValue);
                 }
 
-                // Special handling for "Source" (uploadedFrom)
                 if (sortConfig.key === 'uploadedFrom') {
                     aValue = aValue || "System";
                     bValue = bValue || "System";
@@ -270,40 +459,11 @@ export default function Uploads() {
                 return 0;
             });
         }
-
         return filtered;
     }, [uploads, searchQuery, dateRange, excludedSources, sortConfig]);
 
 
-    const handleCheckAvailability = async () => {
-        if (!confirm("Start checking file availability for all uploads? This depends on disk speed.")) return;
-        setLoading(true);
-        try {
-            const res = await fetch("/api/files/check-availability", { method: "POST" });
 
-            // Check for Blocking Storage Alert
-            if (!await checkResponse(res)) return;
-
-            if (res.ok) {
-                const data = await res.json();
-                showAlert("Check Complete", `Available: ${data.available}\nMissing: ${data.missing}`);
-                fetchUploads(); // Reload list
-            } else {
-                const text = await res.text();
-                console.error("Availability Check Failed:", text);
-                showAlert("Check Failed", "Failed to check availability: " + (res.statusText || "Unknown Error"));
-            }
-        } catch (e) {
-            console.error("Availability Check Error:", e);
-            showAlert("Error", "Availability check failed: " + e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Style constants based on viewMode
-    const paddingClass = viewMode === "compact" ? "p-2" : "p-4";
-    const headClass = `font-medium text-muted-foreground ${paddingClass}`;
 
     return (
         <div
@@ -312,6 +472,7 @@ export default function Uploads() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
+            {/* ... (Existing Overlay) ... */}
             {isDragging && (
                 <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-[2px] border-4 border-dashed border-primary m-4 rounded-xl flex items-center justify-center pointer-events-none animate-in fade-in zoom-in duration-300">
                     <div className="bg-background/90 p-8 rounded-full shadow-2xl flex flex-col items-center gap-4">
@@ -320,6 +481,10 @@ export default function Uploads() {
                     </div>
                 </div>
             )}
+
+
+
+
 
             <FilterHeader
                 title="Uploads"
@@ -330,39 +495,17 @@ export default function Uploads() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
             >
+                {/* ... (Existing Buttons) ... */}
                 <Button
-                    variant="outline"
-                    size="sm"
+                    onClick={() => setIsUploadModalOpen(true)}
                     className="h-9 gap-2"
-                    onClick={() => setIsLinkModalOpen(true)}
-                >
-                    <UserPlus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Link Customer</span>
-                </Button>
-                <Button
-                    variant="outline"
                     size="sm"
-                    className="h-9 gap-2"
-                    onClick={handleCheckAvailability}
-                    title="Reload Availability from Disk"
                 >
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="hidden sm:inline">Check Disk</span>
+                    <Upload className="h-4 w-4" />
+                    Upload / Link Customer
                 </Button>
 
-                <div className="relative">
-                    <input
-                        type="file"
-                        multiple
-                        accept="image/png, image/jpeg, image/gif, application/pdf"
-                        onChange={handleFileSelect}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <Button size="sm" className="gap-2">
-                        <Upload className="h-4 w-4" />
-                        Upload
-                    </Button>
-                </div>
+
 
                 <Popover>
                     <PopoverTrigger asChild>
@@ -406,10 +549,10 @@ export default function Uploads() {
                 </Popover>
             </FilterHeader>
 
-            <div className={`flex-1 overflow-auto ${paddingClass === "p-2" ? "p-4" : "p-6"}`}>
-                <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-                    <Table>
-                        <TableHeader>
+            <div className={`p-6 flex-1 flex flex-col min-h-0`}>
+                <div className="rounded-xl border bg-card text-card-foreground shadow-sm flex-1 flex flex-col min-h-0">
+                    <Table containerClassName="flex-1 overflow-auto h-full">
+                        <TableHeader className="sticky top-0 z-10 bg-card shadow-sm">
                             <TableRow className="hover:bg-transparent border-b">
                                 <TableHead className={`w-[80px] ${headClass}`}>File</TableHead>
                                 <TableHead className={`${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('uploadId')}>
@@ -436,6 +579,8 @@ export default function Uploads() {
                                         {sortConfig.key === 'createdAt' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
+
+                                <TableHead className={`${headClass}`}>Remarks</TableHead>
                                 <TableHead className={headClass}>Linked To</TableHead>
                                 <TableHead className={`text-right ${headClass} cursor-pointer hover:text-foreground transition-colors`} onClick={() => handleSort('uploadedFrom')}>
                                     <div className="flex items-center justify-end gap-1">
@@ -449,12 +594,13 @@ export default function Uploads() {
                                         {sortConfig.key === 'isAvailable' && (sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
                                     </div>
                                 </TableHead>
+                                <TableHead className={`text-center w-[80px] ${headClass}`}>Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center">
+                                    <TableCell colSpan={11} className="h-24 text-center">
                                         <div className="flex items-center justify-center gap-2 text-muted-foreground">
                                             <Loader2 className="w-4 h-4 animate-spin" />
                                             Loading uploads...
@@ -463,17 +609,15 @@ export default function Uploads() {
                                 </TableRow>
                             ) : sortedUploads.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                         No uploads found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 sortedUploads.map((upload) => {
                                     const isPdf = upload.extension === '.pdf' || upload.originalFilename?.toLowerCase().endsWith('.pdf');
-                                    // Use ID + Extension if available for serving, or fall back to just ID (backend handles lookup)
-                                    // Ideally backend should return correct extension in listing now? 
-                                    // If not, we rely on originalFilename or stored extension field.
                                     const fileServeId = upload.uploadId + (upload.extension || '');
+                                    const isMarkDeleted = upload.markDeleted;
 
                                     return (
                                         <TableRow key={upload.uploadId} className="hover:bg-gray-100/60 dark:hover:bg-gray-800/60 transition-colors">
@@ -529,10 +673,18 @@ export default function Uploads() {
                                             <TableCell className={`${paddingClass} text-muted-foreground`}>
                                                 {upload.createdAt ? format(new Date(upload.createdAt), "dd MMM yyyy") : "-"}
                                             </TableCell>
+
+                                            <TableCell className={`${paddingClass}`}>
+                                                <textarea
+                                                    readOnly
+                                                    className="w-[200px] h-16 p-1 text-xs bg-muted/50 rounded border-none resize-none focus:ring-0 text-muted-foreground"
+                                                    value={upload.remarks || ""}
+                                                />
+                                            </TableCell>
                                             <TableCell className={paddingClass}>
                                                 {upload.customerIds && upload.customerIds.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {upload.customerIds.map((id, index) => (
+                                                        {[...new Set(upload.customerIds)].map((id, index) => (
                                                             <Badge key={`${id}-${index}`} variant="outline" className="text-xs font-mono bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100">
                                                                 {id}
                                                             </Badge>
@@ -543,15 +695,48 @@ export default function Uploads() {
                                                 )}
                                             </TableCell>
                                             <TableCell className={`${paddingClass} text-right`}>
-                                                <Badge variant="outline">{upload.uploadedFrom || "System"}</Badge>
+                                                <Badge variant="outline">{upload.uploadedFrom || "-"}</Badge>
                                             </TableCell>
                                             <TableCell className={`${paddingClass} text-center`}>
-                                                <div className="flex justify-center" title={upload.isAvailable === null ? "Not Checked" : (upload.isAvailable ? "Available on Disk" : "Missing from Disk")}>
-                                                    <div className={`w-3 h-3 rounded-full ${upload.isAvailable === true ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" :
-                                                        upload.isAvailable === false ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" :
-                                                            "bg-gray-300 dark:bg-gray-600"
+                                                <div className="flex justify-center" title={
+                                                    isMarkDeleted ? "Marked for Deletion" :
+                                                        upload.isAvailable === null ? "Not Checked" :
+                                                            (upload.isAvailable ? "Available on Disk" : "Missing from Disk")
+                                                }>
+                                                    <div className={`w-3 h-3 rounded-full ${isMarkDeleted ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" :
+                                                        upload.isAvailable === true ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" :
+                                                            upload.isAvailable === false ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" :
+                                                                "bg-gray-300 dark:bg-gray-600"
                                                         }`} />
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className={`${paddingClass} text-center`}>
+                                                {isMarkDeleted ? (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleRecover(upload);
+                                                        }}
+                                                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                    >
+                                                        Recover
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteFile(upload);
+                                                        }}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                                                        title="Delete File"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -573,6 +758,15 @@ export default function Uploads() {
                 onClose={() => setIsLinkModalOpen(false)}
                 onSuccess={() => {
                     fetchUploads();
+                }}
+            />
+
+            <UnifiedUploadModal
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onSuccess={() => {
+                    fetchUploads();
+                    showAlert("Upload Successful", "File uploaded and processed.");
                 }}
             />
 
@@ -601,10 +795,15 @@ export default function Uploads() {
             )}
 
             <SimpleAlert
-                open={alertState.open}
-                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
-                title={alertState.title}
-                description={alertState.description}
+                open={dialogState.open}
+                onOpenChange={(open) => setDialogState(prev => ({ ...prev, open }))}
+                title={dialogState.title}
+                description={dialogState.description}
+                type={dialogState.type}
+                inputValue={dialogState.inputValue}
+                onInputChange={(val) => setDialogState(prev => ({ ...prev, inputValue: val }))}
+                onConfirm={dialogState.onConfirm}
+                placeholder={dialogState.placeholder}
             />
         </div>
     );

@@ -10,25 +10,32 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Receipt, Search } from "lucide-react";
-import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
-import { cn } from "@/lib/utils";
-import { BillPaymentModal } from "@/components/shared/BillPaymentModal";
-import { billPaymentService } from "@/services/billPaymentService";
-import { SimpleAlert } from "@/components/shared/SimpleAlert";
-import { CopyButton } from "@/components/shared/CopyButton";
+import { Plus, Receipt, Search, Trash2, Unlink } from "lucide-react";
 import {
     DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
+import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
+import { OrderStatus } from "@/components/shared/OrderStatus";
+import { cn } from "@/lib/utils";
+import { BillPaymentModal } from "@/components/shared/BillPaymentModal";
+import { ReceiptUploadModal } from "@/components/shared/ReceiptUploadModal";
+import { billPaymentService } from "@/services/billPaymentService";
+import { fileService } from "@/services/fileService";
+import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { CopyButton } from "@/components/shared/CopyButton";
 
 export default function BillPayment() {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [openDropdownId, setOpenDropdownId] = useState(null);
+
+    // Receipt Upload State
+    const [uploadModalState, setUploadModalState] = useState({ isOpen: false, txn: null });
+    const [selectedTxnId, setSelectedTxnId] = useState(null);
+    const [openMenuId, setOpenMenuId] = useState(null);
 
     // View Mode from Hook
     const [viewMode, setViewMode] = useViewMode("bill-payment-view-mode");
@@ -80,8 +87,8 @@ export default function BillPayment() {
         return sortConfig.direction === 'asc' ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
     };
 
-    const fetchTransactions = async () => {
-        setLoading(true);
+    const fetchTransactions = async (isBackground = false) => {
+        if (!isBackground) setLoading(true);
         try {
             // Convert filters object to array of active types
             const activeTypes = Object.keys(filters).filter(key => filters[key]);
@@ -100,9 +107,9 @@ export default function BillPayment() {
             setTotalPages(data.totalPages);
         } catch (error) {
             console.error("Failed to fetch transactions:", error);
-            showAlert("Error", "Failed to load transactions.");
+            if (!isBackground) showAlert("Error", "Failed to load transactions.");
         } finally {
-            setLoading(false);
+            if (!isBackground) setLoading(false);
         }
     };
 
@@ -150,9 +157,10 @@ export default function BillPayment() {
             // 1. Upload File if present
             if (file) {
                 // Determine source folder based on transaction type
-                const source = payload.transactionType ? payload.transactionType.toLowerCase() : "others";
-                const uploadResponse = await import("@/services/fileService").then(m => m.fileService.upload(file, source));
-                payload.uploadId = uploadResponse.downloadUrl.split('/').pop(); // Extract ID
+                // User requested receipts in "Bill Payment" folder
+                const source = "Bill Payment";
+                const uploadResponse = await fileService.upload(file, source);
+                payload.uploadId = uploadResponse.uploadId; // Use ID
             }
 
             // 2. Create Transaction
@@ -168,18 +176,96 @@ export default function BillPayment() {
         }
     };
 
-    const handleStatusUpdate = async (id, status) => {
+    const handleReceiptUpload = async (uploadId) => {
+        if (!uploadModalState.txn) return;
         try {
-            await billPaymentService.updateStatus(id, status);
-            fetchTransactions();
+            await billPaymentService.update(uploadModalState.txn.id, { uploadId });
+            setUploadModalState({ isOpen: false, txn: null });
+            fetchTransactions(true); // Silent refresh
+            showAlert("Success", "Receipt linked successfully.");
         } catch (error) {
-            console.error("Status update failed:", error);
-            showAlert("Error", "Failed to update status");
+            console.error("Failed to link receipt:", error);
+            showAlert("Error", "Failed to link receipt.");
         }
     };
 
-    const handleRevertStatus = async (id) => {
-        handleStatusUpdate(id, 'Pending');
+    const handleReceiptUnlink = async (txn) => {
+        try {
+            await billPaymentService.update(txn.id, { uploadId: null });
+            fetchTransactions(true); // Silent refresh
+            showAlert("Success", "Receipt unlinked successfully.");
+        } catch (error) {
+            console.error("Failed to unlink receipt:", error);
+            showAlert("Error", "Failed to unlink receipt.");
+        }
+    };
+
+    const handleReceiptDeleteFile = async (txn) => {
+        if (!confirm("Are you sure you want to PERMANENTLY delete this file? This cannot be undone.")) return;
+
+        const remarks = prompt("Please enter remarks for deletion:");
+        if (remarks === null) return; // User cancelled
+
+        try {
+            // 1. Unlink first (safest)
+            await billPaymentService.update(txn.id, { uploadId: null });
+
+            // 2. Delete file
+            // Note: If multiple transactions use the same file, this deletes it for all!
+            // Assuming 1:1 for receipts usually.
+            await fileService.delete(txn.uploadId, remarks);
+
+            fetchTransactions(true); // Silent refresh
+            showAlert("Success", "Receipt file deleted and unlinked.");
+        } catch (error) {
+            console.error("Failed to delete receipt file:", error);
+            showAlert("Error", "Failed to delete file. It may be unlinked.");
+        }
+    };
+
+    // Handle Direct File Upload (Drop or Paste)
+    const processFileUpload = async (file, txn) => {
+        if (txn.status !== 'Done') {
+            showAlert("Warning", "Receipts can only be uploaded for 'Done' transactions.");
+            return;
+        }
+
+        try {
+            // User requested receipts in "Bill Payment" folder
+            const source = "Bill Payment";
+            const uploadResponse = await fileService.upload(file, source);
+            await billPaymentService.update(txn.id, { uploadId: uploadResponse.uploadId });
+            fetchTransactions(true); // Silent refresh
+            showAlert("Success", "Receipt uploaded successfully.");
+        } catch (error) {
+            console.error("Upload failed:", error);
+            showAlert("Error", "Failed to upload receipt.");
+        }
+    };
+
+    const handleRowPaste = (e, txn) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file') {
+                const file = items[i].getAsFile();
+                if (file) {
+                    processFileUpload(file, txn);
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+    };
+
+    const handleRowDrop = (e, txn) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            processFileUpload(files[0], txn);
+        }
     };
 
     const handleDateChange = (type, value) => {
@@ -246,10 +332,10 @@ export default function BillPayment() {
                 </label>
             </FilterHeader>
 
-            <div className="flex-1 p-6 pt-0 overflow-auto">
-                <div className="rounded-md border bg-card">
-                    <Table>
-                        <TableHeader>
+            <div className="flex-1 p-6 pt-0 flex flex-col min-h-0">
+                <div className="rounded-md border bg-card flex-1 flex flex-col min-h-0">
+                    <Table containerClassName="flex-1 overflow-auto h-full">
+                        <TableHeader className="sticky top-0 z-10 bg-card shadow-sm">
                             <TableRow>
                                 <TableHead className={`w-[130px] cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('date')}>
                                     Date <SortIcon column="date" />
@@ -267,7 +353,7 @@ export default function BillPayment() {
                                 <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('status')}>
                                     Status <SortIcon column="status" />
                                 </TableHead>
-                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Mode/File</TableHead>
+                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Receipt</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -291,10 +377,19 @@ export default function BillPayment() {
                                     const hClass = viewMode === 'compact' ? 'h-10' : '';
 
                                     return (
-                                        <TableRow key={txn.id} className={cn(
-                                            "cursor-pointer border-b transition-colors hover:bg-gray-100/60 dark:hover:bg-gray-800/60",
-                                            hClass
-                                        )}>
+                                        <TableRow
+                                            key={txn.id}
+                                            className={cn(
+                                                "cursor-pointer border-b transition-colors hover:bg-gray-100/60 dark:hover:bg-gray-800/60 outline-none focus:bg-blue-50/50",
+                                                hClass,
+                                                selectedTxnId === txn.id ? "bg-blue-50/30" : ""
+                                            )}
+                                            tabIndex={0}
+                                            onClick={() => setSelectedTxnId(txn.id)}
+                                            onPaste={(e) => handleRowPaste(e, txn)}
+                                            onDragOver={(e) => e.preventDefault()}
+                                            onDrop={(e) => handleRowDrop(e, txn)}
+                                        >
                                             <TableCell className={`${pClass} align-middle font-medium`}>
                                                 {new Date(txn.createdAt).toLocaleDateString()}
                                             </TableCell>
@@ -338,75 +433,86 @@ export default function BillPayment() {
                                                 ₹{txn.payment?.totalAmount?.toFixed(2)}
                                             </TableCell>
                                             <TableCell className={`${pClass} align-middle`}>
-                                                <DropdownMenu
-                                                    open={openDropdownId === txn.id}
-                                                    onOpenChange={(isOpen) => !isOpen && setOpenDropdownId(null)}
-                                                >
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            className="h-auto p-0 hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                if (txn.status === 'Pending') {
-                                                                    handleStatusUpdate(txn.id, 'Done');
-                                                                }
-                                                            }}
-                                                            onContextMenu={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setOpenDropdownId(txn.id);
-                                                            }}
-                                                        >
-                                                            <Badge
-                                                                variant={txn.status === 'Completed' || txn.status === 'Done' ? 'default' :
-                                                                    txn.status === 'Failed' || txn.status === 'Discard' || txn.status === 'Refunded' ? 'destructive' : 'secondary'}
-                                                                className="cursor-pointer hover:opacity-80 transition-opacity"
-                                                            >
-                                                                {txn.status}
-                                                            </Badge>
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        {txn.status === 'Pending' && (
-                                                            <>
-                                                                <DropdownMenuItem onClick={() => handleStatusUpdate(txn.id, 'Done')}>
-                                                                    Mark as Done
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleStatusUpdate(txn.id, 'Discard')}>
-                                                                    Mark as Discard
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleStatusUpdate(txn.id, 'Failed')} className="text-destructive">
-                                                                    Mark as Failed
-                                                                </DropdownMenuItem>
-                                                            </>
-                                                        )}
-                                                        {txn.status === 'Failed' && (
-                                                            <>
-                                                                <DropdownMenuItem onClick={() => handleStatusUpdate(txn.id, 'Refunded')}>
-                                                                    Mark as Refunded
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleRevertStatus(txn.id)}>
-                                                                    Revert to Pending
-                                                                </DropdownMenuItem>
-                                                            </>
-                                                        )}
-                                                        {(txn.status === 'Done' || txn.status === 'Discard' || txn.status === 'Refunded') && (
-                                                            <DropdownMenuItem onClick={() => handleRevertStatus(txn.id)}>
-                                                                Revert to Pending
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                <OrderStatus
+                                                    order={txn}
+                                                    type="bill-payment"
+                                                    updateFn={(id, status) => billPaymentService.updateStatus(id, status)}
+                                                    onUpdate={() => fetchTransactions(true)}
+                                                />
                                             </TableCell>
                                             <TableCell className={`${pClass} align-middle`}>
-                                                <div className="flex flex-wrap gap-1">
-                                                    <Badge variant="outline">{txn.payment?.paymentMode}</Badge>
-                                                    {txn.uploadId && (
-                                                        <Badge variant="outline" className="gap-1 pr-1">
-                                                            File <span className="text-[10px]">📎</span>
-                                                        </Badge>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline" className="text-xs font-normal text-muted-foreground bg-gray-50/50">
+                                                        {txn.payment?.paymentMode}
+                                                    </Badge>
+
+                                                    {/* Receipt Upload UI - Only for Done Status */}
+                                                    {txn.status === 'Done' && (
+                                                        <>
+                                                            {txn.uploadId ? (
+                                                                <DropdownMenu open={openMenuId === txn.id} onOpenChange={(open) => setOpenMenuId(open ? txn.id : null)}>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-6 w-6 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full"
+                                                                            title="Receipt Uploaded (Click to View, Right-click to Delete)"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setUploadModalState({ isOpen: true, txn: txn });
+                                                                            }}
+                                                                            onContextMenu={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation();
+                                                                                setOpenMenuId(txn.id);
+                                                                            }}
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setUploadModalState({ isOpen: true, txn: txn });
+                                                                            setOpenMenuId(null);
+                                                                        }}>
+                                                                            View / Replace
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleReceiptUnlink(txn);
+                                                                                setOpenMenuId(null);
+                                                                            }}
+                                                                        >
+                                                                            <Unlink className="w-4 h-4 mr-2" />
+                                                                            Unlink Receipt
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleReceiptDeleteFile(txn);
+                                                                                setOpenMenuId(null);
+                                                                            }}
+                                                                            className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                                            Delete File
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            ) : (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+                                                                    title="Link Receipt"
+                                                                    onClick={(e) => { e.stopPropagation(); setUploadModalState({ isOpen: true, txn: txn }); }}
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                                                </Button>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -446,6 +552,13 @@ export default function BillPayment() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleTransactionSaved}
+            />
+
+            <ReceiptUploadModal
+                isOpen={uploadModalState.isOpen}
+                onClose={() => setUploadModalState({ isOpen: false, txn: null })}
+                onUpload={handleReceiptUpload}
+                initialFileId={uploadModalState.txn?.uploadId}
             />
 
             <SimpleAlert

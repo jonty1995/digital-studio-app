@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Save, Loader2, Check, Edit2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
@@ -38,7 +39,7 @@ export function ValueConfig() {
 
     const handleAdd = () => {
         const newIndex = values.length;
-        setValues([...values, { name: "", value: "" }]);
+        setValues([...values, { name: "", value: "", description: "" }]);
         setEditingIndex(newIndex);
     };
 
@@ -104,15 +105,16 @@ export function ValueConfig() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Config Name (Key)</TableHead>
-                            <TableHead>Value</TableHead>
+                            <TableHead className="w-[30%]">Config Name (Key)</TableHead>
+                            <TableHead className="w-[30%]">Value</TableHead>
+                            <TableHead>Description</TableHead>
                             <TableHead className="w-[100px] text-right">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {values.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
                                     No configurations defined.
                                 </TableCell>
                             </TableRow>
@@ -121,7 +123,7 @@ export function ValueConfig() {
                                 const isEditing = editingIndex === index;
                                 return (
                                     <TableRow key={index}>
-                                        <TableCell>
+                                        <TableCell className="align-top">
                                             {isEditing ? (
                                                 <Input
                                                     value={item.name}
@@ -132,7 +134,7 @@ export function ValueConfig() {
                                                 <span className="font-medium">{item.name}</span>
                                             )}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="align-top">
                                             {isEditing ? (
                                                 <Input
                                                     value={item.value}
@@ -143,7 +145,21 @@ export function ValueConfig() {
                                                 <span>{item.value}</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="align-top">
+                                            {isEditing ? (
+                                                <Textarea
+                                                    value={item.description || ""}
+                                                    onChange={(e) => handleChange(index, "description", e.target.value)}
+                                                    placeholder="Optional description..."
+                                                    className="min-h-[60px]"
+                                                />
+                                            ) : (
+                                                <div className="max-h-[100px] overflow-y-auto whitespace-pre-wrap text-xs text-muted-foreground border rounded p-2 bg-muted/20">
+                                                    {item.description || "-"}
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right align-top">
                                             <div className="flex justify-end gap-1">
                                                 {isEditing ? (
                                                     <>

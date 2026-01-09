@@ -53,6 +53,20 @@ export const billPaymentService = {
         return response.json();
     },
 
+    update: async (id, data) => {
+        const response = await fetch(`/api/bill-payments/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to update transaction: ${response.statusText}`);
+        }
+        return response.json();
+    },
+
     delete: async (id) => {
         const response = await fetch(`/api/bill-payments/${id}`, {
             method: "DELETE",

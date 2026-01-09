@@ -107,4 +107,11 @@ public class CustomerService {
             return Optional.empty();
         }
     }
+
+    public List<Customer> getSuggestions(String query) {
+        if (query == null || query.trim().length() < 3) {
+            return List.of();
+        }
+        return customerRepository.findByMobileContaining(query.trim());
+    }
 }
