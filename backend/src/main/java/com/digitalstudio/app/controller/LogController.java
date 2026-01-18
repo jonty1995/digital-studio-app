@@ -26,4 +26,9 @@ public class LogController {
         logService.clearLogs();
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/recent")
+    public java.util.List<com.digitalstudio.app.service.LogService.LogEntry> getRecentLogs() {
+        return logService.getRecentLogs();
+    }
 }

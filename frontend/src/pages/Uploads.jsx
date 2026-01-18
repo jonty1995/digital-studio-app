@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { FilterHeader, useViewMode } from "../components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter, Trash2 } from "lucide-react";
+import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter, Trash2, Search } from "lucide-react";
 import { LinkCustomerModal } from "../components/shared/LinkCustomerModal";
 
 import { format } from "date-fns";
@@ -15,7 +15,9 @@ import { SimpleAlert } from "../components/shared/SimpleAlert";
 
 import { FileViewer } from "../components/shared/FileViewer";
 import { CopyButton } from "@/components/shared/CopyButton";
+import { FileThumbnail } from "@/components/shared/FileThumbnail";
 import { UnifiedUploadModal } from "../components/shared/UnifiedUploadModal";
+import { DeleteQueueWidget } from "../components/shared/DeleteQueueWidget";
 
 import { configurationService } from "../services/configurationService";
 
@@ -27,7 +29,6 @@ export default function Uploads() {
     const [viewerFileId, setViewerFileId] = useState(null);
     const [showStorageAlert, setShowStorageAlert] = useState(false);
     const [configValues, setConfigValues] = useState({});
-    const [deleteDays, setDeleteDays] = useState("N/A");
     const [dialogState, setDialogState] = useState({
         open: false,
         title: "",
@@ -65,10 +66,7 @@ export default function Uploads() {
             type: "prompt",
             inputValue: "", // Reset input
             placeholder,
-            onConfirm: () => onConfirm(dialogStateRef.current.inputValue) // Use ref or access state? State access inside closure might be stale.
-            // Better approach: Make SimpleAlert pass value back or use effect?
-            // Actually, `inputValue` is controlled by `dialogState`.
-            // The `onConfirm` closure needs access to the LATEST `inputValue`.
+            onConfirm: () => onConfirm(dialogStateRef.current.inputValue) // Use ref or access state
         });
     };
 
@@ -82,6 +80,7 @@ export default function Uploads() {
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
     const [viewMode, setViewMode] = useViewMode("uploads-view-mode");
+    const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
 
     const [dateRange, setDateRange] = useState(() => {
         const d = new Date();
@@ -98,21 +97,54 @@ export default function Uploads() {
         return Array.from(sources).sort();
     }, [uploads]);
 
+    const [scrollBlockSize, setScrollBlockSize] = useState(20);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [totalItems, setTotalItems] = useState(0);
+    const observer = useRef();
+
+    const lastUploadElementRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setPage(prev => prev + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore]);
+
+    // Cleanup Observer
+    useEffect(() => {
+        return () => {
+            if (observer.current) observer.current.disconnect();
+        };
+    }, []);
+
     useEffect(() => {
         fetchUploads();
         fetchConfig();
-        handleCheckAvailability(true); // Auto-check on mount
+    }, [page]); // Re-fetch on page change
+
+    // If checkAvailability or other actions need full refresh, we should reset page
+    const handleFullRefresh = () => {
+        setPage(0);
+        setUploads([]);
+        setHasMore(true);
+        // fetchUploads will be triggered by useEffect [page] if reset to 0
+        if (page === 0) fetchUploads();
+    };
+
+    useEffect(() => {
+        fetchConfig();
     }, []);
 
     const fetchConfig = async () => {
         try {
             const values = await configurationService.getValues();
-            // Assuming values is an array of {key, value} objects as typical in this app's pattern
-            // Or if it returns an object directly. Let's assume array based on service code "Array.isArray(response)".
-            const daysConfig = values.find(v => v.key === "FILE_ABSOLUTE_DELETE_DAYS");
-            if (daysConfig) {
-                setDeleteDays(daysConfig.value);
-            }
+            const daysConfig = values.find(v => v.name === "FILE_ABSOLUTE_DELETE_DAYS");
+            const blockSize = values.find(v => v.name === "SCROLL_BLOCK_SIZE");
+            if (blockSize) setScrollBlockSize(parseInt(blockSize.value));
             setConfigValues(values);
         } catch (e) {
             console.error("Failed to fetch config", e);
@@ -122,10 +154,16 @@ export default function Uploads() {
     const fetchUploads = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/files");
+            const res = await fetch(`/api/files?page=${page}&size=${scrollBlockSize}`);
             if (res.ok) {
                 const data = await res.json();
-                setUploads(data);
+                const newUploads = data.content || [];
+                setUploads(prev => {
+                    const combined = page === 0 ? newUploads : [...prev, ...newUploads];
+                    return Array.from(new Map(combined.map(u => [u.uploadId, u])).values());
+                });
+                setHasMore(!data.last && newUploads.length > 0);
+                setTotalItems(data.totalElements || 0);
             }
         } catch (error) {
             console.error("Failed to fetch uploads", error);
@@ -175,7 +213,7 @@ export default function Uploads() {
 
                 if (!await checkResponse(res)) {
                     failCount++;
-                    continue; // Stop if storage issue? Or try next? checkResponse handles alert.
+                    continue;
                 }
 
                 if (res.ok) {
@@ -262,7 +300,6 @@ export default function Uploads() {
             window.URL.revokeObjectURL(url);
         } catch (e) {
             console.error("Download error:", e);
-            // alert("Failed to download file.");
         }
     };
 
@@ -276,9 +313,6 @@ export default function Uploads() {
         }
         setSortConfig({ key, direction });
     };
-
-
-
 
     const handleCheckAvailability = async (silent = false) => {
         const runCheck = async () => {
@@ -317,6 +351,28 @@ export default function Uploads() {
         }
     };
 
+    const handleScanFiles = async () => {
+        confirmAction("Full File Scan", "This will re-verify all files on disk, ignoring their current status. Continue?", async () => {
+            setLoading(true);
+            try {
+                const res = await fetch("/api/files/check-availability?force=true", { method: "POST" });
+                if (!await checkResponse(res)) return;
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showAlert("Scan Complete", `Available: ${data.available}\nMissing: ${data.missing}`);
+                    fetchUploads();
+                } else {
+                    showAlert("Scan Failed", "Failed to check availability.");
+                }
+            } catch (e) {
+                showAlert("Error", "Scan failed: " + e.message);
+            } finally {
+                setLoading(false);
+            }
+        });
+    };
+
     // Style constants based on viewMode
     const paddingClass = viewMode === "compact" ? "p-2" : "p-4";
     const headClass = `font-medium text-muted-foreground ${paddingClass}`;
@@ -335,8 +391,6 @@ export default function Uploads() {
 
     const performRecover = async (upload) => {
         const remarks = dialogStateRef.current.inputValue;
-        // Remarks can be optional or required? User usually prompts optional but UI might enforce.
-        // Let's assume optional based on original code.
 
         setDialogState(prev => ({ ...prev, open: false })); // Close dialog
         setLoading(true);
@@ -353,6 +407,7 @@ export default function Uploads() {
             if (res.ok) {
                 showAlert("Recovery Successful", "File has been restored.");
                 fetchUploads();
+                setQueueRefreshTrigger(prev => prev + 1);
             } else {
                 const text = await res.text();
                 showAlert("Recovery Failed", "Failed to recover file: " + text);
@@ -396,6 +451,7 @@ export default function Uploads() {
             if (res.ok) {
                 showAlert("Deleted", "File marked for deletion.");
                 fetchUploads();
+                setQueueRefreshTrigger(prev => prev + 1);
             } else {
                 showAlert("Error", "Failed to delete file.");
             }
@@ -406,12 +462,25 @@ export default function Uploads() {
         }
     };
 
-    // ... (Existing code for Drag & Drop, etc.)
+    const handleViewQueueItem = (uploadId) => {
+        // Remove extension just in case, though usually ID matches row ID logic which is upload.uploadId
+        const rowId = `row-${uploadId}`;
+        const element = document.getElementById(rowId);
 
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add("bg-yellow-100", "dark:bg-yellow-900/30");
+            setTimeout(() => {
+                element.classList.remove("bg-yellow-100", "dark:bg-yellow-900/30");
+            }, 2000);
+        } else {
+            // Not found in view -> Search for it to filter view
+            setSearchQuery(uploadId);
+        }
+    };
 
     // Sorting Logic Update
     const sortedUploads = useMemo(() => {
-        // ... (Existing Filters)
         let filtered = uploads || [];
         if (searchQuery) {
             const lowerQuery = searchQuery.toLowerCase();
@@ -463,27 +532,22 @@ export default function Uploads() {
     }, [uploads, searchQuery, dateRange, excludedSources, sortConfig]);
 
 
-
-
     return (
         <div
-            className="flex flex-col h-full bg-background animate-in fade-in duration-500 relative"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            className="flex flex-col h-full bg-background animate-in fade-in duration-500"
         >
-            {/* ... (Existing Overlay) ... */}
-            {isDragging && (
-                <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-[2px] border-4 border-dashed border-primary m-4 rounded-xl flex items-center justify-center pointer-events-none animate-in fade-in zoom-in duration-300">
-                    <div className="bg-background/90 p-8 rounded-full shadow-2xl flex flex-col items-center gap-4">
-                        <Upload className="w-12 h-12 text-primary animate-bounce" />
-                        <h3 className="text-xl font-bold text-primary">Drop files to upload</h3>
+            <DeleteQueueWidget onView={handleViewQueueItem} refreshTrigger={queueRefreshTrigger} />
+
+            {
+                isDragging && (
+                    <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-[2px] border-4 border-dashed border-primary m-4 rounded-xl flex items-center justify-center pointer-events-none animate-in fade-in zoom-in duration-300">
+                        <div className="bg-background/90 p-8 rounded-full shadow-2xl flex flex-col items-center gap-4">
+                            <Upload className="w-12 h-12 text-primary animate-bounce" />
+                            <h3 className="text-xl font-bold text-primary">Drop files to upload</h3>
+                        </div>
                     </div>
-                </div>
-            )}
-
-
-
+                )
+            }
 
 
             <FilterHeader
@@ -495,7 +559,6 @@ export default function Uploads() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
             >
-                {/* ... (Existing Buttons) ... */}
                 <Button
                     onClick={() => setIsUploadModalOpen(true)}
                     className="h-9 gap-2"
@@ -504,8 +567,6 @@ export default function Uploads() {
                     <Upload className="h-4 w-4" />
                     Upload / Link Customer
                 </Button>
-
-
 
                 <Popover>
                     <PopoverTrigger asChild>
@@ -547,6 +608,15 @@ export default function Uploads() {
                         </div>
                     </PopoverContent>
                 </Popover>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 border-primary/20 hover:bg-primary/5 text-primary"
+                    onClick={handleScanFiles}
+                >
+                    <Search className="h-4 w-4" />
+                    Scan Files
+                </Button>
             </FilterHeader>
 
             <div className={`p-6 flex-1 flex flex-col min-h-0`}>
@@ -598,7 +668,7 @@ export default function Uploads() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading ? (
+                            {loading && page === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={11} className="h-24 text-center">
                                         <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -607,52 +677,35 @@ export default function Uploads() {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ) : sortedUploads.length === 0 ? (
+                            ) : sortedUploads.length === 0 && !loading ? (
                                 <TableRow>
                                     <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                         No uploads found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                sortedUploads.map((upload) => {
+                                sortedUploads.map((upload, index) => {
                                     const isPdf = upload.extension === '.pdf' || upload.originalFilename?.toLowerCase().endsWith('.pdf');
                                     const fileServeId = upload.uploadId + (upload.extension || '');
                                     const isMarkDeleted = upload.markDeleted;
 
                                     return (
-                                        <TableRow key={upload.uploadId} className="hover:bg-gray-100/60 dark:hover:bg-gray-800/60 transition-colors">
+                                        <TableRow
+                                            key={upload.uploadId}
+                                            id={`row-${upload.uploadId}`}
+                                            ref={index === sortedUploads.length - 1 ? lastUploadElementRef : null}
+                                            className="hover:bg-gray-100/60 dark:hover:bg-gray-800/60 transition-colors"
+                                        >
                                             <TableCell className={`${paddingClass} align-middle`}>
-                                                <div
-                                                    className={`${viewMode === 'compact' ? 'w-8 h-8' : 'w-12 h-12'} rounded-md overflow-hidden border bg-muted flex items-center justify-center cursor-zoom-in relative group`}
-                                                    onClick={() => setViewerFileId(fileServeId)}
-                                                >
-                                                    {isPdf ? (
-                                                        <FileText className={`${viewMode === 'compact' ? 'h-5 w-5' : 'h-6 w-6'} text-red-500`} />
-                                                    ) : (
-                                                        <img
-                                                            src={`/api/files/${fileServeId}`}
-                                                            alt={upload.originalFilename}
-                                                            className="w-full h-full object-cover"
-                                                            onError={(e) => { e.target.style.display = 'none'; }}
-                                                        />
-                                                    )}
-
-                                                    {/* Download Overlay */}
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Button
-                                                            size="icon"
-                                                            variant="secondary"
-                                                            className="h-8 w-8 rounded-full shadow-md hover:scale-110 transition-transform"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDownload(fileServeId, upload.originalFilename);
-                                                            }}
-                                                            title="Download File"
-                                                        >
-                                                            <Download className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
+                                                <FileThumbnail
+                                                    fileId={fileServeId}
+                                                    isFileAvailable={upload.isAvailable}
+                                                    isPdf={isPdf}
+                                                    onView={setViewerFileId}
+                                                    onDownload={(id) => handleDownload(id, upload.originalFilename)}
+                                                    containerClass={viewMode === 'compact' ? 'w-8 h-8' : 'w-12 h-12'}
+                                                    iconClass={`${viewMode === 'compact' ? 'h-5 w-5' : 'h-6 w-6'} text-red-500`}
+                                                />
                                             </TableCell>
                                             <TableCell className={`${paddingClass} font-medium font-mono text-xs`}>
                                                 <div className="flex items-center gap-2 group/id">
@@ -699,19 +752,21 @@ export default function Uploads() {
                                             </TableCell>
                                             <TableCell className={`${paddingClass} text-center`}>
                                                 <div className="flex justify-center" title={
-                                                    isMarkDeleted ? "Marked for Deletion" :
-                                                        upload.isAvailable === null ? "Not Checked" :
-                                                            (upload.isAvailable ? "Available on Disk" : "Missing from Disk")
+                                                    upload.isAvailable === false ? "Removed/Missing from Disk" :
+                                                        isMarkDeleted ? "Marked for Deletion" :
+                                                            upload.isAvailable === true ? "Available on Disk" : "Not Checked"
                                                 }>
-                                                    <div className={`w-3 h-3 rounded-full ${isMarkDeleted ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" :
-                                                        upload.isAvailable === true ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" :
-                                                            upload.isAvailable === false ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" :
+                                                    <div className={`w-3 h-3 rounded-full ${isMarkDeleted && upload.isAvailable === true ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" :
+                                                        upload.isAvailable === false ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" :
+                                                            upload.isAvailable === true ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" :
                                                                 "bg-gray-300 dark:bg-gray-600"
                                                         }`} />
                                                 </div>
                                             </TableCell>
                                             <TableCell className={`${paddingClass} text-center`}>
-                                                {isMarkDeleted ? (
+                                                {upload.isAvailable === false ? (
+                                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase border px-1.5 py-0.5 rounded-md bg-muted/50">Cleaned</span>
+                                                ) : isMarkDeleted ? (
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
@@ -742,6 +797,16 @@ export default function Uploads() {
                                     );
                                 })
                             )}
+                            {loading && page > 0 && (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={11} className="py-4 text-center">
+                                        <div className="text-sm text-muted-foreground animate-pulse flex items-center justify-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Loading more uploads...
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </div>
@@ -770,29 +835,31 @@ export default function Uploads() {
                 }}
             />
 
-            {showStorageAlert && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
-                        <div className="flex items-center gap-3 text-destructive">
-                            <AlertCircle className="h-8 w-8" />
-                            <h2 className="text-xl font-semibold">Storage Not Configured</h2>
-                        </div>
-                        <p className="text-muted-foreground">
-                            The requested file operation cannot be completed required <code>STORAGE_PATH</code> configuration is missing.
-                        </p>
-                        <p className="text-sm font-medium">
-                            Please configure the storage path to a valid directory on the server (e.g., <code>F:/Project/uploads/</code>).
-                        </p>
-                        <div className="pt-2 flex justify-end">
-                            <Link to="/configuration">
-                                <Button onClick={() => setShowStorageAlert(false)}>
-                                    Go to Configuration
-                                </Button>
-                            </Link>
+            {
+                showStorageAlert && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
+                            <div className="flex items-center gap-3 text-destructive">
+                                <AlertCircle className="h-8 w-8" />
+                                <h2 className="text-xl font-semibold">Storage Not Configured</h2>
+                            </div>
+                            <p className="text-muted-foreground">
+                                The requested file operation cannot be completed required <code>STORAGE_PATH</code> configuration is missing.
+                            </p>
+                            <p className="text-sm font-medium">
+                                Please configure the storage path to a valid directory on the server (e.g., <code>F:/Project/uploads/</code>).
+                            </p>
+                            <div className="pt-2 flex justify-end">
+                                <Link to="/configuration">
+                                    <Button onClick={() => setShowStorageAlert(false)}>
+                                        Go to Configuration
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <SimpleAlert
                 open={dialogState.open}
@@ -800,9 +867,9 @@ export default function Uploads() {
                 title={dialogState.title}
                 description={dialogState.description}
                 type={dialogState.type}
+                onConfirm={dialogState.onConfirm}
                 inputValue={dialogState.inputValue}
                 onInputChange={(val) => setDialogState(prev => ({ ...prev, inputValue: val }))}
-                onConfirm={dialogState.onConfirm}
                 placeholder={dialogState.placeholder}
             />
         </div>

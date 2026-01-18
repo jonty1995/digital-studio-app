@@ -7,32 +7,39 @@ import java.time.LocalDateTime;
 
 @Entity
 @Data
-@Table(name = "bill_payment_transactions")
-public class BillPaymentTransaction {
+@Table(name = "money_transfers")
+public class MoneyTransfer {
     @Id
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    private BillTransactionType transactionType;
+    private String transferType; // UPI, ACCOUNT
 
     @ManyToOne
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
-    private String operator; // For Mobile/DTH
-    private String billId; // Consumer No, Mobile No, Subscriber ID (Renamed from referenceId)
-    private String billCustomerName; // For Electricity
+    // UPI Fields
+    private String upiId;
+    private String mobileNumber;
+
+    // Account Fields
+    private String bankName;
+    private String ifscCode;
+    private String accountNumber;
+
+    // Common Fields
+    private String recipientName;
+    private Double amount;
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "payment_id")
     private Payment payment;
 
-    private String status; // Pending, Completed, etc.
-
+    private String status; // Pending, Done, Failed, Discarded
     @Column(columnDefinition = "TEXT")
     private String statusHistoryJson;
 
-    private String uploadId; // For receipt/bill image
+    private String uploadId; // Receipt file
 
     @CreationTimestamp
     private LocalDateTime createdAt;

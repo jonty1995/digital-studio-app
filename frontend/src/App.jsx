@@ -4,12 +4,11 @@ import Layout from "./Layout"
 import PhotoOrders from "./pages/PhotoOrders"
 import Configuration from "./pages/Configuration"
 import BillPayment from "./pages/BillPayment"
+import MoneyTransfer from "./pages/MoneyTransfer"
 import SystemLogs from "./pages/SystemLogs"
 
 import Customers from "./pages/Customers"
 import Uploads from "./pages/Uploads"
-
-<Route path="bill-payment" element={<BillPayment />} />
 
 function App() {
   return (
@@ -19,6 +18,7 @@ function App() {
           <Route index element={<Navigate to="/photo-orders" replace />} />
           <Route path="photo-orders" element={<PhotoOrders />} />
           <Route path="bill-payment" element={<BillPayment />} />
+          <Route path="money-transfer" element={<MoneyTransfer />} />
           <Route path="customers" element={<Customers />} />
           <Route path="uploads" element={<Uploads />} />
           <Route path="logs" element={<SystemLogs />} />

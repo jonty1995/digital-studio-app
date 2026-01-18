@@ -1,50 +1,58 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PageHeader } from "../components/shared/PageHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Input } from "../components/ui/input";
 import { Search, ChevronDown, ChevronRight, ArrowUpDown } from "lucide-react";
 import { customerService } from "../services/customerService";
+import { configurationService } from "../services/configurationService";
 
 export default function Customers() {
     const [customers, setCustomers] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [filteredCustomers, setFilteredCustomers] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
     const [expandedRows, setExpandedRows] = useState(new Set());
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [scrollBlockSize, setScrollBlockSize] = useState(20);
+    const [totalItems, setTotalItems] = useState(0);
+    const observer = useRef();
 
     useEffect(() => {
         loadCustomers();
     }, []);
 
+    const lastCustomerElementRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setPage(prev => prev + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore]);
+
     useEffect(() => {
-        let result = customers;
+        const fetchConfig = async () => {
+            try {
+                const values = await configurationService.getValues();
+                const blockSize = values.find(v => v.name === "SCROLL_BLOCK_SIZE");
+                if (blockSize) setScrollBlockSize(parseInt(blockSize.value));
+            } catch (e) { console.error(e); }
+        };
+        fetchConfig();
+    }, []);
 
-        if (searchQuery) {
-            const lower = searchQuery.toLowerCase();
-            result = result.filter(c =>
-                (c.name && c.name.toLowerCase().includes(lower)) ||
-                (c.id && c.id.toString().includes(lower)) ||
-                (c.mobile && c.mobile.includes(lower))
-            );
-        }
+    useEffect(() => {
+        setPage(0);
+        setCustomers([]);
+        setHasMore(true);
+    }, [searchQuery]);
 
-        if (sortConfig.key) {
-            result = [...result].sort((a, b) => {
-                let aVal = a[sortConfig.key];
-                let bVal = b[sortConfig.key];
-
-                // Handle nulls
-                if (aVal == null) aVal = "";
-                if (bVal == null) bVal = "";
-
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-
-        setFilteredCustomers(result);
-    }, [searchQuery, customers, sortConfig]);
+    useEffect(() => {
+        loadCustomers();
+    }, [page, searchQuery]);
 
     const handleSort = (key) => {
         setSortConfig(current => ({
@@ -61,11 +69,25 @@ export default function Customers() {
     };
 
     const loadCustomers = async () => {
+        setLoading(true);
         try {
-            const data = await customerService.getAll();
-            setCustomers(data);
+            const data = await customerService.getAllPaginated({
+                page,
+                size: scrollBlockSize,
+                search: searchQuery
+            });
+            const newCustomers = data.content || [];
+            setCustomers(prev => {
+                const combined = page === 0 ? newCustomers : [...prev, ...newCustomers];
+                // Dedup
+                return Array.from(new Map(combined.map(c => [c.id, c])).values());
+            });
+            setHasMore(!data.last && newCustomers.length > 0);
+            setTotalItems(data.totalElements);
         } catch (error) {
             console.error("Failed to load customers:", error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -78,7 +100,7 @@ export default function Customers() {
 
     return (
         <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
-            <PageHeader title="Customer List">
+            <PageHeader title="Customers">
                 <div className="relative w-96">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -89,7 +111,7 @@ export default function Customers() {
                     />
                 </div>
                 <div className="text-sm text-muted-foreground ml-auto">
-                    Total Customers: {customers.length}
+                    Total Customers: {totalItems}
                 </div>
             </PageHeader>
 
@@ -112,13 +134,17 @@ export default function Customers() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredCustomers.map((customer) => {
+                            {customers.map((customer, index) => {
                                 const isExpanded = expandedRows.has(customer.id);
                                 const history = customer.editHistoryJson ? JSON.parse(customer.editHistoryJson) : [];
 
                                 return (
                                     <React.Fragment key={customer.id}>
-                                        <TableRow className="hover:bg-muted/50 transition-colors" onClick={() => toggleRow(customer.id)}>
+                                        <TableRow
+                                            ref={index === customers.length - 1 ? lastCustomerElementRef : null}
+                                            className="hover:bg-muted/50 transition-colors"
+                                            onClick={() => toggleRow(customer.id)}
+                                        >
                                             <TableCell>
                                                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                             </TableCell>
@@ -173,6 +199,16 @@ export default function Customers() {
                                     </React.Fragment>
                                 );
                             })}
+                            {loading && page > 0 && (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={5} className="py-4 text-center">
+                                        <div className="text-sm text-muted-foreground animate-pulse flex items-center justify-center gap-2">
+                                            <ChevronDown className="w-4 h-4 animate-bounce" />
+                                            Loading more customers...
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </div>

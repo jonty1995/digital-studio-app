@@ -34,7 +34,7 @@ export const getStatusColor = (status) => {
  * Returns null if manual choice is needed (e.g. Pending) or terminal state.
  */
 export const getNextAutoStatus = (status, isInstant, type = 'photo-order') => {
-    if (type === 'bill-payment') {
+    if (type === 'bill-payment' || type === 'money-transfer') {
         // Bill Payment usually requires choice (Done/Failed), no auto-advance on single click from Pending?
         // Maybe Pending -> Done on single click? User asked for Left Click = Done.
         if (status === 'Pending') return 'Done';
@@ -57,7 +57,7 @@ export const getNextAutoStatus = (status, isInstant, type = 'photo-order') => {
 export const getAvailableTransitions = (status, isInstant, type = 'photo-order') => {
     const transitions = [];
 
-    if (type === 'bill-payment') {
+    if (type === 'bill-payment' || type === 'money-transfer') {
         if (status === 'Pending') return ['Done', 'Failed', 'Discard'];
         if (status === 'Failed') return ['Refunded', 'Pending'];
         if (['Done', 'Discard', 'Discarded', 'Refunded'].includes(status)) return ['Pending'];
@@ -98,6 +98,15 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
     const handleStatusUpdate = async (newStatus) => {
         setIsLoading(true);
         setErrorMsg(null);
+
+        // Validation for Photo Orders: Block transition from Pending if no file uploaded
+        if (type === 'photo-order' && currentStatus === 'Pending' &&
+            !['Pending', 'Discard', 'Discarded'].includes(newStatus) && !order.uploadId) {
+            setErrorMsg("Please upload a file before processing");
+            setIsLoading(false);
+            return;
+        }
+
         try {
             let updatedOrder;
             if (updateFn) {
@@ -124,9 +133,15 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
         e.stopPropagation();
         if (isLoading) return;
 
+        // Validation for Photo Orders: Block transition from Pending if no file uploaded
+        if (type === 'photo-order' && currentStatus === 'Pending' && !order.uploadId) {
+            setErrorMsg("Please upload a file before processing");
+            return;
+        }
+
         // Pending -> Specific Next State logic
         if (currentStatus === "Pending") {
-            if (type === 'bill-payment') {
+            if (type === 'bill-payment' || type === 'money-transfer') {
                 handleStatusUpdate("Done");
             } else {
                 // Photo Order

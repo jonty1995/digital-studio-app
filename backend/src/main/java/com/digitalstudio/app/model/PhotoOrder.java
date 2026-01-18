@@ -43,4 +43,7 @@ public class PhotoOrder {
     private LocalDateTime updatedAt;
     @Transient
     private String originalFilename;
+
+    @Transient
+    private Boolean isFileAvailable;
 }

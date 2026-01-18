@@ -15,6 +15,7 @@ import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
 import { FileViewer } from "../components/shared/FileViewer";
 import { CopyButton } from "@/components/shared/CopyButton";
+import { FileThumbnail } from "@/components/shared/FileThumbnail";
 
 export default function PhotoOrders() {
     const [orders, setOrders] = useState([]);
@@ -34,17 +35,12 @@ export default function PhotoOrders() {
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [scrollBlockSize, setScrollBlockSize] = useState(20);
+    const [totalItems, setTotalItems] = useState(0);
     const [viewMode, setViewMode] = useViewMode("photo-orders-view-mode"); // 'compact' | 'cozy'
 
-    // Initialize date range with Today (YYYY-MM-DD)
-    const [dateRange, setDateRange] = useState(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
-        return { start: today, end: today };
-    });
+    // Initialize date range with empty strings to show All Time by default
+    const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
     const observer = useRef();
     const lastOrderElementRef = useCallback(node => {
@@ -76,7 +72,19 @@ export default function PhotoOrders() {
     });
 
     useEffect(() => {
-        console.log("Filter Effect Triggered", filters, dateRange, searchQuery);
+        const fetchBlockSize = async () => {
+            try {
+                const values = await configurationService.getValues();
+                const blockSize = values.find(v => v.name === "SCROLL_BLOCK_SIZE");
+                if (blockSize) setScrollBlockSize(parseInt(blockSize.value));
+            } catch (e) {
+                console.error("Failed to fetch SCROLL_BLOCK_SIZE", e);
+            }
+        };
+        fetchBlockSize();
+    }, []);
+
+    useEffect(() => {
         if (isFirstLoad.current) {
             isFirstLoad.current = false;
             loadOrders(0, true, filters, dateRange); // Keep in sync
@@ -89,7 +97,6 @@ export default function PhotoOrders() {
     }, [filters, dateRange, searchQuery]);
 
     const loadOrders = async (pageNum, isReset = false, currentFilters = filters, currentDateRange = dateRange) => {
-        console.log("Loading orders...", pageNum, isReset, currentFilters);
         setLoading(true);
         try {
             const apiFilters = {
@@ -99,9 +106,8 @@ export default function PhotoOrders() {
                 instant: currentFilters.instant,
                 regular: currentFilters.regular
             };
-            console.log("API Filters:", apiFilters);
 
-            const data = await orderService.getAllOrders(apiFilters, pageNum, 20);
+            const data = await orderService.getAllOrders(apiFilters, pageNum, scrollBlockSize);
             // Check structure: Page<T> has content
             const newOrders = data.content || [];
 
@@ -111,6 +117,7 @@ export default function PhotoOrders() {
             });
             if (isReset || pageNum === 0) setPage(0); // Sync page state
             setHasMore(!data.last); // 'last' is true if last page
+            setTotalItems(data.totalElements || 0);
         } catch (error) {
             console.error("Failed to load orders:", error);
         } finally {
@@ -398,211 +405,133 @@ export default function PhotoOrders() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sortedOrders.map((order, index) => {
-                                const isInstant = isInstantOrder(order);
-                                const isLast = index === sortedOrders.length - 1;
-                                const pClass = viewMode === 'compact' ? 'p-2' : 'p-4';
-                                const hClass = viewMode === 'compact' ? 'h-10' : '';
-                                const imgClass = viewMode === 'compact' ? 'w-8 h-8' : 'w-12 h-12 shadow-sm';
+                            {loading && page === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={11} className="h-24 text-center">
+                                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Loading orders...
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : sortedOrders.length === 0 && !loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                        No orders found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                sortedOrders.map((order, index) => {
+                                    const isInstant = isInstantOrder(order);
+                                    const isLast = index === sortedOrders.length - 1;
+                                    const pClass = viewMode === 'compact' ? 'p-2' : 'p-4';
+                                    const hClass = viewMode === 'compact' ? 'h-10' : '';
+                                    const imgClass = viewMode === 'compact' ? 'w-8 h-8' : 'w-12 h-12 shadow-sm';
 
-                                const isExpanded = expandedOrderId === order.orderId;
-                                const fileId = order.uploadId;
-                                const isPdf = fileId && fileId.toLowerCase().endsWith('.pdf');
-                                const hasFile = !!fileId;
+                                    const isExpanded = expandedOrderId === order.orderId;
+                                    const fileId = order.uploadId;
+                                    const isPdf = fileId && fileId.toLowerCase().endsWith('.pdf');
+                                    const hasFile = !!fileId;
 
-                                const isSelected = selectedIds.includes(order.orderId);
+                                    const isSelected = selectedIds.includes(order.orderId);
 
-                                return (
-                                    <React.Fragment key={order.orderId}>
-                                        <TableRow
-                                            ref={isLast ? lastOrderElementRef : null}
-                                            className={`cursor-pointer border-b transition-colors ${hClass} ${isExpanded ? 'bg-muted/50' : 'hover:bg-gray-100/60 dark:hover:bg-gray-800/60'} ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 shadow-inner' : ''}`}
-                                            onClick={(e) => {
-                                                if (e.ctrlKey || e.metaKey) {
-                                                    // Allow Toggle Selection even if expanded
-                                                    e.preventDefault();
-                                                    handleSelectRow(order.orderId);
-                                                } else {
-                                                    // Normal Click -> Toggle Expand
-                                                    setExpandedOrderId(isExpanded ? null : order.orderId);
-                                                }
-                                            }}
-                                            title={order.description} // Tooltip on hover
-                                        >
-                                            <TableCell className={`${pClass} align-middle`}>
-                                                <div
-                                                    className={`${imgClass} rounded-md overflow-hidden border bg-muted flex items-center justify-center cursor-zoom-in relative group`}
-                                                    onClick={(e) => {
-                                                        if (fileId) {
-                                                            e.stopPropagation(); // Don't trigger row expand
-                                                            setViewerFileId(fileId);
-                                                        }
-                                                    }}
-                                                >
-                                                    {fileId ? (
-                                                        <>
-                                                            {isPdf ? (
-                                                                <FileText className={`${viewMode === 'compact' ? 'h-4 w-4' : 'h-6 w-6'} text-red-500`} />
-                                                            ) : (
-                                                                <img
-                                                                    src={`/api/files/${fileId}`}
-                                                                    alt="Order"
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                                                />
-                                                            )}
-
-                                                            {/* Download Overlay */}
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Button
-                                                                    size="icon"
-                                                                    variant="secondary"
-                                                                    className="h-8 w-8 rounded-full shadow-md hover:scale-110 transition-transform"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const link = document.createElement('a');
-                                                                        link.href = `/api/files/${order.uploadId}`;
-                                                                        link.download = order.uploadId; // Enforce Generated ID + Ext
-                                                                        document.body.appendChild(link);
-                                                                        link.click();
-                                                                        document.body.removeChild(link);
-                                                                    }}
-                                                                    title="Download File"
-                                                                >
-                                                                    <Download className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        <div className="w-full h-full bg-gray-200" />
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle font-medium`}>
-                                                {new Date(order.timestamp || order.createdAt).toLocaleDateString()}
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle font-medium`}>
-                                                {order.customer?.name || "Unknown"}
-                                                {isInstant && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 shadow-sm">Instant</span>}
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle text-muted-foreground`}>
-                                                <div className="flex items-center gap-1 group/cid">
-                                                    <span>{order.customer?.id || "-"}</span>
-                                                    {order.customer?.id && (
-                                                        <CopyButton
-                                                            text={order.customer.id}
-                                                            className="h-5 w-5 opacity-0 group-hover/cid:opacity-100 transition-opacity"
-                                                            title="Copy Customer ID"
-                                                            iconClass="text-muted-foreground"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle max-w-[200px] text-sm`}>
-                                                <div title={formatItems(order.itemsJson)}>
-                                                    {formatItems(order.itemsJson, true)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle text-right font-medium`}>₹{order.payment?.totalAmount || 0}</TableCell>
-                                            <TableCell className={`${pClass} align-middle text-right text-muted-foreground`}>₹{order.payment?.discountAmount || 0}</TableCell>
-                                            <TableCell className={`${pClass} align-middle text-right`}>₹{order.payment?.advanceAmount || 0}</TableCell>
-                                            <TableCell className={`${pClass} align-middle text-right font-bold ${order.payment?.dueAmount > 0 ? "text-destructive" : "text-green-600"}`}>
-                                                ₹{order.payment?.dueAmount || 0}
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle text-center`}>
-                                                <OrderStatus order={order} onUpdate={() => loadOrders(0, false)} />
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle text-right`}>
-                                                {['Pending', 'Discard', 'Discarded'].includes(order.status) && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        title="Edit Order"
-                                                        onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setIsModalOpen(true); }}
-                                                    >
-                                                        <Pencil className="h-4 w-4 text-muted-foreground" />
-                                                    </Button>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-
-                                        {isExpanded && (
-                                            <TableRow className="bg-muted/30 border-b animate-in fade-in zoom-in-95 duration-200">
-                                                <TableCell colSpan={11} className="p-4">
-                                                    {/* Timeline Section */}
-                                                    <div className="mb-6 px-4 bg-background/50 rounded-lg border py-2">
-                                                        <StatusTimeline order={order} />
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm pl-4 relative mb-4">
-                                                        <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary/20 rounded-full"></div>
-
-                                                        {/* Payment Mode */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Payment Mode</span>
-                                                            <span className="font-medium">
-                                                                {order.payment?.paymentMode ? (
-                                                                    <Badge variant="outline" className="bg-background text-foreground/80 font-normal">
-                                                                        {order.payment.paymentMode}
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <span className="text-muted-foreground italic">N/A</span>
-                                                                )}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Order ID */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Order ID</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-mono text-foreground font-medium">{order.orderId}</span>
-                                                                <CopyButton
-                                                                    text={order.orderId}
-                                                                    className="h-5 w-5 bg-background border shadow-sm"
-                                                                    title="Copy Order ID"
-                                                                />
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Upload ID */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Upload ID</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
-                                                                {order.uploadId && (
-                                                                    <CopyButton
-                                                                        text={order.uploadId}
-                                                                        className="h-5 w-5 bg-background border shadow-sm"
-                                                                        title="Copy Upload ID"
-                                                                    />
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Original File Name */}
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Original File Name</span>
-                                                            <div className="truncate max-w-[200px] font-medium text-foreground/80" title={order.originalFilename || "N/A"}>
-                                                                {order.originalFilename || "N/A"}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Description */}
-                                                        <div className="flex flex-col gap-1 md:col-span-4">
-                                                            <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Description</span>
-                                                            <div className="bg-background border rounded-md p-2 text-xs max-h-[80px] overflow-y-auto font-mono text-foreground/90 whitespace-pre-wrap shadow-sm">
-                                                                {order.description || <span className="text-muted-foreground italic">No instructions.</span>}
-                                                            </div>
-                                                        </div>
+                                    return (
+                                        <React.Fragment key={order.orderId}>
+                                            <TableRow
+                                                ref={isLast ? lastOrderElementRef : null}
+                                                className={`cursor-pointer border-b transition-colors ${hClass} ${isExpanded ? 'bg-muted/50' : 'hover:bg-gray-100/60 dark:hover:bg-gray-800/60'} ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 shadow-inner' : ''}`}
+                                                onClick={(e) => {
+                                                    if (e.ctrlKey || e.metaKey) {
+                                                        // Allow Toggle Selection even if expanded
+                                                        e.preventDefault();
+                                                        handleSelectRow(order.orderId);
+                                                    } else {
+                                                        // Normal Click -> Toggle Expand
+                                                        setExpandedOrderId(isExpanded ? null : order.orderId);
+                                                    }
+                                                }}
+                                                title={order.description} // Tooltip on hover
+                                            >
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <FileThumbnail
+                                                        fileId={fileId}
+                                                        isFileAvailable={order.isFileAvailable}
+                                                        isPdf={isPdf}
+                                                        onView={setViewerFileId}
+                                                        onDownload={(id) => {
+                                                            const link = document.createElement('a');
+                                                            link.href = `/api/files/${id}`;
+                                                            link.download = id;
+                                                            document.body.appendChild(link);
+                                                            link.click();
+                                                            document.body.removeChild(link);
+                                                        }}
+                                                        containerClass={imgClass}
+                                                        iconClass={`${viewMode === 'compact' ? 'h-4 w-4' : 'h-6 w-6'} text-red-500`}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle font-medium`}>
+                                                    {new Date(order.timestamp || order.createdAt).toLocaleDateString()}
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle font-medium`}>
+                                                    {order.customer?.name || "Unknown"}
+                                                    {isInstant && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 shadow-sm">Instant</span>}
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle text-muted-foreground`}>
+                                                    <div className="flex items-center gap-1 group/cid">
+                                                        <span>{order.customer?.id || "-"}</span>
+                                                        {order.customer?.id && (
+                                                            <CopyButton
+                                                                text={order.customer.id}
+                                                                className="h-5 w-5 opacity-0 group-hover/cid:opacity-100 transition-opacity"
+                                                                title="Copy Customer ID"
+                                                                iconClass="text-muted-foreground"
+                                                            />
+                                                        )}
                                                     </div>
                                                 </TableCell>
+                                                <TableCell className={`${pClass} align-middle max-w-[200px] text-sm`}>
+                                                    <div title={formatItems(order.itemsJson)}>
+                                                        {formatItems(order.itemsJson, true)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle text-right font-medium`}>₹{order.payment?.totalAmount || 0}</TableCell>
+                                                <TableCell className={`${pClass} align-middle text-right text-muted-foreground`}>₹{order.payment?.discountAmount || 0}</TableCell>
+                                                <TableCell className={`${pClass} align-middle text-right`}>₹{order.payment?.advanceAmount || 0}</TableCell>
+                                                <TableCell className={`${pClass} align-middle text-right font-bold ${order.payment?.dueAmount > 0 ? "text-destructive" : "text-green-600"}`}>
+                                                    ₹{order.payment?.dueAmount || 0}
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle text-center`}>
+                                                    <OrderStatus order={order} onUpdate={() => loadOrders(0, false)} />
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle text-right`}>
+                                                    {['Pending', 'Discard', 'Discarded'].includes(order.status) && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            title="Edit Order"
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setIsModalOpen(true); }}
+                                                        >
+                                                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
                                             </TableRow>
-                                        )}
-                                    </React.Fragment>
-                                )
-                            })}
-                            {loading && (
+
+                                            {isExpanded && (
+                                                <TableRow className="bg-muted/30 border-b animate-in fade-in zoom-in-95 duration-200">
+                                                    <TableCell colSpan={11} className="p-4">
+                                                        {/* Timeline & Details Section - Managed by Component */}
+                                                        <StatusTimeline order={order} />
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })
+                            )}
+                            {loading && page > 0 && (
                                 <TableRow>
                                     <TableCell colSpan={11} className="text-center p-4">
                                         <div className="flex items-center justify-center gap-2 text-muted-foreground">

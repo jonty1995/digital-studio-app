@@ -3,6 +3,8 @@ package com.digitalstudio.app.service;
 import com.digitalstudio.app.model.Customer;
 import com.digitalstudio.app.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -85,8 +87,12 @@ public class CustomerService {
         return (prefix * 1000) + seq;
     }
 
-    public List<Customer> getAllCustomers() {
-        return customerRepository.findAll();
+    public Page<Customer> getAllCustomers(String search, Pageable pageable) {
+        if (search != null && !search.trim().isEmpty()) {
+            String q = search.trim();
+            return customerRepository.findByNameContainingIgnoreCaseOrMobileContaining(q, q, pageable);
+        }
+        return customerRepository.findAll(pageable);
     }
 
     public Optional<Customer> searchCustomer(String query) {

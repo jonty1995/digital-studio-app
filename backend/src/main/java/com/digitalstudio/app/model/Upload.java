@@ -28,7 +28,7 @@ public class Upload {
     // Hash calculation removed
     // private String fileHash;
 
-    private Boolean isAvailable; // True if file exists on disk, False if missing
+    private Boolean isAvailable = true; // True if file exists on disk, False if removed/missing
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "linked_customer_id")

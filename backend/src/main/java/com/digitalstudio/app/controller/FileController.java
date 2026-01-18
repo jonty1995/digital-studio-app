@@ -16,16 +16,15 @@ import java.util.List;
 import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import org.springframework.beans.factory.annotation.Autowired;
-
-import com.digitalstudio.app.model.PhotoOrder;
-import com.digitalstudio.app.model.Upload;
-import com.digitalstudio.app.repository.PhotoOrderRepository;
-import com.digitalstudio.app.repository.UploadRepository;
-import com.digitalstudio.app.repository.CustomerRepository;
-import com.digitalstudio.app.service.ConfigurationService;
-import com.digitalstudio.app.model.Customer;
+import com.digitalstudio.app.model.*;
+import com.digitalstudio.app.repository.*;
+import com.digitalstudio.app.service.*;
 
 @RestController
 @RequestMapping("/api/files")
@@ -90,7 +89,7 @@ public class FileController {
                 upload.setOriginalFilename(originalName);
                 upload.setExtension(ext);
                 upload.setUploadPath(path.toString());
-                upload.setIsAvailable(true); // Default to true as we write file immediately
+                upload.setIsAvailable(true); // Default to true (available) as we write file immediately
 
                 // Resolve Source Type
                 if (source != null) {
@@ -209,7 +208,8 @@ public class FileController {
     private PhotoOrderRepository photoOrderRepository;
 
     @PostMapping("/check-availability")
-    public ResponseEntity<Map<String, Object>> checkAvailability() {
+    public ResponseEntity<Map<String, Object>> checkAvailability(
+            @RequestParam(required = false, defaultValue = "false") boolean force) {
         // Here we just check existing file paths as stored in DB.
         // We don't necessarily need getUploadDir() unless we want to validate they are
         // inside it.
@@ -220,9 +220,8 @@ public class FileController {
         List<Upload> uploads = uploadRepository.findAll();
 
         for (Upload u : uploads) {
-            // Optimization: If previously checked and missing, assume lost forever per user
-            // request
-            if (Boolean.FALSE.equals(u.getIsAvailable())) {
+            // Optimization: If previously checked and missing, skip unless forced
+            if (!force && Boolean.FALSE.equals(u.getIsAvailable())) {
                 missingCount++;
                 continue;
             }
@@ -230,14 +229,14 @@ public class FileController {
             try {
                 Path path = Paths.get(u.getUploadPath());
                 boolean exists = Files.exists(path);
-                u.setIsAvailable(exists);
+                u.setIsAvailable(exists); // true = available, false = missing/removed
                 if (exists) {
                     availableCount++;
                 } else {
                     missingCount++;
                 }
             } catch (Exception e) {
-                u.setIsAvailable(false);
+                u.setIsAvailable(false); // Flag as missing on error
                 missingCount++;
             }
         }
@@ -256,10 +255,57 @@ public class FileController {
     @Autowired
     private com.digitalstudio.app.service.FileCleanupService fileCleanupService;
 
+    @Autowired
+    private com.digitalstudio.app.repository.FileDeleteQueueRepository fileDeleteQueueRepository;
+
+    @GetMapping("/queue")
+    public List<Map<String, Object>> getDeleteQueue() {
+        // Sync Step
+        List<Upload> softDeletedUploads = uploadRepository.findAll().stream()
+                .filter(u -> u.isMarkDeleted() && Boolean.TRUE.equals(u.getIsAvailable()))
+                .collect(Collectors.toList());
+
+        for (Upload upload : softDeletedUploads) {
+            if (fileDeleteQueueRepository.findByUploadId(upload.getUploadId()).isEmpty()) {
+                FileDeleteQueue queueEntry = new FileDeleteQueue();
+                queueEntry.setUploadId(upload.getUploadId());
+                queueEntry.setSoftDeleteTime(LocalDateTime.now());
+                fileDeleteQueueRepository.save(queueEntry);
+            }
+        }
+
+        List<FileDeleteQueue> queue = fileDeleteQueueRepository
+                .findAll(Sort
+                        .by(Sort.Direction.ASC, "softDeleteTime"));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (FileDeleteQueue item : queue) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", item.getId());
+            map.put("uploadId", item.getUploadId());
+            map.put("softDeleteTime", item.getSoftDeleteTime());
+
+            Optional<Upload> uploadOpt = uploadRepository.findById(item.getUploadId());
+            if (uploadOpt.isPresent()) {
+                map.put("source",
+                        uploadOpt.get().getUploadedFrom() != null ? uploadOpt.get().getUploadedFrom().getDisplayName()
+                                : "Unknown");
+            } else {
+                map.put("source", "Unknown");
+            }
+
+            result.add(map);
+        }
+        return result;
+    }
+
     @GetMapping
-    public List<Upload> getAllUploads() {
-        List<Upload> uploads = uploadRepository.findAll(org.springframework.data.domain.Sort
-                .by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+    public Page<Upload> getAllUploads(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Upload> uploadsPage = uploadRepository.findAll(pageRequest);
+        List<Upload> uploads = uploadsPage.getContent();
 
         // Fetch all orders to link customers
         List<PhotoOrder> orders = photoOrderRepository.findAll();
@@ -306,7 +352,7 @@ public class FileController {
             upload.setCustomerIds(ids.stream().distinct().collect(java.util.stream.Collectors.toList()));
         }
 
-        return uploads;
+        return uploadsPage;
     }
 
     @GetMapping("/lookup/{id}")

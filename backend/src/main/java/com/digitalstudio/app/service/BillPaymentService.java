@@ -4,6 +4,7 @@ import com.digitalstudio.app.model.BillPaymentTransaction;
 import com.digitalstudio.app.model.Customer;
 import com.digitalstudio.app.repository.BillPaymentRepository;
 import com.digitalstudio.app.repository.CustomerRepository;
+import com.digitalstudio.app.repository.UploadRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +16,9 @@ public class BillPaymentService {
 
     @Autowired
     private BillPaymentRepository billPaymentRepository;
+
+    @Autowired
+    private UploadRepository uploadRepository;
 
     @Autowired
     private CustomerRepository customerRepository;
@@ -59,8 +63,23 @@ public class BillPaymentService {
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
 
-        return billPaymentRepository.findAll(spec,
+        Page<BillPaymentTransaction> pageData = billPaymentRepository.findAll(spec,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+
+        // Populate Availability
+        for (BillPaymentTransaction txn : pageData.getContent()) {
+            if (txn.getUploadId() != null) {
+                String rawId = txn.getUploadId();
+                if (rawId.contains(".")) {
+                    rawId = rawId.substring(0, rawId.lastIndexOf('.'));
+                }
+                uploadRepository.findById(rawId).ifPresent(upload -> {
+                    txn.setIsFileAvailable(upload.getIsAvailable());
+                });
+            }
+        }
+
+        return pageData;
     }
 
     public BillPaymentTransaction createTransaction(BillPaymentTransaction transaction) {
@@ -105,8 +124,25 @@ public class BillPaymentService {
             }
         }
 
+        // Initialize Status History if new
+        if (transaction.getStatusHistoryJson() == null || transaction.getStatusHistoryJson().isEmpty()) {
+            try {
+                java.util.List<java.util.Map<String, Object>> history = new java.util.ArrayList<>();
+                java.util.Map<String, Object> entry = new java.util.HashMap<>();
+                entry.put("status", transaction.getStatus());
+                entry.put("timestamp", java.time.LocalDateTime.now().toString());
+                history.add(entry);
+                transaction.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+            } catch (Exception e) {
+                System.err.println("Error initializing bill payment history: " + e.getMessage());
+            }
+        }
+
         return billPaymentRepository.save(transaction);
     }
+
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public BillPaymentTransaction updateStatus(Long id, String status) {
         BillPaymentTransaction transaction = billPaymentRepository.findById(id)
@@ -115,20 +151,51 @@ public class BillPaymentService {
         String oldStatus = transaction.getStatus();
         transaction.setStatus(status);
 
-        // Update History
-        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
-                .ofPattern("yyyy-MM-dd HH:mm:ss");
-        String timestamp = java.time.LocalDateTime.now().format(formatter);
-        String historyEntry = String.format("{\"from\": \"%s\", \"to\": \"%s\", \"timestamp\": \"%s\"}", oldStatus,
-                status, timestamp);
+        // Update History using ObjectMapper for robust JSON handling and Upsert logic
+        try {
+            java.util.List<java.util.Map<String, Object>> history;
+            if (transaction.getStatusHistoryJson() != null && !transaction.getStatusHistoryJson().isEmpty()) {
+                history = objectMapper.readValue(transaction.getStatusHistoryJson(),
+                        new com.fasterxml.jackson.core.type.TypeReference<>() {
+                        });
+            } else {
+                history = new java.util.ArrayList<>();
+            }
 
-        String currentHistory = transaction.getStatusHistoryJson();
-        if (currentHistory == null || currentHistory.isEmpty()) {
-            transaction.setStatusHistoryJson("[" + historyEntry + "]");
-        } else {
-            // Append to existing array (remove trailing bracket)
-            transaction.setStatusHistoryJson(
-                    currentHistory.substring(0, currentHistory.length() - 1) + "," + historyEntry + "]");
+            // Define Status Order for Rollback Logic
+            java.util.Map<String, Integer> statusOrder = new java.util.HashMap<>();
+            statusOrder.put("Pending", 0);
+            statusOrder.put("Done", 1);
+            statusOrder.put("Failed", 1); // Alternates
+            statusOrder.put("Discard", 2);
+            statusOrder.put("Discarded", 2);
+
+            int newStatusIdx = statusOrder.getOrDefault(status, 99);
+
+            // Rollback Logic: Remove statuses that are "future" relative to new status
+            // Handle both 'status' key (new) and 'to' key (legacy)
+            history.removeIf(entry -> {
+                String s = (String) entry.getOrDefault("status", entry.get("to"));
+                int sIdx = statusOrder.getOrDefault(s, 99);
+                return sIdx > newStatusIdx;
+            });
+
+            // Remove existing entry for this status if present (Upsert logic)
+            // Handle both 'status' key (new) and 'to' key (legacy)
+            history.removeIf(entry -> {
+                String entryStatus = (String) entry.getOrDefault("status", entry.get("to"));
+                return status.equals(entryStatus);
+            });
+
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("status", status); // Using 'status' key to match standard
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+
+            history.add(entry);
+
+            transaction.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error updating bill payment status history: " + e.getMessage());
         }
 
         return billPaymentRepository.save(transaction);

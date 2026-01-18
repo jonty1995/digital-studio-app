@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileUpload } from "@/components/shared/FileUpload";
 
-export function ReceiptUploadModal({ isOpen, onClose, onUpload, initialFileId }) {
+export function ReceiptUploadModal({ isOpen, onClose, onUpload, initialFileId, source = "Bill Payment" }) {
 
     const handleUploadComplete = (uploadId) => {
         onUpload(uploadId);
@@ -30,7 +30,7 @@ export function ReceiptUploadModal({ isOpen, onClose, onUpload, initialFileId })
                         file={initialFileId}
                         onUpload={handleUploadComplete}
                         onRemove={() => { }}
-                        source="Bill Payment"
+                        source={source}
                         instantUpload={true}
                     />
                 </div>

@@ -182,8 +182,21 @@ public class OrderService {
         }
 
         // Map Image/File ID
-        // Map Image/File ID
         order.setUploadId(request.getImage());
+
+        // Initialize Status History if new
+        if (!isUpdate) {
+            try {
+                java.util.List<java.util.Map<String, Object>> history = new java.util.ArrayList<>();
+                java.util.Map<String, Object> entry = new java.util.HashMap<>();
+                entry.put("status", order.getStatus());
+                entry.put("timestamp", LocalDateTime.now().toString());
+                history.add(entry);
+                order.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+            } catch (Exception e) {
+                System.err.println("Error initializing status history: " + e.getMessage());
+            }
+        }
 
         return photoOrderRepository.save(order);
     }
@@ -237,6 +250,9 @@ public class OrderService {
                     // Populate Original Filename
                     order.setOriginalFilename(upload.getOriginalFilename());
 
+                    // Populate Availability
+                    order.setIsFileAvailable(upload.getIsAvailable());
+
                     // Fix Extension if missing in Order but present in Upload
                     if (!currentUploadId.contains(".") && upload.getExtension() != null) {
                         order.setUploadId(currentUploadId + upload.getExtension());
@@ -254,6 +270,14 @@ public class OrderService {
 
         String oldStatus = order.getStatus();
 
+        // Validation: Block transition from Pending if no file uploaded
+        if ("Pending".equals(oldStatus) && !"Pending".equals(newStatus) &&
+                !"Discard".equals(newStatus) && !"Discarded".equals(newStatus)) {
+            if (order.getUploadId() == null || order.getUploadId().trim().isEmpty()) {
+                throw new RuntimeException("Please upload a file before processing this order");
+            }
+        }
+
         // Append to History
         try {
             List<Map<String, Object>> history;
@@ -262,20 +286,35 @@ public class OrderService {
                 });
             } else {
                 history = new ArrayList<>();
-                // If initializing history for the first time, maybe we should add the
-                // *original* creation event?
-                // But for now, let's just assume list is empty.
-                // Or better, if it's empty, and we are changing status, we assume previous was
-                // "Pending" at createdAt.
             }
+
+            // Define Status Order for Rollback Logic
+            Map<String, Integer> statusOrder = new HashMap<>();
+            statusOrder.put("Pending", 0);
+            statusOrder.put("Processing", 1);
+            statusOrder.put("Lab Processing", 1);
+            statusOrder.put("Lab Received", 2);
+            statusOrder.put("Delivered", 3);
+            statusOrder.put("Discard", 4);
+            statusOrder.put("Discarded", 4);
+
+            int newStatusIdx = statusOrder.getOrDefault(newStatus, 99);
+
+            // Rollback Logic: Remove statuses that are "future" relative to new status
+            history.removeIf(entry -> {
+                String s = (String) entry.get("status");
+                int sIdx = statusOrder.getOrDefault(s, 99);
+                return sIdx > newStatusIdx;
+            });
+
+            // Remove existing entry for this status if present (Upsert logic)
+            history.removeIf(entry -> newStatus.equals(entry.get("status")));
 
             Map<String, Object> entry = new HashMap<>();
             entry.put("status", newStatus);
             entry.put("timestamp", LocalDateTime.now().toString());
-            // entry.put("previousStatus", oldStatus); // Optional, but usually list order
-            // is enough
 
-            history.add(entry); // Add to end (Chronological)
+            history.add(entry); // Add to end
 
             order.setStatusHistoryJson(objectMapper.writeValueAsString(history));
         } catch (Exception e) {

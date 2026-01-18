@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import {
     Table,
@@ -10,19 +10,23 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Receipt, Search, Trash2, Unlink } from "lucide-react";
+import { Plus, Receipt, Search, Trash2, Unlink, Eye, Download, Upload, Loader2 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
     DropdownMenuContent,
-    DropdownMenuItem
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
 import { OrderStatus } from "@/components/shared/OrderStatus";
+import { StatusTimeline } from "@/components/shared/StatusTimeline";
 import { cn } from "@/lib/utils";
 import { BillPaymentModal } from "@/components/shared/BillPaymentModal";
 import { ReceiptUploadModal } from "@/components/shared/ReceiptUploadModal";
 import { billPaymentService } from "@/services/billPaymentService";
+import { configurationService } from "@/services/configurationService";
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { CopyButton } from "@/components/shared/CopyButton";
@@ -35,7 +39,12 @@ export default function BillPayment() {
     // Receipt Upload State
     const [uploadModalState, setUploadModalState] = useState({ isOpen: false, txn: null });
     const [selectedTxnId, setSelectedTxnId] = useState(null);
+    const [expandedTxnId, setExpandedTxnId] = useState(null);
     const [openMenuId, setOpenMenuId] = useState(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [scrollBlockSize, setScrollBlockSize] = useState(20);
+    const [totalItems, setTotalItems] = useState(0);
+    const observer = useRef();
 
     // View Mode from Hook
     const [viewMode, setViewMode] = useViewMode("bill-payment-view-mode");
@@ -50,14 +59,7 @@ export default function BillPayment() {
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     // Initialize date range with Today (YYYY-MM-DD)
-    const [dateRange, setDateRange] = useState(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
-        return { start: today, end: today };
-    });
+    const [dateRange, setDateRange] = useState({ start: "", end: "" });
     const [searchQuery, setSearchQuery] = useState("");
 
     // Filters State
@@ -87,6 +89,32 @@ export default function BillPayment() {
         return sortConfig.direction === 'asc' ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
     };
 
+    const lastTransactionElementRef = useCallback(node => {
+        if (loading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setPage(prevPage => prevPage + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, hasMore]);
+
+    useEffect(() => {
+        const fetchBlockSize = async () => {
+            try {
+                const values = await configurationService.getValues();
+                const blockSizeConfig = values.find(v => v.name === "SCROLL_BLOCK_SIZE");
+                if (blockSizeConfig && blockSizeConfig.value) {
+                    setScrollBlockSize(parseInt(blockSizeConfig.value));
+                }
+            } catch (e) {
+                console.error("Failed to fetch SCROLL_BLOCK_SIZE", e);
+            }
+        };
+        fetchBlockSize();
+    }, []);
+
     const fetchTransactions = async (isBackground = false) => {
         if (!isBackground) setLoading(true);
         try {
@@ -95,7 +123,7 @@ export default function BillPayment() {
 
             const params = {
                 page: page,
-                size: 20,
+                size: scrollBlockSize,
                 startDate: dateRange?.start,
                 endDate: dateRange?.end,
                 search: searchQuery,
@@ -103,7 +131,17 @@ export default function BillPayment() {
             };
 
             const data = await billPaymentService.getAll(params);
-            setTransactions(data.content || []);
+            const newTxns = data.content || [];
+
+            setTransactions(prev => {
+                const combined = page === 0 ? newTxns : [...prev, ...newTxns];
+                // Dedup by ID
+                const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+                return unique;
+            });
+
+            setHasMore(!data.last && newTxns.length > 0);
+            setTotalItems(data.totalElements || 0);
             setTotalPages(data.totalPages);
         } catch (error) {
             console.error("Failed to fetch transactions:", error);
@@ -357,7 +395,7 @@ export default function BillPayment() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading ? (
+                            {loading && page === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="h-24 text-center">
                                         <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -365,186 +403,209 @@ export default function BillPayment() {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ) : sortedTransactions.length === 0 ? (
+                            ) : sortedTransactions.length === 0 && !loading ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                         No transactions found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                sortedTransactions.map((txn) => {
+                                sortedTransactions.map((txn, index) => {
                                     const pClass = viewMode === 'compact' ? 'p-2' : 'p-4';
                                     const hClass = viewMode === 'compact' ? 'h-10' : '';
 
+                                    const isExpanded = expandedTxnId === txn.id;
+
                                     return (
-                                        <TableRow
-                                            key={txn.id}
-                                            className={cn(
-                                                "cursor-pointer border-b transition-colors hover:bg-gray-100/60 dark:hover:bg-gray-800/60 outline-none focus:bg-blue-50/50",
-                                                hClass,
-                                                selectedTxnId === txn.id ? "bg-blue-50/30" : ""
-                                            )}
-                                            tabIndex={0}
-                                            onClick={() => setSelectedTxnId(txn.id)}
-                                            onPaste={(e) => handleRowPaste(e, txn)}
-                                            onDragOver={(e) => e.preventDefault()}
-                                            onDrop={(e) => handleRowDrop(e, txn)}
-                                        >
-                                            <TableCell className={`${pClass} align-middle font-medium`}>
-                                                {new Date(txn.createdAt).toLocaleDateString()}
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle`}>
-                                                <Badge variant="outline">{txn.transactionType}</Badge>
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle font-medium`}>
-                                                <div className="flex items-center gap-1 group/cid">
-                                                    <span>{txn.customer?.id || "-"}</span>
-                                                    {txn.customer?.id && (
-                                                        <CopyButton
-                                                            text={txn.customer.id}
-                                                            className="h-5 w-5 opacity-0 group-hover/cid:opacity-100 transition-opacity"
-                                                            title="Copy Customer ID"
-                                                            iconClass="text-muted-foreground"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle`}>
-                                                <div className="flex flex-col text-sm">
-                                                    {txn.operator && <span className="font-medium">{txn.operator}</span>}
-                                                    <span className="text-muted-foreground">
-                                                        {txn.transactionType === 'ELECTRICITY' ? 'Consumer No: ' :
-                                                            txn.transactionType === 'MOBILE' ? 'Mobile No: ' :
-                                                                txn.transactionType === 'DTH' ? `${getDthLabel(txn.operator)}: ` : 'ID: '}
-                                                        <div className="inline-flex items-center gap-1 group/bid">
-                                                            <span className="font-medium text-foreground">{txn.billId}</span>
+                                        <React.Fragment key={txn.id}>
+                                            <TableRow
+                                                ref={index === sortedTransactions.length - 1 ? lastTransactionElementRef : null}
+                                                className={cn(
+                                                    "cursor-pointer border-b transition-colors outline-none focus:bg-blue-50/50",
+                                                    hClass,
+                                                    isExpanded ? "bg-muted/50" : "hover:bg-gray-100/60 dark:hover:bg-gray-800/60",
+                                                    selectedTxnId === txn.id ? "bg-blue-50/30" : ""
+                                                )}
+                                                tabIndex={0}
+                                                onClick={() => setExpandedTxnId(isExpanded ? null : txn.id)}
+                                                onPaste={(e) => handleRowPaste(e, txn)}
+                                                onDragOver={(e) => e.preventDefault()}
+                                                onDrop={(e) => handleRowDrop(e, txn)}
+                                            >
+                                                <TableCell className={`${pClass} align-middle font-medium`}>
+                                                    {new Date(txn.createdAt).toLocaleDateString()}
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <Badge variant="outline">{txn.transactionType}</Badge>
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle font-medium`}>
+                                                    <div className="flex items-center gap-1 group/cid">
+                                                        <span>{txn.customer?.id || "-"}</span>
+                                                        {txn.customer?.id && (
                                                             <CopyButton
-                                                                text={txn.billId}
-                                                                className="h-4 w-4 opacity-0 group-hover/bid:opacity-100 transition-opacity"
-                                                                title="Copy ID"
+                                                                text={txn.customer.id}
+                                                                className="h-5 w-5 opacity-0 group-hover/cid:opacity-100 transition-opacity"
+                                                                title="Copy Customer ID"
                                                                 iconClass="text-muted-foreground"
                                                             />
-                                                        </div>
-                                                    </span>
-                                                    {txn.billCustomerName && <span className="text-xs text-muted-foreground">Bill Name: {txn.billCustomerName}</span>}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className={cn("font-semibold", pClass, "align-middle")}>
-                                                ₹{txn.payment?.totalAmount?.toFixed(2)}
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle`}>
-                                                <OrderStatus
-                                                    order={txn}
-                                                    type="bill-payment"
-                                                    updateFn={(id, status) => billPaymentService.updateStatus(id, status)}
-                                                    onUpdate={() => fetchTransactions(true)}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={`${pClass} align-middle`}>
-                                                <div className="flex items-center gap-2">
-                                                    <Badge variant="outline" className="text-xs font-normal text-muted-foreground bg-gray-50/50">
-                                                        {txn.payment?.paymentMode}
-                                                    </Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <div className="flex flex-col text-sm">
+                                                        {txn.operator && <span className="font-medium">{txn.operator}</span>}
+                                                        <span className="text-muted-foreground">
+                                                            {txn.transactionType === 'ELECTRICITY' ? 'Consumer No: ' :
+                                                                txn.transactionType === 'MOBILE' ? 'Mobile No: ' :
+                                                                    txn.transactionType === 'DTH' ? `${getDthLabel(txn.operator)}: ` : 'ID: '}
+                                                            <div className="inline-flex items-center gap-1 group/bid">
+                                                                <span className="font-medium text-foreground">{txn.billId}</span>
+                                                                <CopyButton
+                                                                    text={txn.billId}
+                                                                    className="h-4 w-4 opacity-0 group-hover/bid:opacity-100 transition-opacity"
+                                                                    title="Copy ID"
+                                                                    iconClass="text-muted-foreground"
+                                                                />
+                                                            </div>
+                                                        </span>
+                                                        {txn.billCustomerName && <span className="text-xs text-muted-foreground">Bill Name: {txn.billCustomerName}</span>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={cn("font-semibold", pClass, "align-middle")}>
+                                                    ₹{txn.payment?.totalAmount?.toFixed(2)}
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <OrderStatus
+                                                        order={txn}
+                                                        type="bill-payment"
+                                                        updateFn={(id, status) => billPaymentService.updateStatus(id, status)}
+                                                        onUpdate={() => fetchTransactions(true)}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Receipt Upload UI - Only for Done Status */}
 
-                                                    {/* Receipt Upload UI - Only for Done Status */}
-                                                    {txn.status === 'Done' && (
-                                                        <>
-                                                            {txn.uploadId ? (
-                                                                <DropdownMenu open={openMenuId === txn.id} onOpenChange={(open) => setOpenMenuId(open ? txn.id : null)}>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-6 w-6 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full"
-                                                                            title="Receipt Uploaded (Click to View, Right-click to Delete)"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setUploadModalState({ isOpen: true, txn: txn });
-                                                                            }}
-                                                                            onContextMenu={(e) => {
-                                                                                e.preventDefault();
-                                                                                e.stopPropagation();
-                                                                                setOpenMenuId(txn.id);
-                                                                            }}
-                                                                        >
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setUploadModalState({ isOpen: true, txn: txn });
-                                                                            setOpenMenuId(null);
-                                                                        }}>
-                                                                            View / Replace
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleReceiptUnlink(txn);
-                                                                                setOpenMenuId(null);
-                                                                            }}
-                                                                        >
-                                                                            <Unlink className="w-4 h-4 mr-2" />
-                                                                            Unlink Receipt
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleReceiptDeleteFile(txn);
-                                                                                setOpenMenuId(null);
-                                                                            }}
-                                                                            className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4 mr-2" />
-                                                                            Delete File
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            ) : (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
-                                                                    title="Link Receipt"
-                                                                    onClick={(e) => { e.stopPropagation(); setUploadModalState({ isOpen: true, txn: txn }); }}
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                                                </Button>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
+                                                        {/* Receipt Upload UI - Only for Done Status */}
+                                                        {txn.status === 'Done' && (
+                                                            <>
+                                                                {txn.uploadId ? (
+                                                                    <DropdownMenu open={openMenuId === txn.id} onOpenChange={(open) => setOpenMenuId(open ? txn.id : null)}>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-6 w-6 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full"
+                                                                                title="Receipt Uploaded (Click to View, Right-click to Delete)"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setUploadModalState({ isOpen: true, txn: txn });
+                                                                                }}
+                                                                                onContextMenu={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    e.stopPropagation();
+                                                                                    setOpenMenuId(txn.id);
+                                                                                }}
+                                                                            >
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent align="end">
+                                                                            <DropdownMenuLabel>Receipt Actions</DropdownMenuLabel>
+                                                                            <DropdownMenuSeparator />
+                                                                            {txn.isFileAvailable !== false ? (
+                                                                                <>
+                                                                                    <DropdownMenuItem onClick={() => window.open(`/api/files/${txn.uploadId}`, '_blank')}>
+                                                                                        <Eye className="mr-2 h-4 w-4" />
+                                                                                        <span>View Receipt</span>
+                                                                                    </DropdownMenuItem>
+                                                                                    <DropdownMenuItem onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        const link = document.createElement('a');
+                                                                                        link.href = `/api/files/${txn.uploadId}`;
+                                                                                        link.download = txn.uploadId;
+                                                                                        document.body.appendChild(link);
+                                                                                        link.click();
+                                                                                        document.body.removeChild(link);
+                                                                                    }}>
+                                                                                        <Download className="mr-2 h-4 w-4" />
+                                                                                        <span>Download Receipt</span>
+                                                                                    </DropdownMenuItem>
+                                                                                </>
+                                                                            ) : (
+                                                                                <DropdownMenuItem disabled className="text-muted-foreground italic text-xs">
+                                                                                    File no longer available
+                                                                                </DropdownMenuItem>
+                                                                            )}
+                                                                            <DropdownMenuItem onClick={() => setUploadModalState({ isOpen: true, txn: txn })}>
+                                                                                <Upload className="mr-2 h-4 w-4" />
+                                                                                <span>Re-upload Receipt</span>
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuItem
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleReceiptUnlink(txn);
+                                                                                    setOpenMenuId(null);
+                                                                                }}
+                                                                            >
+                                                                                <Unlink className="w-4 h-4 mr-2" />
+                                                                                Unlink Receipt
+                                                                            </DropdownMenuItem>
+                                                                            {txn.isFileAvailable !== false && (
+                                                                                <DropdownMenuItem
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleReceiptDeleteFile(txn);
+                                                                                        setOpenMenuId(null);
+                                                                                    }}
+                                                                                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                                                                >
+                                                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                                                    Delete File
+                                                                                </DropdownMenuItem>
+                                                                            )}
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                ) : (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+                                                                        title="Link Receipt"
+                                                                        onClick={(e) => { e.stopPropagation(); setUploadModalState({ isOpen: true, txn: txn }); }}
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                                                    </Button>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+
+                                            {isExpanded && (
+                                                <TableRow className="bg-muted/30 border-b animate-in fade-in zoom-in-95 duration-200">
+                                                    <TableCell colSpan={7} className="p-4">
+                                                        <StatusTimeline order={txn} type="bill-payment" />
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })
                             )}
+                            {loading && page > 0 && (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={7} className="py-4 text-center">
+                                        <div className="text-sm text-muted-foreground animate-pulse flex items-center justify-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Loading more...
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex justify-end items-center space-x-2 py-4">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(p => Math.max(0, p - 1))}
-                        disabled={page === 0}
-                    >
-                        Previous
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-                        Page {page + 1} of {totalPages || 1}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                        disabled={page >= totalPages - 1}
-                    >
-                        Next
-                    </Button>
                 </div>
             </div>
 
@@ -559,6 +620,7 @@ export default function BillPayment() {
                 onClose={() => setUploadModalState({ isOpen: false, txn: null })}
                 onUpload={handleReceiptUpload}
                 initialFileId={uploadModalState.txn?.uploadId}
+                source="Bill Payment"
             />
 
             <SimpleAlert

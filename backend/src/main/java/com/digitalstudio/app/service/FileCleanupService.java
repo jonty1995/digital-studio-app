@@ -66,6 +66,8 @@ public class FileCleanupService {
 
     // --- Schedulers ---
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FileCleanupService.class);
+
     @org.springframework.scheduling.annotation.Scheduled(cron = "0 * * * * ?") // Every minute
     public void runScheduledTasks() {
         try {
@@ -85,7 +87,7 @@ public class FileCleanupService {
                 return; // Config not set
             }
 
-            // Execute sequentially: Soft Delete First, then Hard Delete
+            // Execute sequentially
             new TransactionTemplate(transactionManager).execute(status -> {
                 doReceiptSoftDeleteCheck();
                 return null;
@@ -96,8 +98,8 @@ public class FileCleanupService {
                 return null;
             });
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Throwable e) {
+            logger.error("Scheduled Task Failed", e);
         }
     }
 
@@ -134,8 +136,9 @@ public class FileCleanupService {
     private void performSoftDelete(Upload upload, String userRemarks, String sourcePrefix) {
         upload.setMarkDeleted(true);
 
-        // Add to Queue if not exists
-        if (fileDeleteQueueRepository.findByUploadId(upload.getUploadId()).isEmpty()) {
+        // Add to Queue if file is available and not already in queue
+        if (Boolean.TRUE.equals(upload.getIsAvailable()) &&
+                fileDeleteQueueRepository.findByUploadId(upload.getUploadId()).isEmpty()) {
             FileDeleteQueue queueEntry = new FileDeleteQueue();
             queueEntry.setUploadId(upload.getUploadId());
             queueEntry.setSoftDeleteTime(LocalDateTime.now());
@@ -161,24 +164,45 @@ public class FileCleanupService {
             int days = Integer.parseInt(durationStr.trim());
             LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
 
-            List<FileDeleteQueue> expiredEntries = fileDeleteQueueRepository.findAll().stream()
-                    .filter(entry -> entry.getSoftDeleteTime().isBefore(cutoff))
-                    .collect(Collectors.toList());
+            logger.info("DEBUG: Hard Delete Check Running");
+            logger.info("DEBUG: Configured Days: " + days);
+            logger.info("DEBUG: Cutoff Time: " + cutoff);
 
-            for (FileDeleteQueue entry : expiredEntries) {
-                Optional<Upload> uploadOpt = uploadRepository.findById(entry.getUploadId());
-                if (uploadOpt.isPresent()) {
-                    performHardDelete(uploadOpt.get());
+            List<FileDeleteQueue> allEntries = fileDeleteQueueRepository.findAll();
+            logger.info("DEBUG: Queue Size=" + allEntries.size());
+
+            // Avoid Stream logic inside critical section to debug
+            for (FileDeleteQueue entry : allEntries) {
+                boolean expired = false;
+                if (entry.getSoftDeleteTime() != null) {
+                    expired = entry.getSoftDeleteTime().isBefore(cutoff);
+                    logger.info("DEBUG: Check ID=" + entry.getUploadId() + " Time=" + entry.getSoftDeleteTime()
+                            + " Expired=" + expired);
+                } else {
+                    logger.info("DEBUG: Check ID=" + entry.getUploadId() + " Time=NULL");
                 }
-                // Convert ID to string for deletion if needed or just use object
-                fileDeleteQueueRepository.delete(entry);
+
+                if (expired) {
+                    Optional<Upload> uploadOpt = uploadRepository.findById(entry.getUploadId());
+                    if (uploadOpt.isPresent()) {
+                        performHardDelete(uploadOpt.get());
+                    }
+                    fileDeleteQueueRepository.delete(entry);
+                    logger.info("DEBUG: Deleted ID=" + entry.getUploadId());
+                }
             }
 
-        } catch (NumberFormatException e) {
-            // Ignore
+        } catch (Throwable e) {
+            // Very simple logger
+            try {
+                logger.error("Failed Hard Delete", e);
+            } catch (Throwable ex) {
+                e.printStackTrace();
+            }
         }
     }
 
+    @Transactional
     private void performHardDelete(Upload upload) {
         if (upload.getUploadPath() != null) {
             try {
@@ -189,7 +213,7 @@ public class FileCleanupService {
             }
         }
 
-        upload.setIsAvailable(false);
+        upload.setIsAvailable(false); // Flag as removed/unavailable
         // upload.setUploadPath(null); // Retain path as per user request
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yy HH:mm"));
