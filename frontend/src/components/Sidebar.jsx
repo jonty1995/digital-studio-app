@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send } from "lucide-react"
+import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send, Briefcase } from "lucide-react"
 
 export function Sidebar() {
     const location = useLocation()
@@ -10,6 +10,7 @@ export function Sidebar() {
         { name: "Photo Orders", path: "/photo-orders", icon: ImageIcon },
         { name: "Bill Payment", path: "/bill-payment", icon: Receipt },
         { name: "Money Transfer", path: "/money-transfer", icon: Send },
+        { name: "Service", path: "/service-orders", icon: Briefcase },
         { name: "Customers", path: "/customers", icon: Users },
         { name: "Uploads", path: "/uploads", icon: Folder },
         { name: "Configuration", path: "/configuration", icon: Settings },

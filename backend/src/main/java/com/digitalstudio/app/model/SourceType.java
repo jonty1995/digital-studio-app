@@ -4,7 +4,8 @@ public enum SourceType {
     PHOTO_ORDERS("Photo Orders"),
     UPLOADS("Uploads"),
     BILL_PAYMENT("Bill Payment"),
-    MONEY_TRANSFER("Money Transfer");
+    MONEY_TRANSFER("Money Transfer"),
+    SERVICE("Service");
 
     private final String displayName;
 

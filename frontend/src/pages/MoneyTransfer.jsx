@@ -247,7 +247,7 @@ export default function MoneyTransfer() {
                                                 <div className="flex flex-col text-sm">
                                                     <span className="font-medium">{t.recipientName}</span>
                                                     <span className="text-muted-foreground text-xs">
-                                                        {t.transferType === 'UPI' ? (t.upiId || t.mobileNumber) : `${t.bankName} - ${t.accountNumber}`}
+                                                        {t.transferType === 'UPI' ? (t.upiId || t.mobileNumber) : `${t.bankName} (${t.ifscCode}) - ${t.accountNumber}`}
                                                     </span>
                                                 </div>
                                             </TableCell>

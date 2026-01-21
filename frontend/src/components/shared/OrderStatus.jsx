@@ -34,7 +34,7 @@ export const getStatusColor = (status) => {
  * Returns null if manual choice is needed (e.g. Pending) or terminal state.
  */
 export const getNextAutoStatus = (status, isInstant, type = 'photo-order') => {
-    if (type === 'bill-payment' || type === 'money-transfer') {
+    if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order') {
         // Bill Payment usually requires choice (Done/Failed), no auto-advance on single click from Pending?
         // Maybe Pending -> Done on single click? User asked for Left Click = Done.
         if (status === 'Pending') return 'Done';
@@ -57,7 +57,7 @@ export const getNextAutoStatus = (status, isInstant, type = 'photo-order') => {
 export const getAvailableTransitions = (status, isInstant, type = 'photo-order') => {
     const transitions = [];
 
-    if (type === 'bill-payment' || type === 'money-transfer') {
+    if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order') {
         if (status === 'Pending') return ['Done', 'Failed', 'Discard'];
         if (status === 'Failed') return ['Refunded', 'Pending'];
         if (['Done', 'Discard', 'Discarded', 'Refunded'].includes(status)) return ['Pending'];
@@ -141,7 +141,7 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
 
         // Pending -> Specific Next State logic
         if (currentStatus === "Pending") {
-            if (type === 'bill-payment' || type === 'money-transfer') {
+            if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order') {
                 handleStatusUpdate("Done");
             } else {
                 // Photo Order

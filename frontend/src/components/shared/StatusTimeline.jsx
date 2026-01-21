@@ -14,7 +14,7 @@ export function StatusTimeline(props) {
     // Construct the Ideal Flow
     let steps = [];
 
-    if (props.type === 'bill-payment' || props.type === 'money-transfer') {
+    if (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order') {
         steps = [
             { id: 'Pending', label: 'Pending', icon: ClipboardList },
             { id: 'Done', label: 'Done', icon: CheckCircle2 },
@@ -102,7 +102,7 @@ export function StatusTimeline(props) {
     };
 
     const OrderIdDisplay = order.orderId || order.id; // PhotoOrder uses orderId, BillPayment uses id
-    const uploadLabel = (props.type === 'bill-payment' || props.type === 'money-transfer') ? 'Receipt ID' : 'Upload ID';
+    const uploadLabel = (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order') ? 'Receipt ID' : 'Upload ID';
 
     return (
         <div className="flex flex-col gap-6">
@@ -205,22 +205,24 @@ export function StatusTimeline(props) {
                 </div>
 
                 {/* Upload/Receipt ID */}
-                <div className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">{uploadLabel}</span>
-                    <div className="flex items-center gap-2">
-                        <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
-                        {order.uploadId && (
-                            <CopyButton
-                                text={order.uploadId}
-                                className="h-5 w-5 bg-background border shadow-sm"
-                                title={`Copy ${uploadLabel}`}
-                            />
-                        )}
+                {props.type !== 'service-order' && (
+                    <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">{uploadLabel}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
+                            {order.uploadId && (
+                                <CopyButton
+                                    text={order.uploadId}
+                                    className="h-5 w-5 bg-background border shadow-sm"
+                                    title={`Copy ${uploadLabel}`}
+                                />
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Photo Order Specifics */}
-                {!(props.type === 'bill-payment' || props.type === 'money-transfer') && (
+                {!(props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order') && (
                     <>
                         {/* Original File Name */}
                         <div className="flex flex-col gap-1">

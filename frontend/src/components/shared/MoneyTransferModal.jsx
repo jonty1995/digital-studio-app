@@ -21,6 +21,7 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
         mobileNumber: "",
         recipientName: "",
         bankName: "",
+        customBankName: "",
         ifscCode: "",
         accountNumber: "",
         amount: ""
@@ -44,6 +45,7 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
                 mobileNumber: "",
                 recipientName: "",
                 bankName: "",
+                customBankName: "",
                 ifscCode: "",
                 accountNumber: "",
                 amount: ""
@@ -85,6 +87,9 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
             if (!details.bankName || !details.accountNumber || !details.ifscCode) {
                 return showAlert("Missing Details", "Bank Name, Account Number, and IFSC are required.");
             }
+            if (details.bankName === 'Other' && !details.customBankName) {
+                return showAlert("Missing Details", "Please specify the Bank Name.");
+            }
         }
 
         const payload = {
@@ -97,7 +102,7 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
             upiId: details.upiId,
             mobileNumber: details.mobileNumber,
             recipientName: details.recipientName,
-            bankName: details.bankName,
+            bankName: details.bankName === 'Other' ? details.customBankName : details.bankName,
             ifscCode: details.ifscCode,
             accountNumber: details.accountNumber,
             amount: parseFloat(details.amount),
@@ -178,6 +183,12 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {details.bankName === 'Other' && (
+                                    <div className="space-y-2">
+                                        <Label>Specify Bank Name</Label>
+                                        <Input value={details.customBankName} onChange={e => setDetails({ ...details, customBankName: e.target.value })} placeholder="Enter bank name" />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <Label>IFSC Code</Label>
                                     <Input value={details.ifscCode} onChange={e => setDetails({ ...details, ifscCode: e.target.value.toUpperCase() })} placeholder="IFSC0001234" maxLength={11} />
