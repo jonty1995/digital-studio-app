@@ -9,11 +9,11 @@ import java.util.List;
 
 public class OrderSpecification {
 
-    public static Specification<PhotoOrder> filterOrders(LocalDate startDate, LocalDate endDate, String search, Boolean isInstant) {
+    public static Specification<PhotoOrder> filterOrders(LocalDate startDate, LocalDate endDate, String search,
+            Boolean isInstant) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Date Range (using createdAt)
             // Date Range (using createdAt)
             if (startDate != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), startDate.atStartOfDay()));
@@ -25,11 +25,13 @@ public class OrderSpecification {
             // Search (Customer Name, Customer ID, Order ID, Upload ID)
             if (search != null && !search.trim().isEmpty()) {
                 String searchLike = "%" + search.trim().toLowerCase() + "%";
-                Predicate nameLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("customer").get("name")), searchLike);
-                Predicate custIdLike = criteriaBuilder.like(root.get("customer").get("id").as(String.class), searchLike);
+                Predicate nameLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("customer").get("name")),
+                        searchLike);
+                Predicate custIdLike = criteriaBuilder.like(root.get("customer").get("id").as(String.class),
+                        searchLike);
                 Predicate orderIdLike = criteriaBuilder.like(root.get("orderId").as(String.class), searchLike);
                 Predicate uploadIdLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("uploadId")), searchLike);
-                
+
                 predicates.add(criteriaBuilder.or(nameLike, custIdLike, orderIdLike, uploadIdLike));
             }
 

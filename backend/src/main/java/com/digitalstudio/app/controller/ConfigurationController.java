@@ -3,6 +3,7 @@ package com.digitalstudio.app.controller;
 import com.digitalstudio.app.model.Addon;
 import com.digitalstudio.app.dto.AddonPricingRule;
 import com.digitalstudio.app.model.PhotoItem;
+import com.digitalstudio.app.model.ServiceItem;
 import com.digitalstudio.app.service.ConfigurationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -30,14 +31,7 @@ public class ConfigurationController {
 
     @PostMapping("/items")
     public List<PhotoItem> savePhotoItems(@RequestBody List<PhotoItem> items) {
-        try {
-            configurationService.replaceAllPhotoItems(items);
-            return configurationService.getAllPhotoItems();
-        } catch (Exception e) {
-            System.err.println("Error saving photo items: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
+        return configurationService.savePhotoItems(items);
     }
 
     // Addons
@@ -48,8 +42,18 @@ public class ConfigurationController {
 
     @PostMapping("/addons")
     public List<Addon> saveAddons(@RequestBody List<Addon> addons) {
-        configurationService.replaceAllAddons(addons);
-        return configurationService.getAllAddons();
+        return configurationService.saveAddons(addons);
+    }
+
+    // Services
+    @GetMapping("/services")
+    public List<ServiceItem> getServiceItems() {
+        return configurationService.getAllServiceItems();
+    }
+
+    @PostMapping("/services")
+    public List<ServiceItem> saveServiceItems(@RequestBody List<ServiceItem> items) {
+        return configurationService.saveServiceItems(items);
     }
 
     // Pricing
@@ -60,7 +64,7 @@ public class ConfigurationController {
 
     @PostMapping("/pricing-rules")
     public List<AddonPricingRule> savePricingRules(@RequestBody List<AddonPricingRule> rules) {
-        configurationService.replaceAllPricingRules(rules);
+        configurationService.savePricingRules(rules);
         return configurationService.getAllPricingRules();
     }
 
@@ -78,13 +82,13 @@ public class ConfigurationController {
     // Full Config Export/Import
     @GetMapping("/full")
     public ConfigExportDTO getFullConfig() {
-        return configurationService.exportFullConfig();
+        return configurationService.exportAll();
     }
 
     @PostMapping("/full")
     public ResponseEntity<?> importFullConfig(@RequestBody ConfigExportDTO dto) {
         try {
-            configurationService.importFullConfig(dto);
+            configurationService.importAll(dto);
             return ResponseEntity.ok(Collections.singletonMap("message", "Configuration Imported Successfully"));
         } catch (Exception e) {
             System.err.println("Error importing configuration: " + e.getMessage());

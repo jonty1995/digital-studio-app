@@ -6,10 +6,11 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import java.util.UUID;
 
 @Repository
 public interface MoneyTransferRepository
-        extends JpaRepository<MoneyTransfer, Long>, JpaSpecificationExecutor<MoneyTransfer> {
+        extends JpaRepository<MoneyTransfer, UUID>, JpaSpecificationExecutor<MoneyTransfer> {
 
     @Modifying
     @Query("UPDATE MoneyTransfer m SET m.uploadId = null WHERE m.uploadId = :uploadId")

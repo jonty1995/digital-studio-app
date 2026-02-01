@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/money-transfers")
@@ -36,13 +37,13 @@ public class MoneyTransferController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<MoneyTransfer> updateStatus(@PathVariable Long id, @RequestBody String status) {
+    public ResponseEntity<MoneyTransfer> updateStatus(@PathVariable UUID id, @RequestBody String status) {
         String cleanStatus = status.replaceAll("^\"|\"$", "");
         return ResponseEntity.ok(moneyTransferService.updateStatus(id, cleanStatus));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MoneyTransfer> updateTransfer(@PathVariable Long id,
+    public ResponseEntity<MoneyTransfer> updateTransfer(@PathVariable UUID id,
             @RequestBody Map<String, Object> updates) {
         return ResponseEntity.ok(moneyTransferService.updateTransfer(id, updates));
     }

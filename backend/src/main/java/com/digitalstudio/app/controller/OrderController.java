@@ -11,89 +11,67 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5174")
 public class OrderController {
 
     @Autowired
     private OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<PhotoOrder> createOrder(@RequestBody PhotoOrderRequest request) {
+    public ResponseEntity<PhotoOrder> saveOrder(@RequestBody PhotoOrderRequest request) {
+        // saveOrder in service handles both create and update based on request.orderId
+        // presence
         PhotoOrder saved = orderService.saveOrder(request);
         return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PhotoOrder> updateOrder(@PathVariable Long id, @RequestBody PhotoOrderRequest request) {
+    public ResponseEntity<PhotoOrder> updateOrder(@PathVariable UUID id, @RequestBody PhotoOrderRequest request) {
         request.setOrderId(id); // Ensure ID matches path
         PhotoOrder saved = orderService.saveOrder(request);
         return ResponseEntity.ok(saved);
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<PhotoOrder> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        String newStatus = body.get("status");
-        if (newStatus == null) {
-            return ResponseEntity.badRequest().build();
-        }
-        return ResponseEntity.ok(orderService.updateStatus(id, newStatus));
+    @GetMapping
+    public org.springframework.data.domain.Page<PhotoOrder> getAllOrders(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean instant,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return orderService.getAllOrders(startDate, endDate, search, instant, page, size);
     }
 
-    @PutMapping("/bulk-status")
-    public ResponseEntity<?> bulkUpdateStatus(@RequestBody Map<String, Object> body) {
-        System.out.println("DEBUG: bulkUpdateStatus Payload: " + body);
-        try {
-            List<?> idsRaw = (List<?>) body.get("ids");
-            String status = (String) body.get("status");
+    @PutMapping("/{id}/status")
+    public PhotoOrder updateStatus(@PathVariable UUID id, @RequestParam String status) {
+        return orderService.updateStatus(id, status);
+    }
 
-            if (idsRaw == null || idsRaw.isEmpty() || status == null) {
-                System.out.println("DEBUG: Missing ids or status");
+    @PostMapping("/bulk/status")
+    public ResponseEntity<?> bulkUpdateStatus(@RequestBody Map<String, Object> payload) {
+        try {
+            List<String> idsRaw = (List<String>) payload.get("ids");
+            String status = (String) payload.get("status");
+
+            if (idsRaw == null || status == null) {
                 return ResponseEntity.badRequest().body("Missing 'ids' or 'status'");
             }
 
-            // Safer conversion: Handle Integer, Long, or whatever Number Jackson gives
-            List<Long> ids = idsRaw.stream()
-                    .filter(item -> item instanceof Number)
-                    .map(item -> ((Number) item).longValue())
+            List<UUID> ids = idsRaw.stream()
+                    .map(UUID::fromString)
                     .collect(Collectors.toList());
 
-            if (ids.isEmpty()) {
-                System.out.println("DEBUG: No valid numeric IDs found");
-                return ResponseEntity.badRequest().body("No valid numeric IDs found");
-            }
-
-            System.out.println("DEBUG: Updating IDs: " + ids + " to status: " + status);
             orderService.bulkUpdateStatus(ids, status);
             return ResponseEntity.ok(Collections.singletonMap("success", true));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
         }
-    }
-
-    @GetMapping
-    public ResponseEntity<org.springframework.data.domain.Page<PhotoOrder>> getAllOrders(
-            @RequestParam(required = false) LocalDate startDate,
-            @RequestParam(required = false) LocalDate endDate,
-            @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "true") boolean instant,
-            @RequestParam(defaultValue = "true") boolean regular,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-
-        // Resolve Type Filter
-        Boolean isInstant = null;
-        if (instant && !regular) {
-            isInstant = true;
-        } else if (!instant && regular) {
-            isInstant = false;
-        }
-        // If both true or both false, isInstant remains null (no filter)
-
-        return ResponseEntity.ok(orderService.getAllOrders(startDate, endDate, search, isInstant, page, size));
     }
 }

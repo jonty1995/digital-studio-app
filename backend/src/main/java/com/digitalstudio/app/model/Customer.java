@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Table(name = "customers")
 public class Customer {
     @Id
-    @Column(name = "customer_id")
+    @Column(name = "customer_id", columnDefinition = "BIGINT")
     private Long id;
 
     private String name;

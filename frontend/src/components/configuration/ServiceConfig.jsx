@@ -7,7 +7,7 @@ import { Plus, Trash2, Edit2, X, Check, Loader2 } from "lucide-react";
 import { configurationService } from "@/services/configurationService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
-export function PhotoItemConfig() {
+export function ServiceConfig() {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -25,9 +25,8 @@ export function PhotoItemConfig() {
     const loadItems = async () => {
         setLoading(true);
         try {
-            const data = await configurationService.getItems();
-            // Store originalName for safe renaming
-            setItems(data.map(i => ({ ...i, originalName: i.name })));
+            const data = await configurationService.getServiceItems();
+            setItems(data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -36,31 +35,32 @@ export function PhotoItemConfig() {
     };
 
     const handleAdd = () => {
-        const newId = Date.now(); // Temp numeric ID
+        const newId = Date.now();
         const newItem = {
             id: newId,
             name: "",
-            originalName: "", // New item has no original name
-            regularBasePrice: 0,
-            regularCustomerPrice: 0,
-            instantBasePrice: 0,
-            instantCustomerPrice: 0
+            basePrice: 0,
+            customerPrice: 0
         };
         setItems([...items, newItem]);
         setEditingId(newId);
-        // Scroll to bottom
         setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
     };
 
     const handleChange = (id, field, value) => {
         // Restrict negative values for price fields
-        if ((field.includes("Price")) && value < 0) {
+        if ((field === "basePrice" || field === "customerPrice") && value < 0) {
             return;
         }
 
         setItems(items.map(item => {
             if (item.id === id) {
-                return { ...item, [field]: value };
+                const updatedItem = { ...item, [field]: value };
+                // Sync logic: copy customerPrice to basePrice automatically
+                if (field === 'customerPrice') {
+                    updatedItem.basePrice = value;
+                }
+                return updatedItem;
             }
             return item;
         }));
@@ -75,13 +75,13 @@ export function PhotoItemConfig() {
                 id: (typeof i.id === 'string' && i.id.length > 20) ? i.id : null
             }));
 
-            await configurationService.saveItems(payload);
-            if (!silent) showAlert("Success", "Items saved successfully.");
-            await loadItems(); // Refresh to sync IDs
+            await configurationService.saveServiceItems(payload);
+            if (!silent) showAlert("Success", "Services saved successfully.");
+            await loadItems();
         } catch (e) {
             console.error(e);
-            showAlert("Error", "Failed to save items.");
-            await loadItems(); // Revert
+            showAlert("Error", "Failed to save services.");
+            await loadItems();
         } finally {
             setSaving(false);
         }
@@ -90,20 +90,27 @@ export function PhotoItemConfig() {
     const handleRowSave = async (id) => {
         const item = items.find(i => i.id === id);
         if (!item.name) {
-            showAlert("Missing Name", "Item name is required.");
+            showAlert("Missing Name", "Service name is required.");
             return;
         }
 
-        // Check duplicates (excluding current item)
         const nameExists = items.some(i => i.name.toLowerCase() === item.name.toLowerCase() && i.id !== id);
         if (nameExists) {
-            showAlert("Duplicate Name", "Item name must be unique.");
+            showAlert("Duplicate Name", "Service name must be unique.");
             return;
         }
 
-        if (item.regularBasePrice < 0 || item.regularCustomerPrice < 0 ||
-            item.instantBasePrice < 0 || item.instantCustomerPrice < 0) {
+        // Validation: Base Price <= Customer Price
+        const bPrice = parseFloat(item.basePrice) || 0;
+        const cPrice = parseFloat(item.customerPrice) || 0;
+
+        if (bPrice < 0 || cPrice < 0) {
             showAlert("Invalid Prices", "Prices cannot be negative.");
+            return;
+        }
+
+        if (bPrice > cPrice) {
+            showAlert("Invalid Prices", "Base Price cannot be greater than Customer Price.");
             return;
         }
 
@@ -112,22 +119,19 @@ export function PhotoItemConfig() {
     };
 
     const handleCancel = async () => {
-        await loadItems(); // Revert changes
+        await loadItems();
         setEditingId(null);
     };
 
     const handleDelete = async (id) => {
         const newItems = items.filter(i => i.id !== id);
         setItems(newItems);
-        // We need to persist deletion immediately to match other configs
         setSaving(true);
         try {
-            await configurationService.saveItems(newItems);
-            // Don't reload immediately, just keep state? Or reload to be safe.
-            // loading items might bring it back if save failed?
+            await configurationService.saveServiceItems(newItems);
         } catch (e) {
             console.error(e);
-            showAlert("Error", "Failed to delete item.");
+            showAlert("Error", "Failed to delete service.");
             loadItems();
         } finally {
             setSaving(false);
@@ -140,7 +144,7 @@ export function PhotoItemConfig() {
         <div className="space-y-4">
             <div className="flex justify-end items-center">
                 <Button onClick={handleAdd} size="sm" className="gap-2">
-                    <Plus className="w-4 h-4" /> Add Item
+                    <Plus className="w-4 h-4" /> Add Service
                 </Button>
             </div>
 
@@ -148,19 +152,17 @@ export function PhotoItemConfig() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[200px]">Item Name</TableHead>
-                            <TableHead className="text-right">Regular Base</TableHead>
-                            <TableHead className="text-right">Regular Cust.</TableHead>
-                            <TableHead className="text-right">Instant Base</TableHead>
-                            <TableHead className="text-right">Instant Cust.</TableHead>
+                            <TableHead>Service Name</TableHead>
+                            <TableHead className="text-right w-[150px]">Customer Price</TableHead>
+                            <TableHead className="text-right w-[150px]">Base Price</TableHead>
                             <TableHead className="text-right w-[100px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {items.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
-                                    No photo items configured.
+                                <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                                    No services configured.
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -173,7 +175,7 @@ export function PhotoItemConfig() {
                                                 <Input
                                                     value={item.name}
                                                     onChange={(e) => handleChange(item.id, "name", e.target.value)}
-                                                    placeholder="Item Name"
+                                                    placeholder="Service Name"
                                                 />
                                             ) : (
                                                 <span className="font-medium">{item.name}</span>
@@ -185,12 +187,12 @@ export function PhotoItemConfig() {
                                                     type="number"
                                                     min="0"
                                                     onWheel={e => e.target.blur()}
-                                                    value={item.regularBasePrice}
-                                                    onChange={(e) => handleChange(item.id, "regularBasePrice", e.target.value)}
+                                                    value={item.customerPrice}
+                                                    onChange={(e) => handleChange(item.id, "customerPrice", e.target.value)}
                                                     className="text-right"
                                                 />
                                             ) : (
-                                                <div className="text-right">{item.regularBasePrice}</div>
+                                                <div className="text-right font-medium text-primary">₹{Number(item.customerPrice || 0).toFixed(2)}</div>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -199,40 +201,12 @@ export function PhotoItemConfig() {
                                                     type="number"
                                                     min="0"
                                                     onWheel={e => e.target.blur()}
-                                                    value={item.regularCustomerPrice}
-                                                    onChange={(e) => handleChange(item.id, "regularCustomerPrice", e.target.value)}
+                                                    value={item.basePrice}
+                                                    onChange={(e) => handleChange(item.id, "basePrice", e.target.value)}
                                                     className="text-right"
                                                 />
                                             ) : (
-                                                <div className="text-right">{item.regularCustomerPrice}</div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {isEditing ? (
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    onWheel={e => e.target.blur()}
-                                                    value={item.instantBasePrice}
-                                                    onChange={(e) => handleChange(item.id, "instantBasePrice", e.target.value)}
-                                                    className="text-right"
-                                                />
-                                            ) : (
-                                                <div className="text-right">{item.instantBasePrice}</div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {isEditing ? (
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    onWheel={e => e.target.blur()}
-                                                    value={item.instantCustomerPrice}
-                                                    onChange={(e) => handleChange(item.id, "instantCustomerPrice", e.target.value)}
-                                                    className="text-right"
-                                                />
-                                            ) : (
-                                                <div className="text-right">{item.instantCustomerPrice}</div>
+                                                <div className="text-right">₹{Number(item.basePrice || 0).toFixed(2)}</div>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">

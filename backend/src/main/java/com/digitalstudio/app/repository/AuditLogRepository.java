@@ -6,9 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findByTimestampBetweenOrderByTimestampDesc(LocalDateTime startDate, LocalDateTime endDate);
-    List<AuditLog> findByEntityNameInAndTimestampBetweenOrderByTimestampDesc(List<String> entityNames, LocalDateTime startDate, LocalDateTime endDate);
+
+    List<AuditLog> findByEntityNameInAndTimestampBetweenOrderByTimestampDesc(List<String> entityNames,
+            LocalDateTime startDate, LocalDateTime endDate);
 }

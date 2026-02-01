@@ -4,8 +4,9 @@ import com.digitalstudio.app.model.ServiceOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
+import java.util.UUID;
 
 @Repository
 public interface ServiceOrderRepository
-        extends JpaRepository<ServiceOrder, Long>, JpaSpecificationExecutor<ServiceOrder> {
+                extends JpaRepository<ServiceOrder, UUID>, JpaSpecificationExecutor<ServiceOrder> {
 }

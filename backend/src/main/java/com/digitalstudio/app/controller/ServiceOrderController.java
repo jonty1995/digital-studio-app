@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/service-orders")
@@ -35,7 +36,7 @@ public class ServiceOrderController {
     }
 
     @PatchMapping("/{id}/status")
-    public ServiceOrder updateStatus(@PathVariable Long id, @RequestBody String status) {
+    public ServiceOrder updateStatus(@PathVariable UUID id, @RequestBody String status) {
         // Status might be sent as a raw string or JSON. If raw string, it might have
         // quotes.
         String cleanStatus = status.replace("\"", "");
@@ -43,7 +44,7 @@ public class ServiceOrderController {
     }
 
     @PutMapping("/{id}")
-    public ServiceOrder updateOrder(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
+    public ServiceOrder updateOrder(@PathVariable UUID id, @RequestBody Map<String, Object> updates) {
         return serviceOrderService.updateOrder(id, updates);
     }
 }

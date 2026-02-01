@@ -40,6 +40,8 @@ export function AddonPricingConfig() {
     const [editingRuleId, setEditingRuleId] = useState(null);
     const [filterPhotoItem, setFilterPhotoItem] = useState("");
 
+    const selectedItemObj = photoItems.find(i => i.name === selectedItem);
+
     // Auto-populate prices if a rule exists for the selected combination
     useEffect(() => {
         if (!selectedItem || selectedAddonIds.length === 0) {
@@ -48,13 +50,13 @@ export function AddonPricingConfig() {
             return;
         }
 
-        // Sort IDs numerically
-        const sortedSelection = [...selectedAddonIds].sort((a, b) => a - b).join(",");
+        // Match by Name (legacy) or ID (new)
+        // Sort IDs numerically or as strings (consistent with backend)
+        const sortedSelection = [...selectedAddonIds].sort().join(",");
 
         const existingRule = pricingRules.find(rule =>
-            rule.item === selectedItem &&
-            rule.addonIds && // rules from backend now have addonIds
-            [...rule.addonIds].sort((a, b) => a - b).join(",") === sortedSelection
+            (rule.photoItemId === selectedItemObj?.id || rule.item === selectedItem) &&
+            (rule.addonIds || []).sort().join(",") === sortedSelection
         );
 
         if (existingRule) {
@@ -97,7 +99,7 @@ export function AddonPricingConfig() {
             savePricingRules(pricingRules.map(r => r.id === editingRuleId ? { ...ruleData, id: editingRuleId } : r));
         } else {
             // Add new rule
-            savePricingRules([...pricingRules, { ...ruleData, id: Date.now() }]);
+            savePricingRules([...pricingRules, { ...ruleData, id: crypto.randomUUID?.() || Date.now().toString() }]);
         }
 
         // Reset inputs
@@ -122,13 +124,13 @@ export function AddonPricingConfig() {
     };
 
     const handleEdit = (rule) => {
-        setSelectedItem(rule.item);
+        setSelectedItem(rule.item || rule.photoItemName);
         // Use IDs from the rule
         setSelectedAddonIds(rule.addonIds || []);
         setNewPrice({ base: rule.basePrice, customer: rule.customerPrice });
         setEditingRuleId(rule.id);
         // Ensure the filter doesn't hide the item being edited
-        setFilterPhotoItem(rule.item);
+        setFilterPhotoItem(rule.item || rule.photoItemName);
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -251,10 +253,10 @@ export function AddonPricingConfig() {
                     </TableHeader>
                     <TableBody>
                         {pricingRules
-                            .filter(rule => !filterPhotoItem || rule.item === filterPhotoItem)
+                            .filter(rule => !filterPhotoItem || (rule.item === filterPhotoItem || rule.photoItemName === filterPhotoItem))
                             .map((rule) => (
                                 <TableRow key={rule.id} className={editingRuleId === rule.id ? "bg-muted/50" : ""}>
-                                    <TableCell className="font-medium py-2">{rule.item}</TableCell>
+                                    <TableCell className="font-medium py-2">{rule.item || rule.photoItemName}</TableCell>
                                     <TableCell className="py-2">
                                         <div className="flex gap-1 flex-wrap">
                                             {(rule.addons || []).map(a => (

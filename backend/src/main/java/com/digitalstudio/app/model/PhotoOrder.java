@@ -11,10 +11,11 @@ import java.time.LocalDateTime;
 @Table(name = "photo_orders")
 public class PhotoOrder {
     @Id
-    private Long orderId; // Timestamp based
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private java.util.UUID orderId;
 
     @ManyToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "customer_id", columnDefinition = "BIGINT")
     private Customer customer;
 
     private String uploadId;

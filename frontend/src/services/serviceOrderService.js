@@ -33,7 +33,7 @@ export const serviceOrderService = {
         const response = await fetch(`/api/service-orders/${id}/status`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(status),
+            body: status, // Send plain string
         });
         if (!response.ok) {
             throw new Error(`Failed to update status: ${response.status}`);

@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 public class FileDeleteQueue {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private java.util.UUID id;
 
     @Column(nullable = false, unique = true)
     private String uploadId;

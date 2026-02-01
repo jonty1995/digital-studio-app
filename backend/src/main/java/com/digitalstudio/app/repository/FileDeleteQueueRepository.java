@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface FileDeleteQueueRepository extends JpaRepository<FileDeleteQueue, Long> {
+public interface FileDeleteQueueRepository extends JpaRepository<FileDeleteQueue, java.util.UUID> {
     Optional<FileDeleteQueue> findByUploadId(String uploadId);
 
     void deleteByUploadId(String uploadId);

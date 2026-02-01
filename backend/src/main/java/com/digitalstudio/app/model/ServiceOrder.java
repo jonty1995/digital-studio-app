@@ -6,19 +6,23 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import java.util.UUID;
+
 @Entity
 @Data
 @Table(name = "service_orders")
 public class ServiceOrder {
     @Id
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @ManyToOne
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "customer_id", columnDefinition = "BIGINT")
     private Customer customer;
 
     private String serviceName;
     private Double amount;
+    private Integer quantity;
 
     @Column(columnDefinition = "TEXT")
     private String description;

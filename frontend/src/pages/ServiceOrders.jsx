@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Download, Plus, Folder, FileText, AlertTriangle, Edit2 } from "lucide-react";
 import { serviceOrderService } from "@/services/serviceOrderService";
+import { configurationService } from "@/services/configurationService"; // Import configurationService
 import { ServiceOrderModal } from "@/components/shared/ServiceOrderModal";
 import { OrderStatus } from "@/components/shared/OrderStatus";
 import { StatusTimeline } from "@/components/shared/StatusTimeline";
@@ -24,6 +25,8 @@ export default function ServiceOrders() {
     const [dateRange, setDateRange] = useState({ start: "", end: "" });
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState([]); // Selected Services
+    // Combined list of default + configured filters
+    const [availableFilters, setAvailableFilters] = useState(["Online Application", "Photocopy", "Printing"]);
 
     // Modals
     const [editingOrder, setEditingOrder] = useState(null);
@@ -31,6 +34,19 @@ export default function ServiceOrders() {
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
 
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
+
+    // Fetch configured services and merge with defaults
+    useEffect(() => {
+        const loadFilters = async () => {
+            const configuredItems = await configurationService.getServiceItems();
+            const configuredNames = configuredItems.map(i => i.name);
+            setAvailableFilters(prev => {
+                const unique = new Set([...prev, ...configuredNames]);
+                return Array.from(unique);
+            });
+        };
+        loadFilters();
+    }, []);
 
     const fetchOrders = async (isBackground = false) => {
         if (!isBackground) setLoading(true);
@@ -99,8 +115,8 @@ export default function ServiceOrders() {
                     </Button>
                 }
             >
-                <div className="flex items-center gap-4">
-                    {["Online Application", "Photocopy", "Printing"].map(s => (
+                <div className="flex items-center gap-4 flex-wrap">
+                    {availableFilters.map(s => (
                         <label key={s} className="flex items-center gap-2 text-sm font-medium cursor-pointer hover:text-primary transition-colors">
                             <input
                                 type="checkbox"

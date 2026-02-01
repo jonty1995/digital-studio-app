@@ -3,26 +3,27 @@ package com.digitalstudio.app.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Data
 @Table(name = "audit_log")
 public class AuditLog {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "entity_name")
-    private String entityName; // e.g. "PhotoItem", "Addon"
+    private String entityName;
 
     @Column(name = "entity_id")
-    private String entityId; // String to accommodate various ID types
+    private String entityId;
 
     @Column(name = "action")
-    private String action; // CREATE, UPDATE, DELETE
+    private String action;
 
     @Column(name = "field_name")
-    private String fieldName; // Optional, for granular field updates
+    private String fieldName;
 
     @Column(name = "old_value", columnDefinition = "TEXT")
     private String oldValue;
@@ -40,7 +41,7 @@ public class AuditLog {
     protected void onCreate() {
         timestamp = LocalDateTime.now();
         if (modifiedBy == null) {
-            modifiedBy = "Admin"; // Default user for now
+            modifiedBy = "Admin";
         }
     }
 }

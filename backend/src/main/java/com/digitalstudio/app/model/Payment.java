@@ -6,12 +6,15 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
+import java.util.UUID;
+
 @Entity
 @Data
 @Table(name = "payments")
 public class Payment {
     @Id
-    private Long paymentId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID paymentId;
 
     private Double totalAmount;
     private Double discountAmount;

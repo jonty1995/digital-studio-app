@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/bill-payments")
@@ -32,14 +33,14 @@ public class BillPaymentController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<BillPaymentTransaction> updateStatus(@PathVariable Long id, @RequestBody String status) {
+    public ResponseEntity<BillPaymentTransaction> updateStatus(@PathVariable UUID id, @RequestBody String status) {
         // Status may be sent as plain string or JSON string, ensure it's clean
         String cleanStatus = status.replaceAll("^\"|\"$", "");
         return ResponseEntity.ok(billPaymentService.updateStatus(id, cleanStatus));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<BillPaymentTransaction> updateTransaction(@PathVariable Long id,
+    public ResponseEntity<BillPaymentTransaction> updateTransaction(@PathVariable UUID id,
             @RequestBody java.util.Map<String, Object> updates) {
         return ResponseEntity.ok(billPaymentService.updateTransaction(id, updates));
     }

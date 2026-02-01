@@ -5,17 +5,20 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
+import java.util.UUID;
+
 @Entity
 @Data
 @Table(name = "money_transfers")
 public class MoneyTransfer {
     @Id
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     private String transferType; // UPI, ACCOUNT
 
     @ManyToOne
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "customer_id", columnDefinition = "BIGINT")
     private Customer customer;
 
     // UPI Fields

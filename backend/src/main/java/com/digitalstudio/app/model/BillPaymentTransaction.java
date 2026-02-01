@@ -5,18 +5,21 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
+import java.util.UUID;
+
 @Entity
 @Data
 @Table(name = "bill_payment_transactions")
 public class BillPaymentTransaction {
     @Id
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Enumerated(EnumType.STRING)
     private BillTransactionType transactionType;
 
     @ManyToOne
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "customer_id", columnDefinition = "BIGINT")
     private Customer customer;
 
     private String operator; // For Mobile/DTH

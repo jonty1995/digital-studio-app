@@ -6,12 +6,13 @@ import java.util.Map;
 
 @Data
 public class PhotoOrderRequest {
-    private Long orderId;
+    private java.util.UUID orderId;
     private CustomerDTO customer;
     private List<Map<String, Object>> items; // Keep as generic map or define ItemDTO
     private String description;
     private PaymentDTO payment;
-    private String image; // Base64 or ID? Frontend sends object or null? PhotoOrderModal line 50 sends `image`.
+    private String image; // Base64 or ID? Frontend sends object or null? PhotoOrderModal line 50 sends
+                          // `image`.
     private String status; // Allow explicit status setting (e.g. from Split)
 
     @Data

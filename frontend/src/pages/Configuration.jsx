@@ -3,6 +3,7 @@ import { PageHeader } from "../components/shared/PageHeader";
 import { PhotoItemConfig } from "../components/configuration/PhotoItemConfig";
 import { AddonConfig } from "../components/configuration/AddonConfig";
 import { AddonPricingConfig } from "../components/configuration/AddonPricingConfig";
+import { ServiceConfig } from "../components/configuration/ServiceConfig";
 import { ValueConfig } from "../components/configuration/ValueConfig";
 import { AuditLogs } from "../components/configuration/AuditLogs";
 import { configurationService } from "../services/configurationService";
@@ -24,6 +25,7 @@ export default function Configuration() {
         { id: "items", label: "Photo Items" },
         { id: "addons", label: "Addons" },
         { id: "pricing", label: "Addon Pricing" },
+        { id: "services", label: "Services" },
         { id: "values", label: "Values" },
         { id: "audit", label: "Audit Trail" },
     ];
@@ -136,6 +138,16 @@ export default function Configuration() {
                                 <p className="text-sm text-muted-foreground">Set prices for specific combinations of Photo Items and Addons.</p>
                             </div>
                             <AddonPricingConfig showAlert={showAlert} />
+                        </div>
+                    )}
+
+                    {activeTab === "services" && (
+                        <div className="animate-in slide-in-from-left-4 fade-in duration-300">
+                            <div className="mb-4">
+                                <h2 className="text-lg font-semibold">Services Management</h2>
+                                <p className="text-sm text-muted-foreground">Define available services and their default costs.</p>
+                            </div>
+                            <ServiceConfig showAlert={showAlert} />
                         </div>
                     )}
 

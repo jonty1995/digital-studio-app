@@ -3,7 +3,8 @@ import { api } from "./api";
 const ENDPOINTS = {
     ITEMS: '/config/items',
     ADDONS: '/config/addons',
-    PRICING: '/config/pricing-rules'
+    PRICING: '/config/pricing-rules',
+    SERVICES: '/config/services'
 };
 
 export const configurationService = {
@@ -39,6 +40,24 @@ export const configurationService = {
             await api.post(ENDPOINTS.ADDONS, addons);
         } catch (error) {
             console.error("Failed to save addons", error);
+            throw error;
+        }
+    },
+
+    getServiceItems: async () => {
+        try {
+            const response = await api.get(ENDPOINTS.SERVICES);
+            return Array.isArray(response) ? response : [];
+        } catch (error) {
+            console.error("Failed to fetch service items", error);
+            return [];
+        }
+    },
+    saveServiceItems: async (items) => {
+        try {
+            await api.post(ENDPOINTS.SERVICES, items);
+        } catch (error) {
+            console.error("Failed to save service items", error);
             throw error;
         }
     },
@@ -105,11 +124,13 @@ export const configurationService = {
     // Let's implement calculatePrice to take `items` and `rules` as arguments.
     // It's a pure function then.
 
-    calculatePrice: (itemName, addonNames, isInstant, isCustomer, items, rules) => {
+    calculatePrice: (itemName, addonNames, isInstant, isCustomer, items, rules, addons) => {
         if (!items || !rules || !itemName) return 0;
 
         const item = items.find(i => i.name === itemName);
         if (!item) return 0;
+
+        const photoItemId = item.id; // Correctly get UUID or Long
 
         // Determine Base Price for the Item itself based on mode
         const itemBasePrice = isCustomer
@@ -120,11 +141,14 @@ export const configurationService = {
             return itemBasePrice;
         }
 
-        // 1. Try to find EXACT rule match for this specific combination
-        const sortedAddons = [...addonNames].sort().join(",");
+        const sortedAddonIds = addons ? [...addonNames].map(name => {
+            const a = addons.find(ad => ad.name === name);
+            return a ? a.id : name;
+        }).sort().join(",") : [...addonNames].sort().join(",");
+
         const exactRule = rules.find(r =>
-            r.item === itemName &&
-            (r.addons || []).sort().join(",") === sortedAddons
+            (r.photoItemId === photoItemId || r.photoItemName === itemName) &&
+            (r.addonIds || []).sort().join(",") === sortedAddonIds
         );
 
         if (exactRule) {

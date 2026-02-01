@@ -33,7 +33,7 @@ export const moneyTransferService = {
         const response = await fetch(`/api/money-transfers/${id}/status`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(status),
+            body: status, // Send plain string as backend expects raw string for status
         });
         if (!response.ok) {
             throw new Error(`Failed to update status: ${response.status}`);

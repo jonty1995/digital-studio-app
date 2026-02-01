@@ -5,9 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CustomerInfo } from "./CustomerInfo";
 import { PaymentMode } from "./PaymentMode";
 import { customerService } from "@/services/customerService";
+import { configurationService } from "@/services/configurationService";
+import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { FileUpload } from "./FileUpload";
 
@@ -19,25 +22,27 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
     const [details, setDetails] = useState({
         serviceName: "",
         amount: "",
-        description: ""
+        description: "",
+        quantity: 1, // Default quantity
+        isCustom: false // Track if custom service
     });
+    const [saveAsNew, setSaveAsNew] = useState(true);
 
     // Payment State
     const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
     const [documentIds, setDocumentIds] = useState([]); // Array of file IDs or File objects
+    const [serviceItems, setServiceItems] = useState([]);
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
     const [saving, setSaving] = useState(false);
 
-    const predefinedServices = [
-        "Online Application",
-        "Photocopy",
-        "Printing",
-        "Scanning",
-        "Drafting",
-        "Lamination",
-        "Binding",
-        "Other"
-    ];
+    useEffect(() => {
+        loadServiceItems();
+    }, []);
+
+    const loadServiceItems = async () => {
+        const items = await configurationService.getServiceItems();
+        setServiceItems(items);
+    };
 
     const showAlert = (title, description) => {
         setAlertState({ open: true, title, description });
@@ -49,8 +54,11 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
             setDetails({
                 serviceName: "",
                 amount: "",
-                description: ""
+                description: "",
+                quantity: 1,
+                isCustom: false
             });
+            setSaveAsNew(true);
             setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
             setDocumentIds([]);
         } else if (order) {
@@ -63,7 +71,9 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
             setDetails({
                 serviceName: order.serviceName || '',
                 amount: order.amount?.toString() || '',
-                description: order.description || ''
+                description: order.description || '',
+                quantity: order.quantity || 1,
+                isCustom: false // Assuming edit of existing means it's already set
             });
 
             if (order.payment) {
@@ -87,8 +97,10 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
 
     useEffect(() => {
         const amt = parseFloat(details.amount) || 0;
-        setPayment(prev => ({ ...prev, total: amt, advance: amt }));
-    }, [details.amount]);
+        const qty = parseInt(details.quantity) || 1;
+        const total = amt * qty;
+        setPayment(prev => ({ ...prev, total: total, advance: total }));
+    }, [details.amount, details.quantity]);
 
     const handleSearchCustomer = async () => {
         if (!customer.mobile) return;
@@ -111,6 +123,24 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
 
         setSaving(true);
         try {
+            // Check for Save as New Service
+            if (details.isCustom && saveAsNew) {
+                const newPrice = parseFloat(details.amount) || 0;
+                // Avoid duplicates if needed, but backend might handle or we just append
+                const newServiceItem = {
+                    id: null,
+                    name: details.serviceName,
+                    basePrice: newPrice,
+                    customerPrice: newPrice
+                };
+
+                // Save updated config
+                await configurationService.saveServiceItems([...serviceItems, newServiceItem]);
+
+                // Refresh items to have the latest list (including new ID if we stayed, but we close modal)
+                await loadServiceItems();
+            }
+
             // Handle Files: Upload only if they are File objects
             const finalDocIds = await Promise.all(documentIds.map(async (doc) => {
                 if (doc instanceof File) {
@@ -128,6 +158,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                 },
                 serviceName: details.serviceName,
                 amount: parseFloat(details.amount),
+                quantity: parseInt(details.quantity) || 1,
                 description: details.description,
                 status: order ? order.status : "Pending",
                 uploadIdsJson: finalDocIds.length > 0 ? JSON.stringify(finalDocIds) : null,
@@ -165,26 +196,90 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                 <div className="bg-card rounded-lg border p-4">
                     <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Service Details</h3>
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Service Name</Label>
-                            <Select value={details.serviceName} onValueChange={val => setDetails({ ...details, serviceName: val })}>
+                        <div className={details.isCustom ? "col-span-1 space-y-2" : "col-span-2 space-y-2"}>
+                            <Label>Service</Label>
+                            <Select
+                                value={details.isCustom ? "Other" : details.serviceName}
+                                onValueChange={val => {
+                                    if (val === "Other") {
+                                        setDetails({
+                                            ...details,
+                                            isCustom: true,
+                                            serviceName: "",
+                                            amount: ""
+                                        });
+                                    } else {
+                                        const selected = serviceItems.find(s => s.name === val);
+                                        setDetails({
+                                            ...details,
+                                            isCustom: false,
+                                            serviceName: val,
+                                            amount: selected ? selected.customerPrice.toString() : ""
+                                        });
+                                    }
+                                }}
+                            >
                                 <SelectTrigger><SelectValue placeholder="Select Service" /></SelectTrigger>
                                 <SelectContent>
-                                    {predefinedServices.map(s => (
-                                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                    {serviceItems.map(s => (
+                                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Amount</Label>
-                            <Input
-                                type="number"
-                                onWheel={e => e.target.blur()}
-                                value={details.amount}
-                                onChange={e => setDetails({ ...details, amount: e.target.value })}
-                                placeholder="0.00"
-                            />
+
+                        {details.isCustom && (
+                            <div className="col-span-1 space-y-2">
+                                <Label>Service Name</Label>
+                                <Input
+                                    value={details.serviceName}
+                                    onChange={e => setDetails({ ...details, serviceName: e.target.value })}
+                                    placeholder="Enter Service Name"
+                                />
+                                <div className="flex items-center space-x-2 pt-1">
+                                    <Checkbox
+                                        id="saveAsNew"
+                                        checked={saveAsNew}
+                                        onCheckedChange={setSaveAsNew}
+                                    />
+                                    <label
+                                        htmlFor="saveAsNew"
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                        Add New (Save to Config)
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="col-span-2 grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Quantity</Label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    onWheel={e => e.target.blur()}
+                                    value={details.quantity}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value);
+                                        if (val > 0) setDetails({ ...details, quantity: val });
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Amount</Label>
+                                <Input
+                                    type="number"
+                                    onWheel={e => e.target.blur()}
+                                    value={details.amount}
+                                    onChange={e => setDetails({ ...details, amount: e.target.value })}
+                                    placeholder="0.00"
+                                    readOnly={!details.isCustom}
+                                    className={!details.isCustom ? "bg-muted" : ""}
+                                />
+                            </div>
                         </div>
                         <div className="col-span-2 space-y-2">
                             <Label>Description</Label>
