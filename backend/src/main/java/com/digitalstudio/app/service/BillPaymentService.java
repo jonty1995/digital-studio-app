@@ -123,10 +123,75 @@ public class BillPaymentService {
     public BillPaymentTransaction updateTransaction(UUID id, java.util.Map<String, Object> updates) {
         BillPaymentTransaction transaction = billPaymentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
-        // Basic update logic - in a real app would use reflection or a mapper
+
         if (updates.containsKey("status")) {
             transaction.setStatus((String) updates.get("status"));
         }
+        if (updates.containsKey("operator")) {
+            transaction.setOperator((String) updates.get("operator"));
+        }
+        if (updates.containsKey("billId")) {
+            transaction.setBillId((String) updates.get("billId"));
+        }
+        if (updates.containsKey("billCustomerName")) {
+            transaction.setBillCustomerName((String) updates.get("billCustomerName"));
+        }
+        if (updates.containsKey("transactionType")) {
+            try {
+                // Ensure type safety or ignore if not changeable
+                // transaction.setTransactionType(BillPaymentTransaction.TransactionType.valueOf((String)
+                // updates.get("transactionType")));
+            } catch (Exception e) {
+            }
+        }
+
+        // Handle Payment Details updates
+        if (updates.containsKey("payment")) {
+            Object paymentObj = updates.get("payment");
+            if (paymentObj instanceof java.util.Map) {
+                java.util.Map<String, Object> payMap = (java.util.Map<String, Object>) paymentObj;
+                com.digitalstudio.app.model.Payment payment = transaction.getPayment();
+                if (payment == null)
+                    payment = new com.digitalstudio.app.model.Payment();
+
+                if (payMap.containsKey("paymentMode"))
+                    payment.setPaymentMode((String) payMap.get("paymentMode"));
+                if (payMap.containsKey("totalAmount"))
+                    payment.setTotalAmount(((Number) payMap.get("totalAmount")).doubleValue());
+                if (payMap.containsKey("advanceAmount"))
+                    payment.setAdvanceAmount(((Number) payMap.get("advanceAmount")).doubleValue());
+                // amountPaid mapped to advanceAmount by convention if needed, removing invalid
+                // setter
+                if (payMap.containsKey("discountAmount"))
+                    payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
+                if (payMap.containsKey("dueAmount"))
+                    payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
+
+                transaction.setPayment(payment);
+            }
+        }
+
+        // Handle Customer Updates (Name only usually)
+        if (updates.containsKey("customer")) {
+            Object custObj = updates.get("customer");
+            if (custObj instanceof java.util.Map) {
+                java.util.Map<String, Object> custMap = (java.util.Map<String, Object>) custObj;
+                Customer cust = transaction.getCustomer();
+                if (cust != null && custMap.containsKey("name")) {
+                    String newName = (String) custMap.get("name");
+                    if (newName != null && !newName.isEmpty() && !newName.equals(cust.getName())) {
+                        cust.setName(newName);
+                        customerRepository.save(cust);
+                    }
+                }
+                // If ID changes, we might need repository lookup, but usually we just edit name
+            }
+        }
+
         return billPaymentRepository.save(transaction);
+    }
+
+    public java.util.List<java.util.Map<String, String>> getSuggestions(String mobile) {
+        return billPaymentRepository.findSuggestions(mobile);
     }
 }

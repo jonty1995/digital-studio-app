@@ -118,9 +118,67 @@ public class MoneyTransferService {
     public MoneyTransfer updateTransfer(UUID id, Map<String, Object> updates) {
         MoneyTransfer transfer = moneyTransferRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transfer not found"));
+
         if (updates.containsKey("status")) {
             transfer.setStatus((String) updates.get("status"));
         }
+        if (updates.containsKey("upiId"))
+            transfer.setUpiId((String) updates.get("upiId"));
+        if (updates.containsKey("mobileNumber"))
+            transfer.setMobileNumber((String) updates.get("mobileNumber"));
+        if (updates.containsKey("recipientName"))
+            transfer.setRecipientName((String) updates.get("recipientName"));
+        if (updates.containsKey("bankName"))
+            transfer.setBankName((String) updates.get("bankName"));
+        if (updates.containsKey("ifscCode"))
+            transfer.setIfscCode((String) updates.get("ifscCode"));
+        if (updates.containsKey("accountNumber"))
+            transfer.setAccountNumber((String) updates.get("accountNumber"));
+        if (updates.containsKey("amount"))
+            transfer.setAmount(((Number) updates.get("amount")).doubleValue());
+
+        // Handle Payment Details updates
+        if (updates.containsKey("payment")) {
+            Object paymentObj = updates.get("payment");
+            if (paymentObj instanceof Map) {
+                Map<String, Object> payMap = (Map<String, Object>) paymentObj;
+                com.digitalstudio.app.model.Payment payment = transfer.getPayment();
+                if (payment == null)
+                    payment = new com.digitalstudio.app.model.Payment();
+
+                if (payMap.containsKey("paymentMode"))
+                    payment.setPaymentMode((String) payMap.get("paymentMode"));
+                if (payMap.containsKey("totalAmount"))
+                    payment.setTotalAmount(((Number) payMap.get("totalAmount")).doubleValue());
+                if (payMap.containsKey("advanceAmount"))
+                    payment.setAdvanceAmount(((Number) payMap.get("advanceAmount")).doubleValue());
+                // amountPaid mapped to advanceAmount by convention if needed, removing invalid
+                // setter
+                if (payMap.containsKey("discountAmount"))
+                    payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
+                if (payMap.containsKey("dueAmount"))
+                    payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
+
+                transfer.setPayment(payment);
+            }
+        }
+
+        // Handle Customer Updates (Name only usually)
+        if (updates.containsKey("customer")) {
+            Object custObj = updates.get("customer");
+            if (custObj instanceof Map) {
+                Map<String, Object> custMap = (Map<String, Object>) custObj;
+                Customer cust = transfer.getCustomer();
+                if (cust != null && custMap.containsKey("name")) {
+                    String newName = (String) custMap.get("name");
+                    if (newName != null && !newName.isEmpty() && !newName.equals(cust.getName())) {
+                        cust.setName(newName);
+                        customerRepository.save(cust);
+                    }
+                }
+            }
+        }
+
         return moneyTransferRepository.save(transfer);
     }
 }

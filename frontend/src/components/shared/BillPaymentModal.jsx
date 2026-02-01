@@ -10,7 +10,7 @@ import { billPaymentService } from "@/services/billPaymentService";
 import { customerService } from "@/services/customerService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
-export function BillPaymentModal({ isOpen, onClose, onSave }) {
+export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }) {
     const [activeTab, setActiveTab] = useState("ELECTRICITY");
 
     // Customer State
@@ -19,9 +19,10 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
     // Transaction Details State
     const [transactionDetails, setTransactionDetails] = useState({
         operator: "",
-        referenceId: "", // Consumer No, Mobile No, Subscriber ID
-        billCustomerName: "", // For Electricity
-        amount: ""
+        billId: "",
+        billCustomerName: "",
+        amount: "",
+        status: "Pending" // Added Status to details
     });
 
     // Payment State (Reused Component)
@@ -29,44 +30,80 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
     const [uploadId, setUploadId] = useState(null);
 
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+    const [saving, setSaving] = useState(false); // Add saving state
 
     const showAlert = (title, description) => {
         setAlertState({ open: true, title, description });
     };
 
-    // Reset fields when modal closes
+    // Reset fields when modal closes or transaction changes
     useEffect(() => {
         if (!isOpen) {
             setCustomer({ mobile: '', name: '', id: '' });
-            setActiveTab("ELECTRICITY");
+            if (!transaction) { // Only reset to defaults if NOT editing
+                setActiveTab("ELECTRICITY");
+                setTransactionDetails({
+                    operator: "CESC",
+                    billId: "",
+                    billCustomerName: "",
+                    status: "Pending",
+                    amount: ""
+                });
+                setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+                setUploadId(null);
+            }
+        } else if (transaction) {
+            // Edit Mode
+            setActiveTab(transaction.transactionType || "ELECTRICITY");
+            setCustomer({
+                mobile: transaction.customer?.mobile || '',
+                name: transaction.customer?.name || '',
+                id: transaction.customer?.id || ''
+            });
             setTransactionDetails({
-                operator: "CESC",
+                operator: transaction.operator || "",
+                billId: transaction.billId || "",
+                billCustomerName: transaction.billCustomerName || "",
+                status: transaction.status || "Pending",
+                amount: transaction.payment?.totalAmount?.toString() || ""
+            });
+            setPayment({
+                mode: transaction.payment?.paymentMode || 'Cash',
+                total: transaction.payment?.totalAmount || 0,
+                discount: transaction.payment?.discountAmount || 0,
+                advance: transaction.payment?.amountPaid || 0
+            });
+            setUploadId(transaction.uploadId);
+        }
+    }, [isOpen, transaction]);
+
+    // Reset fields when tab changes (BUT ONLY IF NOT EDITING or if tab mismatches)
+    useEffect(() => {
+        if (!isOpen) return;
+        // If we are editing and switch to the tab that matches the transaction, restore it? 
+        // For simplicity, if user switches tabs, we treat it as "New" for that tab unless it matches current transaction type
+        if (transaction && activeTab === transaction.transactionType) {
+            // Restore (already done by main useEffect, but maybe needed here?)
+            return;
+        }
+
+        // Reset defaults for new tab intent
+        if (!transaction || activeTab !== transaction.transactionType) {
+            setTransactionDetails({
+                operator: activeTab === 'ELECTRICITY' ? "CESC" : "",
                 billId: "",
                 billCustomerName: "",
                 status: "Pending",
                 amount: ""
             });
-            setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
-            setUploadId(null);
+            setPayment(prev => ({ ...prev, total: 0, advance: 0 }));
         }
-    }, [isOpen]);
-
-    // Reset fields when tab changes
-    useEffect(() => {
-        setTransactionDetails({
-            operator: activeTab === 'ELECTRICITY' ? "CESC" : "",
-            billId: "",
-            billCustomerName: "",
-            status: "Pending",
-            amount: ""
-        });
-        setPayment(prev => ({ ...prev, total: 0, advance: 0 }));
     }, [activeTab]);
 
     // Update Payment Total when Amount changes
     useEffect(() => {
         const amt = parseFloat(transactionDetails.amount) || 0;
-        setPayment(prev => ({ ...prev, total: amt, advance: amt })); // Usually full payment
+        setPayment(prev => ({ ...prev, total: amt, advance: amt }));
     }, [transactionDetails.amount]);
 
     const handleSearchCustomer = async () => {
@@ -80,67 +117,116 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                     id: found.id || prev.mobile
                 }));
             }
-        } catch (error) {
-            // Not found
-        }
+        } catch (error) { }
     };
 
     const handleSaveTransaction = async () => {
-        // Validation
-        if (!customer.name) {
-            showAlert("Missing Customer", "Customer Name is required.");
-            return;
-        }
-        if (!transactionDetails.amount) {
-            showAlert("Missing Amount", "Amount is required.");
-            return;
-        }
+        if (!customer.name) return showAlert("Missing Customer", "Customer Name is required.");
+        if (!transactionDetails.amount) return showAlert("Missing Amount", "Amount is required.");
+
         if (activeTab === 'ELECTRICITY') {
-            if (!transactionDetails.operator || !transactionDetails.billId) {
-                showAlert("Missing Details", "Operator and Consumer ID are required.");
-                return;
-            }
-            if (transactionDetails.operator === "CESC" && transactionDetails.billId.length !== 11) {
-                showAlert("Invalid ID", "CESC Consumer ID must be exactly 11 digits.");
-                return;
-            }
+            if (!transactionDetails.operator || !transactionDetails.billId) return showAlert("Missing Details", "Operator and Consumer ID are required.");
+            if (transactionDetails.operator === "CESC" && transactionDetails.billId.length !== 11) return showAlert("Invalid ID", "CESC Consumer ID must be exactly 11 digits.");
         }
         if ((activeTab === 'MOBILE' || activeTab === 'DTH') && (!transactionDetails.operator || !transactionDetails.billId)) {
-            showAlert("Missing Details", "Operator and ID/Number are required.");
-            return;
+            return showAlert("Missing Details", "Operator and ID/Number are required.");
         }
 
-        const payload = {
-            transactionType: activeTab,
-            customer: {
-                id: customer.id && customer.id.length > 5 ? customer.id : null,
-                name: customer.name,
-                mobile: customer.mobile
-            },
-            operator: transactionDetails.operator,
-            billId: transactionDetails.billId,
-            billCustomerName: transactionDetails.billCustomerName,
-            status: transactionDetails.status,
-            uploadId: (uploadId && typeof uploadId === 'string') ? uploadId : null,
-            payment: {
-                paymentMode: payment.mode,
-                totalAmount: parseFloat(payment.total) || 0,
-                advanceAmount: parseFloat(payment.total) || 0,
-                amountPaid: parseFloat(payment.advance) || 0,
-                discountAmount: parseFloat(payment.discount) || 0,
-                dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
-            }
-        };
-
-        const fileToUpload = (uploadId instanceof File) ? uploadId : null;
+        setSaving(true);
         try {
-            await onSave(payload, fileToUpload);
-            // onSave(); Removed redundant call
+            const payload = {
+                transactionType: activeTab,
+                customer: {
+                    id: customer.id && customer.id.length > 5 ? customer.id : null,
+                    name: customer.name,
+                    mobile: customer.mobile
+                },
+                operator: transactionDetails.operator,
+                billId: transactionDetails.billId,
+                billCustomerName: transactionDetails.billCustomerName,
+                status: transactionDetails.status,
+                uploadId: (uploadId && typeof uploadId === 'string') ? uploadId : null,
+                payment: {
+                    paymentMode: payment.mode,
+                    totalAmount: parseFloat(payment.total) || 0,
+                    advanceAmount: parseFloat(payment.total) || 0,
+                    amountPaid: parseFloat(payment.advance) || 0,
+                    discountAmount: parseFloat(payment.discount) || 0,
+                    dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
+                }
+            };
+
+            const fileToUpload = (uploadId instanceof File) ? uploadId : null;
+            await onSave(payload, fileToUpload, transaction?.id); // Pass ID if editing
             onClose();
         } catch (error) {
             console.error(error);
             showAlert("Error", "Failed to save transaction.");
+        } finally {
+            setSaving(false);
         }
+    };
+
+    const [suggestions, setSuggestions] = useState([]);
+
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (customer.mobile && !transaction) {
+                try {
+                    const data = await billPaymentService.getSuggestions(customer.mobile);
+                    setSuggestions(data || []);
+                } catch (err) {
+                    console.error("Failed to load suggestions", err);
+                }
+            } else {
+                setSuggestions([]);
+            }
+        };
+        // Debounce slightly to avoid too many calls
+        const timeoutId = setTimeout(fetchSuggestions, 500);
+        return () => clearTimeout(timeoutId);
+    }, [customer.mobile, transaction]);
+
+    const handleApplySuggestion = (s) => {
+        // Switch tab if needed
+        if (s.transactionType && s.transactionType !== activeTab) {
+            setActiveTab(s.transactionType);
+        }
+        setTransactionDetails(prev => ({
+            ...prev,
+            operator: s.operator || prev.operator,
+            billId: s.billId,
+            billCustomerName: s.billCustomerName || ""
+        }));
+    };
+
+    const renderSuggestions = () => {
+        const filteredSuggestions = suggestions.filter(s => s.transactionType === activeTab);
+
+        if (filteredSuggestions.length === 0) return null;
+        return (
+            <div className="w-full mb-4">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Recent Bills</Label>
+                <div className="flex flex-wrap gap-2">
+                    {filteredSuggestions.map((s, idx) => (
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleApplySuggestion(s)}
+                            className="text-xs border rounded p-2 bg-muted/30 hover:bg-muted hover:border-primary/50 transition-colors text-left flex flex-col gap-1 min-w-[120px]"
+                            title="Click to apply"
+                        >
+                            <div className="flex justify-between items-center w-full gap-2">
+                                <span className="font-semibold text-primary">{s.operator}</span>
+                                <span className="text-[9px] text-muted-foreground bg-background px-1 rounded border whitespace-nowrap">{s.transactionType}</span>
+                            </div>
+                            <span className="font-mono text-[10px]">{s.billId}</span>
+                            {s.billCustomerName && <span className="text-[10px] text-muted-foreground truncate w-full max-w-[120px]">{s.billCustomerName}</span>}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
     };
 
     const renderTabContent = () => {
@@ -321,6 +407,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave }) {
                 {/* Transaction Details (Dynamic based on Tab) */}
                 <div className="bg-card rounded-lg border p-4">
                     <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Transaction Details</h3>
+                    {renderSuggestions()}
                     {renderTabContent()}
                 </div>
 

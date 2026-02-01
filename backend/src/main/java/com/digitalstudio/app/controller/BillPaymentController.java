@@ -44,4 +44,10 @@ public class BillPaymentController {
             @RequestBody java.util.Map<String, Object> updates) {
         return ResponseEntity.ok(billPaymentService.updateTransaction(id, updates));
     }
+
+    @GetMapping("/suggestions")
+    public ResponseEntity<java.util.List<java.util.Map<String, String>>> getSuggestions(
+            @RequestParam String mobile) {
+        return ResponseEntity.ok(billPaymentService.getSuggestions(mobile));
+    }
 }

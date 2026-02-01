@@ -75,5 +75,14 @@ export const billPaymentService = {
             throw new Error("Failed to delete bill payment");
         }
         return true;
+    },
+
+    getSuggestions: async (mobile) => {
+        const query = new URLSearchParams({ mobile });
+        const response = await fetch(`/api/bill-payments/suggestions?${query.toString()}`);
+        if (!response.ok) {
+            throw new Error("Failed to fetch suggestions");
+        }
+        return response.json();
     }
 };

@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Receipt, Search, Trash2, Unlink, Eye, Download, Upload, Loader2, Send } from "lucide-react";
+import { Plus, Receipt, Search, Trash2, Unlink, Eye, Download, Upload, Loader2, Send, Edit2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
 import { OrderStatus } from "@/components/shared/OrderStatus";
@@ -22,6 +22,7 @@ export default function MoneyTransfer() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [uploadModalState, setUploadModalState] = useState({ isOpen: false, txn: null });
+    const [editingTransaction, setEditingTransaction] = useState(null);
     const [expandedTransferId, setExpandedTransferId] = useState(null);
     const [selectedTransferId, setSelectedTransferId] = useState(null);
     const [openMenuId, setOpenMenuId] = useState(null);
@@ -85,15 +86,23 @@ export default function MoneyTransfer() {
     useEffect(() => { setPage(0); }, [dateRange, searchQuery, filters]);
     useEffect(() => { fetchTransfers(); }, [page, dateRange, searchQuery, filters]);
 
-    const handleSaved = async (payload, file) => {
+    const handleSaved = async (payload, file, id = null) => {
         if (file) {
             const upload = await fileService.upload(file, "Money Transfer");
             payload.uploadId = upload.uploadId;
         }
-        await moneyTransferService.create(payload);
+
+        if (id) {
+            await moneyTransferService.update(id, payload);
+            showAlert("Success", "Transfer updated successfully.");
+        } else {
+            await moneyTransferService.create(payload);
+            showAlert("Success", "Transfer created successfully.");
+        }
+
         fetchTransfers();
         setIsModalOpen(false);
-        showAlert("Success", "Transfer created successfully.");
+        setEditingTransaction(null);
     };
 
     const handleReceiptUpload = async (uploadId) => {
@@ -195,7 +204,7 @@ export default function MoneyTransfer() {
                 onSearchChange={setSearchQuery}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
-                action={<Button size="sm" onClick={() => setIsModalOpen(true)}><Plus className="w-4 h-4 mr-2" />New Transfer</Button>}
+                action={<Button size="sm" onClick={() => { setIsModalOpen(true); setEditingTransaction(null); }}><Plus className="w-4 h-4 mr-2" />New Transfer</Button>}
             >
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={filters.UPI} onChange={() => handleFilterChange("UPI")} className="accent-primary" />UPI</label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={filters.ACCOUNT} onChange={() => handleFilterChange("ACCOUNT")} className="accent-primary" />Account</label>
@@ -212,7 +221,7 @@ export default function MoneyTransfer() {
                                 <TableHead>Recipient Info</TableHead>
                                 <TableHead>Amount</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Receipt</TableHead>
+                                <TableHead>Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -257,6 +266,22 @@ export default function MoneyTransfer() {
                                             </TableCell>
                                             <TableCell className="align-middle">
                                                 <div className="flex items-center gap-2">
+                                                    {(t.status === 'Pending' || t.status === 'Discarded') && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded-full"
+                                                            title="Edit Transfer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingTransaction(t);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                        >
+                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+
                                                     {t.status === 'Done' && (
                                                         <>
                                                             {t.uploadId ? (
@@ -367,7 +392,7 @@ export default function MoneyTransfer() {
                 </div>
             </div>
 
-            <MoneyTransferModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaved} />
+            <MoneyTransferModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaved} transaction={editingTransaction} />
             <ReceiptUploadModal
                 isOpen={uploadModalState.isOpen}
                 onClose={() => setUploadModalState({ isOpen: false, txn: null })}

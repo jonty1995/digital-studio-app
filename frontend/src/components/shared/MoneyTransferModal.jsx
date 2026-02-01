@@ -9,7 +9,7 @@ import { PaymentMode } from "./PaymentMode";
 import { customerService } from "@/services/customerService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
-export function MoneyTransferModal({ isOpen, onClose, onSave }) {
+export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null }) {
     const [activeTab, setActiveTab] = useState("UPI");
 
     // Customer State
@@ -31,6 +31,7 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
     const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
     const [uploadId, setUploadId] = useState(null);
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+    const [saving, setSaving] = useState(false);
 
     const showAlert = (title, description) => {
         setAlertState({ open: true, title, description });
@@ -39,21 +40,54 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
     useEffect(() => {
         if (!isOpen) {
             setCustomer({ mobile: '', name: '', id: '' });
-            setActiveTab("UPI");
-            setDetails({
-                upiId: "",
-                mobileNumber: "",
-                recipientName: "",
-                bankName: "",
-                customBankName: "",
-                ifscCode: "",
-                accountNumber: "",
-                amount: ""
+            if (!transaction) {
+                setActiveTab("UPI");
+                setDetails({
+                    upiId: "",
+                    mobileNumber: "",
+                    recipientName: "",
+                    bankName: "",
+                    customBankName: "",
+                    ifscCode: "",
+                    accountNumber: "",
+                    amount: ""
+                });
+                setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+                setUploadId(null);
+            }
+        } else if (transaction) {
+            // Edit Mode
+            setActiveTab(transaction.transferType || "UPI");
+            setCustomer({
+                mobile: transaction.customer?.mobile || '',
+                name: transaction.customer?.name || '',
+                id: transaction.customer?.id || ''
             });
-            setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
-            setUploadId(null);
+
+            // Bank Name Logic (Check if standard or custom)
+            const standardBanks = ["SBI", "HDFC", "ICICI", "Axis", "PNB"];
+            const isStandard = standardBanks.includes(transaction.bankName);
+
+            setDetails({
+                upiId: transaction.upiId || "",
+                mobileNumber: transaction.mobileNumber || "",
+                recipientName: transaction.recipientName || "",
+                bankName: (transaction.transferType === "ACCOUNT" ? (isStandard ? transaction.bankName : "Other") : ""),
+                customBankName: (transaction.transferType === "ACCOUNT" && !isStandard ? transaction.bankName : ""),
+                ifscCode: transaction.ifscCode || "",
+                accountNumber: transaction.accountNumber || "",
+                amount: transaction.amount?.toString() || ""
+            });
+
+            setPayment({
+                mode: transaction.payment?.paymentMode || 'Cash',
+                total: transaction.payment?.totalAmount || 0,
+                discount: transaction.payment?.discountAmount || 0,
+                advance: transaction.payment?.amountPaid || 0
+            });
+            setUploadId(transaction.uploadId);
         }
-    }, [isOpen]);
+    }, [isOpen, transaction]);
 
     useEffect(() => {
         const amt = parseFloat(details.amount) || 0;
@@ -92,39 +126,42 @@ export function MoneyTransferModal({ isOpen, onClose, onSave }) {
             }
         }
 
-        const payload = {
-            transferType: activeTab,
-            customer: {
-                id: customer.id && customer.id.length > 5 ? customer.id : null,
-                name: customer.name,
-                mobile: customer.mobile
-            },
-            upiId: details.upiId,
-            mobileNumber: details.mobileNumber,
-            recipientName: details.recipientName,
-            bankName: details.bankName === 'Other' ? details.customBankName : details.bankName,
-            ifscCode: details.ifscCode,
-            accountNumber: details.accountNumber,
-            amount: parseFloat(details.amount),
-            status: "Pending",
-            uploadId: (uploadId && typeof uploadId === 'string') ? uploadId : null,
-            payment: {
-                paymentMode: payment.mode,
-                totalAmount: parseFloat(payment.total) || 0,
-                advanceAmount: parseFloat(payment.total) || 0,
-                amountPaid: parseFloat(payment.advance) || 0,
-                discountAmount: parseFloat(payment.discount) || 0,
-                dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
-            }
-        };
-
-        const fileToUpload = (uploadId instanceof File) ? uploadId : null;
+        setSaving(true);
         try {
-            await onSave(payload, fileToUpload);
+            const payload = {
+                transferType: activeTab,
+                customer: {
+                    id: customer.id && customer.id.length > 5 ? customer.id : null,
+                    name: customer.name,
+                    mobile: customer.mobile
+                },
+                upiId: details.upiId,
+                mobileNumber: details.mobileNumber,
+                recipientName: details.recipientName,
+                bankName: details.bankName === 'Other' ? details.customBankName : details.bankName,
+                ifscCode: details.ifscCode,
+                accountNumber: details.accountNumber,
+                amount: parseFloat(details.amount),
+                status: transaction?.status || "Pending",
+                uploadId: (uploadId && typeof uploadId === 'string') ? uploadId : null,
+                payment: {
+                    paymentMode: payment.mode,
+                    totalAmount: parseFloat(payment.total) || 0,
+                    advanceAmount: parseFloat(payment.total) || 0,
+                    amountPaid: parseFloat(payment.advance) || 0,
+                    discountAmount: parseFloat(payment.discount) || 0,
+                    dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
+                }
+            };
+
+            const fileToUpload = (uploadId instanceof File) ? uploadId : null;
+            await onSave(payload, fileToUpload, transaction?.id);
             onClose();
         } catch (error) {
             console.error(error);
             showAlert("Error", "Failed to save transfer.");
+        } finally {
+            setSaving(false);
         }
     };
 

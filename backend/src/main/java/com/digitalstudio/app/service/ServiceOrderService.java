@@ -160,9 +160,58 @@ public class ServiceOrderService {
     public ServiceOrder updateOrder(UUID id, Map<String, Object> updates) {
         ServiceOrder order = serviceOrderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
-        if (updates.containsKey("status")) {
+
+        if (updates.containsKey("status"))
             order.setStatus((String) updates.get("status"));
+        if (updates.containsKey("serviceName"))
+            order.setServiceName((String) updates.get("serviceName"));
+        if (updates.containsKey("description"))
+            order.setDescription((String) updates.get("description"));
+        if (updates.containsKey("amount"))
+            order.setAmount(((Number) updates.get("amount")).doubleValue());
+
+        // Handle Payment Details updates
+        if (updates.containsKey("payment")) {
+            Object paymentObj = updates.get("payment");
+            if (paymentObj instanceof Map) {
+                Map<String, Object> payMap = (Map<String, Object>) paymentObj;
+                com.digitalstudio.app.model.Payment payment = order.getPayment();
+                if (payment == null)
+                    payment = new com.digitalstudio.app.model.Payment();
+
+                if (payMap.containsKey("paymentMode"))
+                    payment.setPaymentMode((String) payMap.get("paymentMode"));
+                if (payMap.containsKey("totalAmount"))
+                    payment.setTotalAmount(((Number) payMap.get("totalAmount")).doubleValue());
+                if (payMap.containsKey("advanceAmount"))
+                    payment.setAdvanceAmount(((Number) payMap.get("advanceAmount")).doubleValue());
+                // amountPaid is typically tracked via advanceAmount in this simple model or
+                // calculated
+                if (payMap.containsKey("discountAmount"))
+                    payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
+                if (payMap.containsKey("dueAmount"))
+                    payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
+
+                order.setPayment(payment);
+            }
         }
+
+        // Handle Customer Updates
+        if (updates.containsKey("customer")) {
+            Object custObj = updates.get("customer");
+            if (custObj instanceof Map) {
+                Map<String, Object> custMap = (Map<String, Object>) custObj;
+                Customer cust = order.getCustomer();
+                if (cust != null && custMap.containsKey("name")) {
+                    String newName = (String) custMap.get("name");
+                    if (newName != null && !newName.isEmpty() && !newName.equals(cust.getName())) {
+                        cust.setName(newName);
+                        customerRepository.save(cust);
+                    }
+                }
+            }
+        }
+
         return serviceOrderRepository.save(order);
     }
 }

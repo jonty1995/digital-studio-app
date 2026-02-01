@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Receipt, Search, Trash2, Unlink, Eye, Download, Upload, Loader2 } from "lucide-react";
+import { Plus, Receipt, Search, Trash2, Unlink, Eye, Download, Upload, Loader2, Edit2 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -35,6 +35,7 @@ export default function BillPayment() {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState(null);
 
     // Receipt Upload State
     const [uploadModalState, setUploadModalState] = useState({ isOpen: false, txn: null });
@@ -190,7 +191,7 @@ export default function BillPayment() {
         return 0;
     });
 
-    const handleTransactionSaved = async (payload, file) => {
+    const handleTransactionSaved = async (payload, file, id = null) => {
         try {
             // 1. Upload File if present
             if (file) {
@@ -201,13 +202,19 @@ export default function BillPayment() {
                 payload.uploadId = uploadResponse.uploadId; // Use ID
             }
 
-            // 2. Create Transaction
-            await billPaymentService.create(payload);
+            // 2. Create or Update Transaction
+            if (id) {
+                await billPaymentService.update(id, payload);
+                showAlert("Success", "Transaction updated successfully.");
+            } else {
+                await billPaymentService.create(payload);
+                showAlert("Success", "Transaction created successfully.");
+            }
 
             // 3. Refresh and Close
             fetchTransactions();
             setIsModalOpen(false);
-            showAlert("Success", "Transaction created successfully.");
+            setEditingTransaction(null);
         } catch (error) {
             console.error("Failed to save transaction:", error);
             showAlert("Error", `Failed to save: ${error.message}`);
@@ -350,7 +357,7 @@ export default function BillPayment() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 action={
-                    <Button size="sm" className="h-9 shadow-sm" onClick={() => setIsModalOpen(true)}>
+                    <Button size="sm" className="h-9 shadow-sm" onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }}>
                         <Plus className="w-4 h-4 mr-2" />
                         New Transaction
                     </Button>
@@ -391,7 +398,7 @@ export default function BillPayment() {
                                 <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('status')}>
                                     Status <SortIcon column="status" />
                                 </TableHead>
-                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Receipt</TableHead>
+                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -485,6 +492,22 @@ export default function BillPayment() {
                                                 <TableCell className={`${pClass} align-middle`}>
                                                     <div className="flex items-center gap-2">
                                                         {/* Receipt Upload UI - Only for Done Status */}
+
+                                                        {(txn.status === 'Pending' || txn.status === 'Discarded') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded-full"
+                                                                title="Edit Transaction"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingTransaction(txn);
+                                                                    setIsModalOpen(true);
+                                                                }}
+                                                            >
+                                                                <Edit2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
 
                                                         {/* Receipt Upload UI - Only for Done Status */}
                                                         {txn.status === 'Done' && (
@@ -613,6 +636,7 @@ export default function BillPayment() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleTransactionSaved}
+                transaction={editingTransaction}
             />
 
             <ReceiptUploadModal
