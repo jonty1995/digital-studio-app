@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { SimpleAlert } from "@/components/shared/SimpleAlert"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { customerService } from "@/services/customerService"
 
 export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disabled }) {
@@ -57,10 +57,21 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
         }
     }, [customer.mobile]);
 
+    // Track if the update was from a selection
+    const isSelectionRef = useRef(false);
+
     // Suggestions Logic (Debounced)
     useEffect(() => {
         const query = customer.mobile;
-        // Don't search if disabled, empty, or looks like specific ID (9 digits)
+
+        // If this update was due to a selection, reset flag and DO NOT search
+        if (isSelectionRef.current) {
+            isSelectionRef.current = false;
+            setSuggestions([]);
+            return;
+        }
+
+        // Don't search if disabled, empty, or look like specific ID (9 digits)
         if (disabled || !query || query.length < 3 || /^[0-9]{9}$/.test(query)) {
             setSuggestions([]);
             return;
@@ -69,10 +80,7 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
         const timer = setTimeout(async () => {
             try {
                 const results = await customerService.getSuggestions(query);
-                // Exclude if exact match is already selected?
-                // Just Show.
                 if (Array.isArray(results)) {
-                    // Limit to 5
                     setSuggestions(results.slice(0, 5));
                 }
             } catch (e) {
@@ -208,8 +216,9 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
                                         key={s.id}
                                         className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-none border-gray-50 text-gray-700"
                                         onMouseDown={(e) => {
-                                            e.preventDefault(); // Prevent focus loss immediately
-                                            console.log("Selected suggestion (MouseDown):", s);
+                                            e.preventDefault();
+                                            isSelectionRef.current = true; // Mark as selection
+                                            console.log("Selected suggestion:", s);
                                             setCustomer(prev => ({
                                                 ...prev,
                                                 mobile: s.mobile || '',

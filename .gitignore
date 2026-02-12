@@ -30,3 +30,19 @@ backend/logs/
 backend.log
 frontend.log
 
+
+
+# Vite
+.vite
+
+# Local Config
+.port_config
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+Desktop.ini

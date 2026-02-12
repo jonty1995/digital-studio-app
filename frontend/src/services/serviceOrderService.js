@@ -1,5 +1,5 @@
 export const serviceOrderService = {
-    getAll: async (params) => {
+    getAll: async (params, signal) => {
         const query = new URLSearchParams();
         if (params.page !== undefined) query.append("page", params.page);
         if (params.size !== undefined) query.append("size", params.size);
@@ -10,7 +10,7 @@ export const serviceOrderService = {
             params.services.forEach(service => query.append("services", service));
         }
 
-        const response = await fetch(`/api/service-orders?${query.toString()}`);
+        const response = await fetch(`/api/service-orders?${query.toString()}`, { signal });
         if (!response.ok) {
             throw new Error(`Failed to fetch service orders: ${response.status}`);
         }

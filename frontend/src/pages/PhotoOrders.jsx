@@ -39,8 +39,12 @@ export default function PhotoOrders() {
     const [totalItems, setTotalItems] = useState(0);
     const [viewMode, setViewMode] = useViewMode("photo-orders-view-mode"); // 'compact' | 'cozy'
 
-    // Initialize date range with empty strings to show All Time by default
-    const [dateRange, setDateRange] = useState({ start: "", end: "" });
+    // Initialize dateRange with Today (YYYY-MM-DD)
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const [dateRange, setDateRange] = useState({ start: today, end: today });
+
+    // AbortController Ref
+    const abortControllerRef = useRef(null);
 
     const observer = useRef();
     const lastOrderElementRef = useCallback(node => {
@@ -87,27 +91,37 @@ export default function PhotoOrders() {
     useEffect(() => {
         if (isFirstLoad.current) {
             isFirstLoad.current = false;
-            loadOrders(0, true, filters, dateRange); // Keep in sync
             return;
         }
         setPage(0);
         setOrders([]);
         setHasMore(true);
-        loadOrders(0, true, filters, dateRange);
     }, [filters, dateRange, searchQuery]);
+
+    useEffect(() => {
+        loadOrders(page);
+    }, [page, filters, dateRange, searchQuery, scrollBlockSize]);
 
     const loadOrders = async (pageNum, isReset = false, currentFilters = filters, currentDateRange = dateRange) => {
         setLoading(true);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         try {
             const apiFilters = {
-                startDate: currentDateRange.start || "",
-                endDate: currentDateRange.end || "",
+                startDate: searchQuery ? "" : (currentDateRange.start || ""),
+                endDate: searchQuery ? "" : (currentDateRange.end || ""),
                 search: searchQuery,
-                instant: currentFilters.instant,
-                regular: currentFilters.regular
+                instant: searchQuery ? true : currentFilters.instant,
+                regular: searchQuery ? true : currentFilters.regular
             };
 
-            const data = await orderService.getAllOrders(apiFilters, pageNum, scrollBlockSize);
+            const data = await orderService.getAllOrders(apiFilters, pageNum, scrollBlockSize, controller.signal);
             // Check structure: Page<T> has content
             const newOrders = data.content || [];
 
@@ -119,9 +133,15 @@ export default function PhotoOrders() {
             setHasMore(!data.last); // 'last' is true if last page
             setTotalItems(data.totalElements || 0);
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log("Fetch aborted");
+                return;
+            }
             console.error("Failed to load orders:", error);
         } finally {
-            setLoading(false);
+            if (abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 
@@ -226,6 +246,10 @@ export default function PhotoOrders() {
             console.error("Failed to save order:", error);
             showAlert("Save Failed", "Failed to save order. Please check the console for details.");
         }
+    };
+
+    const handleOrderUpdate = (updatedOrder) => {
+        setOrders(prev => prev.map(o => o.orderId === updatedOrder.orderId ? updatedOrder : o));
     };
 
     const formatItems = (json, returnJsx = false) => {
@@ -502,7 +526,7 @@ export default function PhotoOrders() {
                                                     ₹{order.payment?.dueAmount || 0}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle text-center`}>
-                                                    <OrderStatus order={order} onUpdate={() => loadOrders(0, false)} />
+                                                    <OrderStatus order={order} onUpdate={handleOrderUpdate} />
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle text-right`}>
                                                     {['Pending', 'Discard', 'Discarded'].includes(order.status) && (

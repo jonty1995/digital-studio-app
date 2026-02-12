@@ -47,4 +47,9 @@ public class MoneyTransferController {
             @RequestBody Map<String, Object> updates) {
         return ResponseEntity.ok(moneyTransferService.updateTransfer(id, updates));
     }
+
+    @GetMapping("/suggestions")
+    public ResponseEntity<List<Map<String, Object>>> getSuggestions(@RequestParam String mobile) {
+        return ResponseEntity.ok(moneyTransferService.getSuggestions(mobile));
+    }
 }

@@ -1,5 +1,5 @@
 export const moneyTransferService = {
-    getAll: async (params) => {
+    getAll: async (params, signal) => {
         const query = new URLSearchParams();
         if (params.page !== undefined) query.append("page", params.page);
         if (params.size !== undefined) query.append("size", params.size);
@@ -10,7 +10,7 @@ export const moneyTransferService = {
             params.types.forEach(type => query.append("types", type));
         }
 
-        const response = await fetch(`/api/money-transfers?${query.toString()}`);
+        const response = await fetch(`/api/money-transfers?${query.toString()}`, { signal });
         if (!response.ok) {
             throw new Error(`Failed to fetch money transfers: ${response.status}`);
         }
@@ -50,6 +50,12 @@ export const moneyTransferService = {
         if (!response.ok) {
             throw new Error(`Failed to update transfer: ${response.status}`);
         }
+        return response.json();
+    },
+
+    getSuggestions: async (mobile) => {
+        const response = await fetch(`/api/money-transfers/suggestions?mobile=${mobile}`);
+        if (!response.ok) throw new Error("Failed to fetch suggestions");
         return response.json();
     }
 };

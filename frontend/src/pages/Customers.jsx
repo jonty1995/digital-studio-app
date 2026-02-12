@@ -18,6 +18,9 @@ export default function Customers() {
     const [totalItems, setTotalItems] = useState(0);
     const observer = useRef();
 
+    // AbortController Ref
+    const abortControllerRef = useRef(null);
+
     useEffect(() => {
         loadCustomers();
     }, []);
@@ -52,7 +55,7 @@ export default function Customers() {
 
     useEffect(() => {
         loadCustomers();
-    }, [page, searchQuery]);
+    }, [page, searchQuery, scrollBlockSize]);
 
     const handleSort = (key) => {
         setSortConfig(current => ({
@@ -70,12 +73,20 @@ export default function Customers() {
 
     const loadCustomers = async () => {
         setLoading(true);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         try {
             const data = await customerService.getAllPaginated({
                 page,
                 size: scrollBlockSize,
                 search: searchQuery
-            });
+            }, controller.signal);
             const newCustomers = data.content || [];
             setCustomers(prev => {
                 const combined = page === 0 ? newCustomers : [...prev, ...newCustomers];
@@ -85,9 +96,15 @@ export default function Customers() {
             setHasMore(!data.last && newCustomers.length > 0);
             setTotalItems(data.totalElements);
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log("Fetch aborted");
+                return;
+            }
             console.error("Failed to load customers:", error);
         } finally {
-            setLoading(false);
+            if (abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 

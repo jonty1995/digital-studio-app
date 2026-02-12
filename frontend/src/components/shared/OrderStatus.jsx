@@ -115,7 +115,8 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
                 updatedOrder = await updateFn(order.id || order.paymentId, newStatus);
             } else {
                 // Default API call (Photo Order)
-                updatedOrder = await api.put(`/orders/${order.orderId}/status`, { status: newStatus });
+                // Backend expects @RequestParam, so we pass it in the URL query string
+                updatedOrder = await api.put(`/orders/${order.orderId}/status?status=${newStatus}`, {});
             }
 
             if (onUpdate) await onUpdate(updatedOrder);

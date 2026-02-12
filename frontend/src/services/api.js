@@ -1,8 +1,8 @@
 const API_BASE_URL = import.meta.env.VITE_API_DIR || "/api";
 
 export const api = {
-    get: async (endpoint) => {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`);
+    get: async (endpoint, options = {}) => {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
         if (!response.ok) {
             throw new Error(`API Error: ${response.statusText}`);
         }

@@ -6,7 +6,7 @@ export const orderService = {
         return await api.post("/orders", orderData);
     },
 
-    getAllOrders: async (filters = {}, page = 0, size = 20) => {
+    getAllOrders: async (filters = {}, page = 0, size = 20, signal) => {
         const params = new URLSearchParams();
         params.append("page", page);
         params.append("size", size);
@@ -17,7 +17,7 @@ export const orderService = {
             }
         });
 
-        return await api.get(`/orders?${params.toString()}`);
+        return await api.get(`/orders?${params.toString()}`, { signal });
     },
 
     updateBulkStatus: async (ids, status) => {

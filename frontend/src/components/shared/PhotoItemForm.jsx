@@ -190,6 +190,17 @@ export function PhotoItemForm({ items, setItems }) {
         setGroups([...groups, nextId]);
     };
 
+    const deleteGroup = (groupId) => {
+        if (groupId === 1) return; // Cannot delete main group
+
+        // Remove items in this group
+        const newItems = items.filter(i => (i.groupId || 1) !== groupId);
+        setItems(newItems);
+
+        // Remove group from UI
+        setGroups(groups.filter(g => g !== groupId));
+    };
+
     // Clean up empty groups (optional, maybe on save?) 
     // For now, let's keep them explicit so user can drag back and forth.
 
@@ -317,9 +328,20 @@ export function PhotoItemForm({ items, setItems }) {
                             <span className={`text-xs font-bold uppercase tracking-wider ${group.id === 1 ? 'text-purple-700' : 'text-amber-700'}`}>
                                 {group.id === 1 ? "Main Order" : `Split Order #${group.id}`}
                             </span>
-                            <span className="text-[10px] text-gray-400 font-mono">
-                                Total: ₹{group.items.reduce((s, i) => s + i.price, 0).toFixed(2)}
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] text-gray-400 font-mono">
+                                    Total: ₹{group.items.reduce((s, i) => s + i.price, 0).toFixed(2)}
+                                </span>
+                                {group.id !== 1 && (
+                                    <button
+                                        onClick={() => deleteGroup(group.id)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                        title="Delete Group"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {group.items.length === 0 ? (

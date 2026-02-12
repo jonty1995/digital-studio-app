@@ -62,6 +62,7 @@ export default function BillPayment() {
     // Initialize date range with Today (YYYY-MM-DD)
     const [dateRange, setDateRange] = useState({ start: "", end: "" });
     const [searchQuery, setSearchQuery] = useState("");
+    const abortControllerRef = useRef(null);
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -118,20 +119,29 @@ export default function BillPayment() {
 
     const fetchTransactions = async (isBackground = false) => {
         if (!isBackground) setLoading(true);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         try {
             // Convert filters object to array of active types
-            const activeTypes = Object.keys(filters).filter(key => filters[key]);
+            // If searching, include ALL types (ignore filter checkboxes)
+            const activeTypes = searchQuery ? Object.keys(filters) : Object.keys(filters).filter(key => filters[key]);
 
             const params = {
                 page: page,
                 size: scrollBlockSize,
-                startDate: dateRange?.start,
-                endDate: dateRange?.end,
+                startDate: searchQuery ? "" : dateRange?.start,
+                endDate: searchQuery ? "" : dateRange?.end,
                 search: searchQuery,
                 types: activeTypes
             };
 
-            const data = await billPaymentService.getAll(params);
+            const data = await billPaymentService.getAll(params, controller.signal);
             const newTxns = data.content || [];
 
             setTransactions(prev => {
@@ -145,10 +155,16 @@ export default function BillPayment() {
             setTotalItems(data.totalElements || 0);
             setTotalPages(data.totalPages);
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log("Fetch aborted");
+                return;
+            }
             console.error("Failed to fetch transactions:", error);
             if (!isBackground) showAlert("Error", "Failed to load transactions.");
         } finally {
-            if (!isBackground) setLoading(false);
+            if (!isBackground && abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 
@@ -159,7 +175,7 @@ export default function BillPayment() {
 
     useEffect(() => {
         fetchTransactions();
-    }, [page, dateRange, searchQuery, filters]);
+    }, [page, dateRange, searchQuery, filters, scrollBlockSize]);
 
     // Sorting Logic (Client-side for current page)
     const sortedTransactions = [...transactions].sort((a, b) => {

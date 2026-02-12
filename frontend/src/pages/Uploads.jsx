@@ -92,16 +92,37 @@ export default function Uploads() {
     });
     const [excludedSources, setExcludedSources] = useState([]);
 
-    const distinctSources = useMemo(() => {
-        const sources = new Set(uploads.map(u => u.uploadedFrom || "System"));
-        return Array.from(sources).sort();
-    }, [uploads]);
+    // Constant for Sources
+    const SOURCE_TYPES = ["Photo Orders", "Uploads", "Bill Payment", "Money Transfer", "Service"];
 
-    const [scrollBlockSize, setScrollBlockSize] = useState(20);
+    const distinctSources = SOURCE_TYPES;
+
+
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const [totalItems, setTotalItems] = useState(0);
+    // Scroll Block Size - Moved to Top
+    const [scrollBlockSize, setScrollBlockSize] = useState(20);
+
     const observer = useRef();
+    // AbortController Ref
+    const abortControllerRef = useRef(null);
+
+    // Sorting
+    const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
+
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const lastUploadElementRef = useCallback(node => {
         if (loading) return;
@@ -121,28 +142,31 @@ export default function Uploads() {
         };
     }, []);
 
+    // Reset page on filter change
     useEffect(() => {
-        fetchUploads();
-        fetchConfig();
-    }, [page]); // Re-fetch on page change
-
-    // If checkAvailability or other actions need full refresh, we should reset page
-    const handleFullRefresh = () => {
         setPage(0);
         setUploads([]);
         setHasMore(true);
-        // fetchUploads will be triggered by useEffect [page] if reset to 0
-        if (page === 0) fetchUploads();
-    };
+    }, [searchQuery, dateRange, excludedSources, sortConfig]);
 
     useEffect(() => {
-        fetchConfig();
-    }, []);
+        fetchUploads();
+    }, [page, scrollBlockSize, searchQuery, dateRange, excludedSources, sortConfig]);
+
+    // If checkAvailability or other actions need full refresh, we should reset page
+    const handleFullRefresh = () => {
+        setUploads([]);
+        setHasMore(true);
+        if (page === 0) {
+            fetchUploads();
+        } else {
+            setPage(0);
+        }
+    };
 
     const fetchConfig = async () => {
         try {
             const values = await configurationService.getValues();
-            const daysConfig = values.find(v => v.name === "FILE_ABSOLUTE_DELETE_DAYS");
             const blockSize = values.find(v => v.name === "SCROLL_BLOCK_SIZE");
             if (blockSize) setScrollBlockSize(parseInt(blockSize.value));
             setConfigValues(values);
@@ -151,10 +175,40 @@ export default function Uploads() {
         }
     };
 
+
+
     const fetchUploads = async () => {
         setLoading(true);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         try {
-            const res = await fetch(`/api/files?page=${page}&size=${scrollBlockSize}`);
+            const params = new URLSearchParams();
+            params.append("page", page);
+            params.append("size", scrollBlockSize);
+
+            if (searchQuery) {
+                params.append("search", searchQuery);
+            } else {
+                if (dateRange.start) params.append("startDate", dateRange.start);
+                if (dateRange.end) params.append("endDate", dateRange.end);
+
+                if (excludedSources.length > 0) {
+                    excludedSources.forEach(s => params.append("excludedSources", s));
+                }
+            }
+
+            if (sortConfig.key) {
+                params.append("sortBy", sortConfig.key);
+                params.append("sortDir", sortConfig.direction);
+            }
+
+            const res = await fetch(`/api/files?${params.toString()}`, { signal: controller.signal });
             if (res.ok) {
                 const data = await res.json();
                 const newUploads = data.content || [];
@@ -166,9 +220,15 @@ export default function Uploads() {
                 setTotalItems(data.totalElements || 0);
             }
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log("Fetch aborted");
+                return;
+            }
             console.error("Failed to fetch uploads", error);
         } finally {
-            setLoading(false);
+            if (abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 
@@ -229,6 +289,8 @@ export default function Uploads() {
         }
 
         if (successCount > 0) {
+            // Trigger refresh
+            setPage(0);
             fetchUploads();
         }
 
@@ -303,16 +365,7 @@ export default function Uploads() {
         }
     };
 
-    // Sorting
-    const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
-    const handleSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
 
     const handleCheckAvailability = async (silent = false) => {
         const runCheck = async () => {
@@ -330,7 +383,7 @@ export default function Uploads() {
                     if (!silent) {
                         showAlert("Check Complete", `Available: ${data.available}\nMissing: ${data.missing}`);
                     }
-                    fetchUploads(); // Reload list to show updated status
+                    handleFullRefresh();
                 } else {
                     const text = await res.text();
                     console.error("Availability Check Failed:", text);
@@ -361,7 +414,7 @@ export default function Uploads() {
                 if (res.ok) {
                     const data = await res.json();
                     showAlert("Scan Complete", `Available: ${data.available}\nMissing: ${data.missing}`);
-                    fetchUploads();
+                    handleFullRefresh();
                 } else {
                     showAlert("Scan Failed", "Failed to check availability.");
                 }
@@ -406,7 +459,7 @@ export default function Uploads() {
 
             if (res.ok) {
                 showAlert("Recovery Successful", "File has been restored.");
-                fetchUploads();
+                handleFullRefresh();
                 setQueueRefreshTrigger(prev => prev + 1);
             } else {
                 const text = await res.text();
@@ -450,7 +503,7 @@ export default function Uploads() {
 
             if (res.ok) {
                 showAlert("Deleted", "File marked for deletion.");
-                fetchUploads();
+                handleFullRefresh();
                 setQueueRefreshTrigger(prev => prev + 1);
             } else {
                 showAlert("Error", "Failed to delete file.");
@@ -480,56 +533,7 @@ export default function Uploads() {
     };
 
     // Sorting Logic Update
-    const sortedUploads = useMemo(() => {
-        let filtered = uploads || [];
-        if (searchQuery) {
-            const lowerQuery = searchQuery.toLowerCase();
-            filtered = filtered.filter(u =>
-                u.uploadId?.toLowerCase().includes(lowerQuery) ||
-                u.originalFilename?.toLowerCase().includes(lowerQuery) ||
-                (u.customerIds && u.customerIds.some(id => String(id).includes(lowerQuery)))
-            );
-        }
-
-        if (dateRange.start || dateRange.end) {
-            filtered = filtered.filter(u => {
-                if (!u.createdAt) return false;
-                const createdDate = u.createdAt.split('T')[0];
-
-                if (dateRange.start && createdDate < dateRange.start) return false;
-                if (dateRange.end && createdDate > dateRange.end) return false;
-                return true;
-            });
-        }
-        if (excludedSources.length > 0) {
-            filtered = filtered.filter(u => !excludedSources.includes(u.uploadedFrom || "System"));
-        }
-
-        if (sortConfig.key) {
-            filtered = [...filtered].sort((a, b) => {
-                let aValue = a[sortConfig.key];
-                let bValue = b[sortConfig.key];
-                if (aValue === null) aValue = "";
-                if (bValue === null) bValue = "";
-
-                if (sortConfig.key === 'createdAt') {
-                    return sortConfig.direction === 'asc'
-                        ? new Date(aValue) - new Date(bValue)
-                        : new Date(bValue) - new Date(aValue);
-                }
-
-                if (sortConfig.key === 'uploadedFrom') {
-                    aValue = aValue || "System";
-                    bValue = bValue || "System";
-                }
-
-                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return filtered;
-    }, [uploads, searchQuery, dateRange, excludedSources, sortConfig]);
+    const sortedUploads = uploads;
 
 
     return (

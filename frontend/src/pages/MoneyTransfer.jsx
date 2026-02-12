@@ -35,9 +35,33 @@ export default function MoneyTransfer() {
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
 
     const [page, setPage] = useState(0);
-    const [dateRange, setDateRange] = useState({ start: "", end: "" });
+
+    // Initialize dateRange with Today (YYYY-MM-DD)
+    const [dateRange, setDateRange] = useState(() => {
+        const today = new Date().toISOString().split('T')[0];
+        return { start: today, end: today };
+    });
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState({ UPI: true, ACCOUNT: true });
+
+    // AbortController Ref
+    const abortControllerRef = React.useRef(null);
+
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const SortIcon = ({ column }) => {
+        if (sortConfig.key !== column) return <span className="ml-1 text-gray-300">↕</span>;
+        return sortConfig.direction === 'asc' ? <span className="ml-1">↑</span> : <span className="ml-1">↓</span>;
+    };
 
     const handleFilterChange = (key) => setFilters(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -61,14 +85,23 @@ export default function MoneyTransfer() {
 
     const fetchTransfers = async (isBackground = false) => {
         if (!isBackground) setLoading(true);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         try {
-            const activeTypes = Object.keys(filters).filter(k => filters[k]);
+            const activeTypes = searchQuery ? Object.keys(filters) : Object.keys(filters).filter(k => filters[k]);
             const params = {
                 page, size: scrollBlockSize,
-                startDate: dateRange.start, endDate: dateRange.end,
+                startDate: searchQuery ? "" : dateRange.start,
+                endDate: searchQuery ? "" : dateRange.end,
                 search: searchQuery, types: activeTypes
             };
-            const data = await moneyTransferService.getAll(params);
+            const data = await moneyTransferService.getAll(params, controller.signal);
             setTransfers(prev => {
                 const combined = page === 0 ? data.content : [...prev, ...data.content];
                 return Array.from(new Map(combined.map(i => [i.id, i])).values());
@@ -76,15 +109,45 @@ export default function MoneyTransfer() {
             setHasMore(!data.last && data.content.length > 0);
             setTotalItems(data.totalElements);
         } catch (e) {
+            if (e.name === 'AbortError') {
+                console.log("Fetch aborted");
+                return;
+            }
             console.error(e);
             if (!isBackground) showAlert("Error", "Failed to load transfers.");
         } finally {
-            if (!isBackground) setLoading(false);
+            if (!isBackground && abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 
     useEffect(() => { setPage(0); }, [dateRange, searchQuery, filters]);
-    useEffect(() => { fetchTransfers(); }, [page, dateRange, searchQuery, filters]);
+    useEffect(() => { fetchTransfers(); }, [page, dateRange, searchQuery, filters, scrollBlockSize]);
+
+    // Sorting Logic (Client-side for current page)
+    const sortedTransfers = [...transfers].sort((a, b) => {
+        if (!sortConfig.key) return 0;
+
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Specific accessors
+        if (sortConfig.key === 'customer.id') {
+            aValue = a.customer?.id || '';
+            bValue = b.customer?.id || '';
+        } else if (sortConfig.key === 'amount') {
+            aValue = a.amount || 0;
+            bValue = b.amount || 0;
+        } else if (sortConfig.key === 'status') {
+            aValue = a.status || '';
+            bValue = b.status || '';
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
 
     const handleSaved = async (payload, file, id = null) => {
         if (file) {
@@ -217,15 +280,25 @@ export default function MoneyTransfer() {
                             <TableRow>
                                 <TableHead className="w-[130px]">Date</TableHead>
                                 <TableHead className="w-[100px]">Type</TableHead>
-                                <TableHead>Customer</TableHead>
-                                <TableHead>Recipient Info</TableHead>
-                                <TableHead>Amount</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Action</TableHead>
+                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('customer.id')}>
+                                    Customer ID <SortIcon column="customer.id" />
+                                </TableHead>
+                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Details</TableHead>
+                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('amount')}>
+                                    Amount <SortIcon column="amount" />
+                                </TableHead>
+                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('status')}>
+                                    Status <SortIcon column="status" />
+                                </TableHead>
+                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {transfers.map((t, i) => {
+                            {/* ... (loading/empty checks) ... */}
+                            {/* Skipping to row rendering for brevity in tool call logic, but need to be precise for replace */}
+                            {/* Actually, it's safer to target the header and body separately if they are far apart or just the specific lines */}
+
+                            {sortedTransfers.map((t, i) => {
                                 const pClass = viewMode === 'compact' ? 'p-2' : 'p-4';
                                 const hClass = viewMode === 'compact' ? 'h-10' : '';
                                 const isExpanded = expandedTransferId === t.id;
@@ -233,7 +306,7 @@ export default function MoneyTransfer() {
                                 return (
                                     <React.Fragment key={t.id}>
                                         <TableRow
-                                            ref={i === transfers.length - 1 ? lastElementRef : null}
+                                            ref={i === sortedTransfers.length - 1 ? lastElementRef : null}
                                             className={cn(
                                                 "cursor-pointer border-b transition-colors outline-none focus:bg-blue-50/50",
                                                 hClass,
@@ -251,7 +324,19 @@ export default function MoneyTransfer() {
                                         >
                                             <TableCell className={`${pClass} align-middle font-medium`}>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell className={`${pClass} align-middle`}><Badge variant="outline">{t.transferType}</Badge></TableCell>
-                                            <TableCell className={`${pClass} align-middle`}>{t.customer?.name || "-"}</TableCell>
+                                            <TableCell className={`${pClass} align-middle`}>
+                                                <div className="flex items-center gap-1 group/cid">
+                                                    <span>{t.customer?.id || "-"}</span>
+                                                    {t.customer?.id && (
+                                                        <CopyButton
+                                                            text={t.customer.id}
+                                                            className="h-5 w-5 opacity-0 group-hover/cid:opacity-100 transition-opacity"
+                                                            title="Copy Customer ID"
+                                                            iconClass="text-muted-foreground"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className={`${pClass} align-middle`}>
                                                 <div className="flex flex-col text-sm">
                                                     <span className="font-medium">{t.recipientName}</span>

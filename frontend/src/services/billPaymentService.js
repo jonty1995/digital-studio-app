@@ -1,7 +1,7 @@
 
 
 export const billPaymentService = {
-    getAll: async (params) => {
+    getAll: async (params, signal) => {
         // params: { page, size, startDate, endDate, search }
         const query = new URLSearchParams();
         if (params.page !== undefined) query.append("page", params.page);
@@ -14,7 +14,7 @@ export const billPaymentService = {
         }
 
         // Use relative path to leverage Vite proxy
-        const response = await fetch(`/api/bill-payments?${query.toString()}`);
+        const response = await fetch(`/api/bill-payments?${query.toString()}`, { signal });
         if (!response.ok) {
             const text = await response.text();
             console.error("API Error Response:", text);

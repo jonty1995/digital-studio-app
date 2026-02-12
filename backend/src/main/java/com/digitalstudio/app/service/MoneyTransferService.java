@@ -181,4 +181,8 @@ public class MoneyTransferService {
 
         return moneyTransferRepository.save(transfer);
     }
+
+    public List<Map<String, Object>> getSuggestions(String mobile) {
+        return moneyTransferRepository.findSuggestions(mobile);
+    }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,10 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CustomerInfo } from "./CustomerInfo";
 import { PaymentMode } from "./PaymentMode";
 import { customerService } from "@/services/customerService";
+import { moneyTransferService } from "@/services/moneyTransferService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null }) {
     const [activeTab, setActiveTab] = useState("UPI");
+    const [suggestions, setSuggestions] = useState([]);
 
     // Customer State
     const [customer, setCustomer] = useState({ mobile: '', name: '', id: '' });
@@ -88,6 +91,75 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
             setUploadId(transaction.uploadId);
         }
     }, [isOpen, transaction]);
+
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (customer.mobile && customer.mobile.length === 10) {
+                try {
+                    const data = await moneyTransferService.getSuggestions(customer.mobile);
+                    setSuggestions(data || []);
+                } catch (e) {
+                    console.error("Failed to fetch suggestions", e);
+                }
+            } else {
+                setSuggestions([]);
+            }
+        };
+        const timer = setTimeout(fetchSuggestions, 500);
+        return () => clearTimeout(timer);
+    }, [customer.mobile]);
+
+    const handleApplySuggestion = (s) => {
+        setDetails(prev => ({
+            ...prev,
+            recipientName: s.recipientName || prev.recipientName,
+            bankName: s.bankName || prev.bankName,
+            // If bank is not standard, it goes to custom
+            customBankName: s.transferType === 'ACCOUNT' && !["SBI", "HDFC", "ICICI", "Axis", "PNB"].includes(s.bankName) ? s.bankName : "",
+            ifscCode: s.ifscCode || prev.ifscCode,
+            accountNumber: s.accountNumber || prev.accountNumber,
+            upiId: (s.transferType === 'UPI' && s.upiId) ? s.upiId : prev.upiId
+        }));
+        if (s.transferType) setActiveTab(s.transferType);
+    };
+
+    const renderSuggestions = () => {
+        const scrollContainerRef = useRef(null);
+        const scroll = (direction) => {
+            if (scrollContainerRef.current) {
+                const scrollAmount = 200;
+                scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        };
+
+        if (!suggestions || suggestions.length === 0) return null;
+
+        return (
+            <div className="w-full mb-4">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Recent Transfers</Label>
+                <div className="relative group/carousel">
+                    <button type="button" onClick={() => scroll('left')} className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background border rounded-full p-1 shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity disabled:opacity-0"><ChevronLeft className="w-4 h-4 text-foreground" /></button>
+                    <div ref={scrollContainerRef} className="flex gap-3 overflow-x-auto scrollbar-hide py-1 px-1 scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {suggestions.map((s, idx) => (
+                            <button key={idx} type="button" onClick={() => handleApplySuggestion(s)} className="flex-none w-[150px] text-xs border rounded-md p-2 bg-card hover:bg-accent hover:border-primary/50 transition-all text-left flex flex-col gap-1 shadow-sm group/item relative overflow-hidden" title="Click to apply">
+                                <div className={`absolute top-0 left-0 w-1 h-full ${idx % 3 === 0 ? 'bg-gradient-to-b from-blue-400 to-blue-600' : idx % 3 === 1 ? 'bg-gradient-to-b from-purple-400 to-purple-600' : 'bg-gradient-to-b from-orange-400 to-orange-600'}`} />
+                                <div className="pl-2.5 w-full">
+                                    <div className="flex justify-between items-start w-full gap-2 mb-1">
+                                        <span className={`font-bold line-clamp-1 ${idx % 3 === 0 ? 'text-blue-600' : idx % 3 === 1 ? 'text-purple-600' : 'text-orange-600'}`} title={s.recipientName}>{s.recipientName}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="font-mono text-[10px] text-foreground/90 font-medium block truncate">{s.transferType === 'UPI' ? 'UPI' : s.bankName}</span>
+                                        <span className="text-[9px] text-muted-foreground truncate w-full block">{s.transferType === 'UPI' ? s.upiId : s.accountNumber}</span>
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                    <button type="button" onClick={() => scroll('right')} className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background border rounded-full p-1 shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity"><ChevronRight className="w-4 h-4 text-foreground" /></button>
+                </div>
+            </div>
+        );
+    };
 
     useEffect(() => {
         const amt = parseFloat(details.amount) || 0;
@@ -189,6 +261,8 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
                     onSearch={handleSearchCustomer}
                     instanceId="money-transfer-modal"
                 />
+
+                {renderSuggestions()}
 
                 <div className="bg-card rounded-lg border p-4">
                     <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Transfer Details</h3>

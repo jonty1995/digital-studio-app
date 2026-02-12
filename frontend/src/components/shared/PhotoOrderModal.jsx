@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,8 @@ import { configurationService } from "@/services/configurationService";
 import { customerService } from "@/services/customerService";
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { photoOrderService } from "@/services/photoOrderService";
+import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
 
 
 export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder }) {
@@ -21,6 +23,10 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     const [image, setImage] = useState(null);
     const [configItems, setConfigItems] = useState([]);
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
+
+    // Suggestions State
+    const [suggestions, setSuggestions] = useState([]);
+    const [isSelectionRef] = useState({ current: false }); // Reuse similar logic if needed, but here it's simple fetch
 
     const showAlert = (title, description) => {
         setAlertState({ open: true, title, description });
@@ -108,6 +114,68 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
             // Not found (New Customer) -> Do nothing
         }
     }
+
+    // Suggestions Logic
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (customer.mobile && customer.mobile.length === 10) {
+                try {
+                    const data = await photoOrderService.getSuggestions(customer.mobile);
+                    setSuggestions(data || []);
+                } catch (e) {
+                    console.error("Failed to fetch suggestions", e);
+                }
+            } else {
+                setSuggestions([]);
+            }
+        };
+        const timer = setTimeout(fetchSuggestions, 500);
+        return () => clearTimeout(timer);
+    }, [customer.mobile]);
+
+    const renderSuggestions = () => {
+        const scrollContainerRef = useRef(null);
+
+        if (!suggestions || suggestions.length === 0) return null;
+
+        const scroll = (direction) => {
+            if (scrollContainerRef.current) {
+                const scrollAmount = 200;
+                scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        };
+
+        return (
+            <div className="w-full mb-4">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Recent Files</Label>
+                <div className="relative group/carousel">
+                    <button type="button" onClick={() => scroll('left')} className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background border rounded-full p-1 shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity disabled:opacity-0"><ChevronLeft className="w-4 h-4 text-foreground" /></button>
+                    <div ref={scrollContainerRef} className="flex gap-3 overflow-x-auto scrollbar-hide py-1 px-1 scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {suggestions.map((s, idx) => {
+                            // Construct URL (Relative for Proxy)
+                            const isImage = s.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
+                            const url = `/api/files/${s}`;
+                            return (
+                                <button key={idx} type="button" onClick={() => setImage(s)} className="flex-none w-[100px] h-[100px] border rounded-md bg-card hover:border-primary/50 transition-all shadow-sm relative overflow-hidden group/item" title="Click to use this file">
+                                    {isImage ? (
+                                        <img src={url} alt="recent" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+                                            <ImageIcon className="w-8 h-8" />
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[9px] p-1 truncate text-center opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                        {s}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <button type="button" onClick={() => scroll('right')} className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 bg-background/80 hover:bg-background border rounded-full p-1 shadow-md opacity-0 group-hover/carousel:opacity-100 transition-opacity"><ChevronRight className="w-4 h-4 text-foreground" /></button>
+                </div>
+            </div>
+        );
+    };
 
     const handleSave = async () => {
         if (!items || items.length === 0) {
@@ -272,6 +340,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                             instanceId={instanceId}
                             disabled={!!editOrder}
                         />
+                        {renderSuggestions()}
                         <FileUpload
                             file={image}
                             onUpload={setImage}

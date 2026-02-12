@@ -10,7 +10,7 @@ import java.util.List;
 public class OrderSpecification {
 
     public static Specification<PhotoOrder> filterOrders(LocalDate startDate, LocalDate endDate, String search,
-            Boolean isInstant) {
+            Boolean instant, Boolean regular) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -35,9 +35,30 @@ public class OrderSpecification {
                 predicates.add(criteriaBuilder.or(nameLike, custIdLike, orderIdLike, uploadIdLike));
             }
 
-            // Instant Filter
-            if (isInstant != null) {
-                predicates.add(criteriaBuilder.equal(root.get("isInstant"), isInstant));
+            // Instant/Regular Filter
+            List<Predicate> typePredicates = new ArrayList<>();
+            if (Boolean.TRUE.equals(instant)) {
+                typePredicates.add(criteriaBuilder.equal(root.get("isInstant"), true));
+            }
+            if (Boolean.TRUE.equals(regular)) {
+                typePredicates.add(criteriaBuilder.equal(root.get("isInstant"), false));
+            }
+
+            if (!typePredicates.isEmpty()) {
+                predicates.add(criteriaBuilder.or(typePredicates.toArray(new Predicate[0])));
+            } else {
+                // If neither selected, return nothing? or everything?
+                // Usually filters are "Show X". If nothing selected, show nothing.
+                // But legacy might expect everything if null?
+                // Let's assume frontend always sends flags. If both null, maybe ignore filter
+                // (Show All).
+                if (instant != null || regular != null) {
+                    // At least one was sent but both false? -> Show Nothing
+                    // But if specific params are passed as false, we treat them as "Don't Show".
+                    // So if we are here, it means neither True flag was present.
+                    // e.g. instant=false, regular=false -> Show Nothing.
+                    predicates.add(criteriaBuilder.disjunction());
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

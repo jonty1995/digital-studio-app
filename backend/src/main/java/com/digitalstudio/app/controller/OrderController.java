@@ -43,9 +43,10 @@ public class OrderController {
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean instant,
+            @RequestParam(required = false) Boolean regular,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return orderService.getAllOrders(startDate, endDate, search, instant, page, size);
+        return orderService.getAllOrders(startDate, endDate, search, instant, regular, page, size);
     }
 
     @PutMapping("/{id}/status")
@@ -73,5 +74,12 @@ public class OrderController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/suggestions")
+    public List<String> getRecentFiles(@RequestParam String mobile) {
+        // Use repository directly or via service. Accessing repo directly for read-only
+        // query is fine for now.
+        return orderService.getRecentFiles(mobile);
     }
 }

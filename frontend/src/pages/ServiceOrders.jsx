@@ -23,9 +23,16 @@ export default function ServiceOrders() {
     const [selectedId, setSelectedId] = useState(null);
 
     // Filters
-    const [dateRange, setDateRange] = useState({ start: "", end: "" });
+    // Initialize dateRange with Today (YYYY-MM-DD)
+    const [dateRange, setDateRange] = useState(() => {
+        const today = new Date().toISOString().split('T')[0];
+        return { start: today, end: today };
+    });
     const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState([]); // Selected Services
+
+    // AbortController Ref
+    const abortControllerRef = React.useRef(null);
     // Combined list of default + configured filters
     const [availableFilters, setAvailableFilters] = useState([]);
 
@@ -48,16 +55,24 @@ export default function ServiceOrders() {
 
     const fetchOrders = async (isBackground = false) => {
         if (!isBackground) setLoading(true);
+
+        // Cancel previous request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         try {
             const params = {
                 page: page,
                 size: 20,
-                startDate: dateRange.start,
-                endDate: dateRange.end,
+                startDate: searchQuery ? "" : dateRange.start,
+                endDate: searchQuery ? "" : dateRange.end,
                 search: searchQuery,
-                services: filters
+                services: searchQuery ? [] : filters
             };
-            const data = await serviceOrderService.getAll(params);
+            const data = await serviceOrderService.getAll(params, controller.signal);
             const nextOrders = data.content || [];
 
             setOrders(prev => {
@@ -69,15 +84,21 @@ export default function ServiceOrders() {
             setHasMore(!data.last && nextOrders.length > 0);
             setTotalItems(data.totalElements || 0);
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log("Fetch aborted");
+                return;
+            }
             console.error("Failed to fetch service orders:", error);
             if (!isBackground) showAlert("Error", "Failed to load service orders.");
         } finally {
-            if (!isBackground) setLoading(false);
+            if (!isBackground && abortControllerRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 
     useEffect(() => { setPage(0); }, [dateRange, searchQuery, filters]);
-    useEffect(() => { fetchOrders(); }, [page, dateRange, searchQuery, filters]);
+    useEffect(() => { fetchOrders(); }, [page, dateRange, searchQuery, filters, scrollBlockSize]);
 
     const handleSaved = async (payload, id = null) => {
         try {

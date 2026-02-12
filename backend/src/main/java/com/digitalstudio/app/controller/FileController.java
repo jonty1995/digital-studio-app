@@ -302,9 +302,60 @@ public class FileController {
     @GetMapping
     public Page<Upload> getAllUploads(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Upload> uploadsPage = uploadRepository.findAll(pageRequest);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) List<String> excludedSources,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
+        PageRequest pageRequest = PageRequest.of(page, size, sort);
+
+        org.springframework.data.jpa.domain.Specification<Upload> spec = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            if (search != null && !search.isEmpty()) {
+                String likePattern = "%" + search.toLowerCase() + "%";
+                jakarta.persistence.criteria.Predicate idLike = cb.like(cb.lower(root.get("uploadId")), likePattern);
+                jakarta.persistence.criteria.Predicate nameLike = cb.like(cb.lower(root.get("originalFilename")),
+                        likePattern);
+                predicates.add(cb.or(idLike, nameLike));
+            }
+
+            if (startDate != null && !startDate.isEmpty()) {
+                LocalDate start = LocalDate.parse(startDate);
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), start.atStartOfDay()));
+            }
+            if (endDate != null && !endDate.isEmpty()) {
+                LocalDate end = LocalDate.parse(endDate);
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), end.atTime(java.time.LocalTime.MAX)));
+            }
+
+            if (excludedSources != null && !excludedSources.isEmpty()) {
+                List<SourceType> excludedEnums = new ArrayList<>();
+                for (String s : excludedSources) {
+                    SourceType st = SourceType.fromString(s);
+                    if (st != null) {
+                        excludedEnums.add(st);
+                    } else {
+                        try {
+                            excludedEnums.add(SourceType.valueOf(s.toUpperCase().replace(" ", "_")));
+                        } catch (IllegalArgumentException e) {
+                            // ignore invalid sources
+                        }
+                    }
+                }
+                if (!excludedEnums.isEmpty()) {
+                    predicates.add(cb.not(root.get("uploadedFrom").in(excludedEnums)));
+                }
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Page<Upload> uploadsPage = uploadRepository.findAll(spec, pageRequest);
         List<Upload> uploads = uploadsPage.getContent();
 
         // Fetch all orders to link customers
@@ -318,8 +369,6 @@ public class FileController {
         for (PhotoOrder order : orders) {
             String uId = order.getUploadId();
             if (uId != null && order.getCustomer() != null && order.getCustomer().getId() != null) {
-                // Strip extension if present to match Upload ID format (e.g. F231230001.jpg ->
-                // F231230001)
                 if (uId.contains(".")) {
                     uId = uId.substring(0, uId.lastIndexOf("."));
                 }
@@ -332,7 +381,6 @@ public class FileController {
         for (com.digitalstudio.app.model.BillPaymentTransaction bp : billPayments) {
             String uId = bp.getUploadId();
             if (uId != null && bp.getCustomer() != null && bp.getCustomer().getId() != null) {
-                // Strip extension if present
                 if (uId.contains(".")) {
                     uId = uId.substring(0, uId.lastIndexOf("."));
                 }
@@ -344,11 +392,9 @@ public class FileController {
         // Populate transient field
         for (Upload upload : uploads) {
             List<String> ids = uploadCustomerMap.getOrDefault(upload.getUploadId(), new ArrayList<>());
-            // Add Direct Link
             if (upload.getLinkedCustomer() != null) {
                 ids.add(String.valueOf(upload.getLinkedCustomer().getId()));
             }
-            // Dedup
             upload.setCustomerIds(ids.stream().distinct().collect(java.util.stream.Collectors.toList()));
         }
 

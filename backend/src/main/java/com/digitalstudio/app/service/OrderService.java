@@ -228,11 +228,11 @@ public class OrderService {
     private UploadRepository uploadRepository;
 
     public org.springframework.data.domain.Page<PhotoOrder> getAllOrders(LocalDate startDate, LocalDate endDate,
-            String search, Boolean isInstant, int page, int size) {
+            String search, Boolean instant, Boolean regular, int page, int size) {
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size,
                 org.springframework.data.domain.Sort.by("createdAt").descending());
         org.springframework.data.domain.Page<PhotoOrder> orderPage = photoOrderRepository
-                .findAll(OrderSpecification.filterOrders(startDate, endDate, search, isInstant), pageable);
+                .findAll(OrderSpecification.filterOrders(startDate, endDate, search, instant, regular), pageable);
 
         // Dynamic Extension Fix & Original Filename Population
         for (PhotoOrder order : orderPage.getContent()) {
@@ -262,6 +262,11 @@ public class OrderService {
         }
 
         return orderPage;
+    }
+
+    public List<String> getRecentFiles(String mobile) {
+        return photoOrderRepository.findDistinctRecentUploads(mobile,
+                org.springframework.data.domain.PageRequest.of(0, 5));
     }
 
     public PhotoOrder updateStatus(java.util.UUID orderId, String newStatus) {
