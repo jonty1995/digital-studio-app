@@ -265,8 +265,32 @@ public class OrderService {
     }
 
     public List<String> getRecentFiles(String mobile) {
-        return photoOrderRepository.findDistinctRecentUploads(mobile,
-                org.springframework.data.domain.PageRequest.of(0, 5));
+        // Fetch more candidates to account for filtering
+        List<String> candidates = photoOrderRepository.findDistinctRecentUploads(mobile,
+                org.springframework.data.domain.PageRequest.of(0, 20));
+
+        List<String> validFiles = new ArrayList<>();
+        for (String uploadId : candidates) {
+            if (uploadId == null || uploadId.trim().isEmpty())
+                continue;
+
+            // Strip extension for ID lookup
+            String rawId = uploadId;
+            if (uploadId.contains(".")) {
+                rawId = uploadId.substring(0, uploadId.lastIndexOf('.'));
+            }
+
+            // Check existence and deleted status
+            if (uploadRepository.findById(rawId)
+                    .map(u -> Boolean.TRUE.equals(u.getIsAvailable()) && !Boolean.TRUE.equals(u.getMarkDeleted()))
+                    .orElse(false)) {
+                validFiles.add(uploadId);
+            }
+
+            if (validFiles.size() >= 5)
+                break;
+        }
+        return validFiles;
     }
 
     public PhotoOrder updateStatus(java.util.UUID orderId, String newStatus) {

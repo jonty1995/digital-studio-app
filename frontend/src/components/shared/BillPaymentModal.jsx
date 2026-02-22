@@ -431,7 +431,13 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="New Bill Payment" size="lg">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={transaction ? "Edit Bill Payment" : "New Bill Payment"}
+            className="sm:max-w-[600px]"
+            preventOutsideClose={true}
+        >
             <div className="flex flex-col gap-6">
 
                 {/* Tabs */}

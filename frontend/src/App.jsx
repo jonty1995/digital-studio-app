@@ -10,24 +10,31 @@ import SystemLogs from "./pages/SystemLogs"
 
 import Customers from "./pages/Customers"
 import Uploads from "./pages/Uploads"
+import LabPhotoProcess from "./pages/LabPhotoProcess"
+import { EmailProvider } from "./contexts/EmailContext"
+import { EmailQueueWidget } from "./components/shared/EmailQueueWidget"
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/photo-orders" replace />} />
-          <Route path="photo-orders" element={<PhotoOrders />} />
-          <Route path="bill-payment" element={<BillPayment />} />
-          <Route path="money-transfer" element={<MoneyTransfer />} />
-          <Route path="service-orders" element={<ServiceOrders />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="uploads" element={<Uploads />} />
-          <Route path="logs" element={<SystemLogs />} />
-          <Route path="configuration" element={<Configuration />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <EmailProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Navigate to="/photo-orders" replace />} />
+            <Route path="photo-orders" element={<PhotoOrders />} />
+            <Route path="bill-payment" element={<BillPayment />} />
+            <Route path="money-transfer" element={<MoneyTransfer />} />
+            <Route path="service-orders" element={<ServiceOrders />} />
+            <Route path="lab-photo-process" element={<LabPhotoProcess />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="uploads" element={<Uploads />} />
+            <Route path="logs" element={<SystemLogs />} />
+            <Route path="configuration" element={<Configuration />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <EmailQueueWidget />
+    </EmailProvider>
   )
 }
 

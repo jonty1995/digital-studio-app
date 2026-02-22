@@ -257,21 +257,39 @@ export default function PhotoOrders() {
             const items = JSON.parse(json);
             if (Array.isArray(items)) {
                 if (returnJsx) {
-                    return items.map((i, index) => (
-                        <div key={index} className="flex items-center gap-1 mb-1 last:mb-0">
-                            <span className="font-medium text-gray-900">{i.type}</span>
-                            {i.addons && i.addons.map((addon, aIdx) => (
-                                <span key={aIdx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 shadow-sm mx-0.5">
-                                    {addon}
-                                </span>
-                            ))}
-                            <span className="text-gray-400 text-xs">x</span>
-                            <span>{i.quantity}</span>
-                        </div>
-                    ));
+                    return items.map((i, index) => {
+                        // Calculate total addon cost
+                        const addonCost = (i.unitPrice || 0) - (i.basePrice || 0);
+
+                        return (
+                            <div key={index} className="flex items-center gap-1 mb-1 last:mb-0 text-xs">
+                                <span className="font-medium text-gray-900">{i.type}</span>
+                                {i.addons && i.addons.length > 0 && (
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        <span className="text-gray-400 mx-0.5">+</span>
+                                        {i.addons.map((addon, aIdx) => (
+                                            <span key={aIdx} className="inline-flex items-center px-1 py-0.5 rounded text-[10px] bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100">
+                                                {addon}
+                                            </span>
+                                        ))}
+                                        {addonCost > 0 && (
+                                            <span className="text-[10px] font-semibold text-fuchsia-600 ml-0.5">
+                                                (+₹{addonCost})
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                                <span className="text-gray-400 mx-1">x</span>
+                                <span className="font-medium">{i.quantity}</span>
+                            </div>
+                        );
+                    });
                 }
                 return items.map(i => {
-                    const addonsStr = (i.addons && i.addons.length > 0) ? ` + ${i.addons.join(", ")}` : "";
+                    const addonCost = (i.unitPrice || 0) - (i.basePrice || 0);
+                    const addonsStr = (i.addons && i.addons.length > 0)
+                        ? ` + ${i.addons.join(", ")}${addonCost > 0 ? ` (+₹${addonCost})` : ''}`
+                        : "";
                     return `${i.type}${addonsStr} x ${i.quantity}`;
                 }).join(", ");
             }

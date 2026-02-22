@@ -47,13 +47,14 @@ export function PhotoItemForm({ items, setItems }) {
             newItem.isInstant,
             true, // isCustomer
             availableItems,
-            pricingRules
+            pricingRules,
+            availableAddons
         );
 
         // Calculate Base Price Unit
         const configItem = availableItems.find(i => i.name === newItem.type);
         const basePrice = configItem
-            ? (newItem.isInstant ? (parseFloat(configItem.instantBasePrice) || 0) : (parseFloat(configItem.regularBasePrice) || 0))
+            ? (newItem.isInstant ? (parseFloat(configItem.instantCustomerPrice) || 0) : (parseFloat(configItem.regularCustomerPrice) || 0))
             : 0;
 
         setNewItem(prev => ({
@@ -62,7 +63,7 @@ export function PhotoItemForm({ items, setItems }) {
             basePrice: basePrice,
             price: unitPrice * prev.quantity
         }));
-    }, [newItem.type, newItem.addons, newItem.isInstant, newItem.quantity, availableItems, pricingRules]);
+    }, [newItem.type, newItem.addons, newItem.isInstant, newItem.quantity, availableItems, pricingRules, availableAddons]);
 
     const handleAddItem = () => {
         if (!newItem.type) return;
@@ -145,10 +146,10 @@ export function PhotoItemForm({ items, setItems }) {
             const srcBase = srcConfig
                 ? (updatedSource.isInstant ? (parseFloat(srcConfig.instantCustomerPrice) || 0) : (parseFloat(srcConfig.regularCustomerPrice) || 0))
                 : 0;
-            const srcUnit = configurationService.calculatePrice(updatedSource.type, newAddons, updatedSource.isInstant, true, availableItems, pricingRules);
+            const srcUnit = configurationService.calculatePrice(updatedSource.type, newAddons, updatedSource.isInstant, true, availableItems, pricingRules, availableAddons);
 
             // Calculate Addon Contribution (Price Delta)
-            const prevUnit = configurationService.calculatePrice(sourceItem.type, sourceItem.addons, sourceItem.isInstant, true, availableItems, pricingRules);
+            const prevUnit = configurationService.calculatePrice(sourceItem.type, sourceItem.addons, sourceItem.isInstant, true, availableItems, pricingRules, availableAddons);
             const addonContribution = prevUnit - srcUnit;
 
             updatedSource.unitPrice = srcUnit;
@@ -258,15 +259,15 @@ export function PhotoItemForm({ items, setItems }) {
                         <div className="flex flex-wrap gap-2">
                             {(availableAddons || [])
                                 .filter(addon => {
-                                    const itemRules = pricingRules.filter(r => r.item === newItem.type);
-                                    const allowedAddons = new Set(itemRules.flatMap(r => r.addons));
+                                    const itemRules = pricingRules.filter(r => (r.photoItemName || r.item) === newItem.type);
+                                    const allowedAddons = new Set(itemRules.flatMap(r => r.addonNames || r.addons || []));
                                     return allowedAddons.has(addon.name);
                                 })
                                 .map(addon => {
                                     // Calculate Price Impact (Option A: Standalone Cost)
                                     // Use current isInstant setting
-                                    const basePriceOnly = configurationService.calculatePrice(newItem.type, [], newItem.isInstant, true, availableItems, pricingRules);
-                                    const withAddonPrice = configurationService.calculatePrice(newItem.type, [addon.name], newItem.isInstant, true, availableItems, pricingRules);
+                                    const basePriceOnly = configurationService.calculatePrice(newItem.type, [], newItem.isInstant, true, availableItems, pricingRules, availableAddons);
+                                    const withAddonPrice = configurationService.calculatePrice(newItem.type, [addon.name], newItem.isInstant, true, availableItems, pricingRules, availableAddons);
                                     const priceDiff = withAddonPrice - basePriceOnly;
 
                                     return (
@@ -287,8 +288,8 @@ export function PhotoItemForm({ items, setItems }) {
                                     );
                                 })}
                             {availableAddons.filter(addon => {
-                                const itemRules = pricingRules.filter(r => r.item === newItem.type);
-                                const allowedAddons = new Set(itemRules.flatMap(r => r.addons));
+                                const itemRules = pricingRules.filter(r => (r.photoItemName || r.item) === newItem.type);
+                                const allowedAddons = new Set(itemRules.flatMap(r => r.addonNames || r.addons || []));
                                 return allowedAddons.has(addon.name);
                             }).length === 0 && (
                                     <span className="text-xs text-green-600/70 italic">No addons options.</span>
@@ -401,17 +402,23 @@ export function PhotoItemForm({ items, setItems }) {
 
                                                     {item.addons.length > 0 && (
                                                         <div className="flex gap-1 ml-2">
-                                                            {item.addons.map(a => (
-                                                                <span
-                                                                    key={a}
-                                                                    draggable
-                                                                    onDragStart={(e) => handleDragStart(e, originalIndex, a)}
-                                                                    className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 cursor-grab hover:bg-gray-200 hover:shadow-sm"
-                                                                    title="Drag to detach into separate order"
-                                                                >
-                                                                    {a}
-                                                                </span>
-                                                            ))}
+                                                            {item.addons.map(a => {
+                                                                const base = configurationService.calculatePrice(item.type, [], item.isInstant, true, availableItems, pricingRules, availableAddons);
+                                                                const withAddon = configurationService.calculatePrice(item.type, [a], item.isInstant, true, availableItems, pricingRules, availableAddons);
+                                                                const diff = withAddon - base;
+
+                                                                return (
+                                                                    <span
+                                                                        key={a}
+                                                                        draggable
+                                                                        onDragStart={(e) => handleDragStart(e, originalIndex, a)}
+                                                                        className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 cursor-grab hover:bg-gray-200 hover:shadow-sm"
+                                                                        title="Drag to detach into separate order"
+                                                                    >
+                                                                        {a} {diff > 0 && <span className="text-gray-500 font-medium ml-0.5">(+₹{diff})</span>}
+                                                                    </span>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>

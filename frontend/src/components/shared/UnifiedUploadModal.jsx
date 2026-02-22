@@ -33,6 +33,13 @@ export function UnifiedUploadModal({ isOpen, onClose, onSuccess }) {
         }
     }, [isOpen]);
 
+    // Effect: Clear linked files (strings) if includeCustomer is unchecked
+    useEffect(() => {
+        if (!includeCustomer) {
+            setFiles(prev => prev.filter(f => f instanceof File));
+        }
+    }, [includeCustomer]);
+
     const handleSearchCustomer = async () => {
         if (!customer.mobile) return;
         try {
@@ -128,6 +135,7 @@ export function UnifiedUploadModal({ isOpen, onClose, onSuccess }) {
                         source="Uploads"
                         instantUpload={false} // Manual upload
                         multiple={true}
+                        linkEnabled={includeCustomer}
                     />
                 </div>
 

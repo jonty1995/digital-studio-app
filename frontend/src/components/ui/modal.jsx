@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
-export function Modal({ isOpen, onClose, title, children, className, noBodyPadding = false }) {
+export function Modal({ isOpen, onClose, title, children, className, noBodyPadding = false, preventOutsideClose = false }) {
     const overlayRef = useRef(null);
 
     useEffect(() => {
@@ -31,7 +31,7 @@ export function Modal({ isOpen, onClose, title, children, className, noBodyPaddi
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
             ref={overlayRef}
             onClick={(e) => {
-                if (e.target === overlayRef.current) onClose();
+                if (e.target === overlayRef.current && !preventOutsideClose) onClose();
             }}
         >
             <div

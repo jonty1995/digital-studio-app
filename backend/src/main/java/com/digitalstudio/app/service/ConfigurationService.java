@@ -228,8 +228,6 @@ public class ConfigurationService {
         List<PhotoItem> items = photoItemRepository.findAll();
         List<Addon> allAddons = addonRepository.findAll();
         Map<UUID, String> idToNameMap = allAddons.stream().collect(Collectors.toMap(Addon::getId, Addon::getName));
-        Map<String, UUID> nameToIdMap = allAddons.stream()
-                .collect(Collectors.toMap(Addon::getName, Addon::getId, (a, b) -> a));
 
         for (PhotoItem item : items) {
             String json = item.getPricingConfigurations();
@@ -290,11 +288,35 @@ public class ConfigurationService {
 
     public void savePricingRules(List<AddonPricingRule> rules) {
         List<PhotoItem> allItems = photoItemRepository.findAll();
-        Map<String, List<AddonPricingRule>> rulesByItem = rules.stream()
-                .collect(Collectors.groupingBy(AddonPricingRule::getPhotoItemName));
+
+        // Group by ID (Primary)
+        Map<UUID, List<AddonPricingRule>> rulesById = rules.stream()
+                .filter(r -> r.getPhotoItemId() != null)
+                .collect(Collectors.groupingBy(AddonPricingRule::getPhotoItemId));
+
+        // Group by Name (Fallback for legacy/error cases where ID is missing)
+        // Group by Name (Fallback for legacy/error cases where ID is missing) - ROBUST
+        // MATCHING
+        Map<String, List<AddonPricingRule>> rulesByName = rules.stream()
+                .filter(r -> r.getPhotoItemId() == null && r.getPhotoItemName() != null)
+                .collect(Collectors.groupingBy(r -> r.getPhotoItemName().trim().toLowerCase()));
 
         for (PhotoItem item : allItems) {
-            List<AddonPricingRule> itemRules = rulesByItem.getOrDefault(item.getName(), new ArrayList<>());
+            List<AddonPricingRule> itemRules = new ArrayList<>();
+
+            // 1. Try Match by ID
+            if (rulesById.containsKey(item.getId())) {
+                itemRules.addAll(rulesById.get(item.getId()));
+            }
+            // 2. Fallback to Name match if no ID-based rules found (or if we want to merge?
+            // safer to just fallback)
+            // Only strictly fallback if we found nothing by ID?
+            // Or if the rule truly has no ID.
+            String normalizedName = item.getName().trim().toLowerCase();
+            if (rulesByName.containsKey(normalizedName)) {
+                itemRules.addAll(rulesByName.get(normalizedName));
+            }
+
             List<Map<String, Object>> ruleMaps = new ArrayList<>();
             for (AddonPricingRule rule : itemRules) {
                 Map<String, Object> map = new HashMap<>();

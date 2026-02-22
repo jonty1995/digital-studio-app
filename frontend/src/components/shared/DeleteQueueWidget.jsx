@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CopyButton } from "@/components/shared/CopyButton";
 import { Button } from "@/components/ui/button";
 import { Trash2, Eye, Minimize2, Maximize2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
@@ -88,9 +89,18 @@ export function DeleteQueueWidget({ onView, refreshTrigger }) {
                         queue.map((item) => (
                             <div key={item.id} className="flex flex-col p-2 bg-white/60 dark:bg-black/20 border border-amber-100 dark:border-amber-900/50 rounded-md shadow-sm hover:shadow-md transition-all group gap-2 hover:bg-white/80 dark:hover:bg-black/30">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-mono font-medium truncate w-[140px] text-amber-950 dark:text-amber-100" title={item.uploadId}>
-                                        {item.uploadId}
-                                    </span>
+
+                                    <div className="flex items-center gap-1 min-w-0">
+                                        <span className="text-xs font-mono font-medium truncate max-w-[120px] text-amber-950 dark:text-amber-100" title={item.uploadId}>
+                                            {item.uploadId}
+                                        </span>
+                                        <CopyButton
+                                            text={item.uploadId}
+                                            className="h-4 w-4 bg-transparent hover:bg-amber-100 dark:hover:bg-amber-900 text-amber-600"
+                                            iconClass="w-3 h-3"
+                                            title="Copy ID"
+                                        />
+                                    </div>
                                     <Badge variant="outline" className="text-[10px] h-5 px-1 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
                                         {item.source}
                                     </Badge>

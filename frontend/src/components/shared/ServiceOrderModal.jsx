@@ -183,7 +183,12 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={order ? "Edit Service Request" : "New Service Request"} size="lg">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={order ? "Edit Service Request" : "New Service Request"}
+            className="sm:max-w-[600px]"
+            preventOutsideClose={true}>
             <div className="flex flex-col gap-6">
                 <CustomerInfo
                     customer={customer}

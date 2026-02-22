@@ -238,7 +238,12 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="New Money Transfer" size="lg">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={transaction ? "Edit Money Transfer" : "New Money Transfer"}
+            className="sm:max-w-[600px]"
+            preventOutsideClose={true}>
             <div className="flex flex-col gap-6">
                 <div className="flex p-1 bg-muted rounded-lg w-full">
                     {["UPI", "ACCOUNT"].map(tab => (

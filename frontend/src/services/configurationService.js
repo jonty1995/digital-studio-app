@@ -152,9 +152,10 @@ export const configurationService = {
         );
 
         if (exactRule) {
-            return isCustomer
-                ? (parseFloat(exactRule.customerPrice) || 0)
-                : (parseFloat(exactRule.basePrice) || 0);
+            const rulePrice = isCustomer
+                ? (parseFloat(exactRule.regularCustomerPrice || exactRule.customerPrice) || 0)
+                : (parseFloat(exactRule.regularBasePrice || exactRule.basePrice) || 0);
+            return itemBasePrice + rulePrice;
         }
 
         // 2. Additive Fallback: Sum up individual addon costs
@@ -170,18 +171,22 @@ export const configurationService = {
 
         for (const addon of addonNames) {
             const addonRule = rules.find(r =>
-                r.item === itemName &&
-                r.addons && r.addons.length === 1 && r.addons[0] === addon
+                (r.photoItemId === photoItemId || r.photoItemName === itemName) &&
+                (r.addonIds || []).includes(addons ? addons.find(a => a.name === addon)?.id : null) &&
+                // Ensure it is a single addon rule? 
+                // The previous check was: r.addons.length === 1 && r.addons[0] === addon
+                // But now we rely on IDs mostly. 
+                // If names are available:
+                (r.addonNames || r.addons || []).length === 1 && (r.addonNames || r.addons)[0] === addon
             );
 
             if (addonRule) {
                 const rulePrice = isCustomer
-                    ? (parseFloat(addonRule.customerPrice) || 0)
-                    : (parseFloat(addonRule.basePrice) || 0);
+                    ? (parseFloat(addonRule.regularCustomerPrice || addonRule.customerPrice) || 0)
+                    : (parseFloat(addonRule.regularBasePrice || addonRule.basePrice) || 0);
 
-                // Margin = Price of (Item+Addon) - Price of (Item Only)
-                // If referenceBase is 0, we just take the rule price (implied full cost).
-                const margin = rulePrice - referenceBase;
+                // Margin = Price of Addon (Rule Price)
+                const margin = rulePrice;
                 totalAddonsCost += margin;
             }
         }

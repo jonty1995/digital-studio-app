@@ -328,7 +328,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="New Photo Order" className="max-w-4xl h-[90vh] flex flex-col p-0" noBodyPadding={true}>
+        <Modal isOpen={isOpen} onClose={onClose} title={editOrder ? "Edit Order" : "New Photo Order"} className="sm:max-w-[700px]" preventOutsideClose={true} noBodyPadding={true}>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left Column */}

@@ -7,7 +7,7 @@ import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { CopyButton } from "@/components/shared/CopyButton";
 
-export function FileUpload({ file, onUpload, onRemove, source, instantUpload = true, multiple = false }) {
+export function FileUpload({ file, onUpload, onRemove, source, instantUpload = true, multiple = false, linkEnabled = true }) {
     const [previews, setPreviews] = useState([]); // Array of { url, type, originalFile, id? }
     const [uploading, setUploading] = useState(false);
     const [linkId, setLinkId] = useState("");
@@ -61,6 +61,12 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
         };
     }, [file]);
 
+    useEffect(() => {
+        if (!linkEnabled) {
+            setLinkMessage("");
+        }
+    }, [linkEnabled]);
+
     const handleFile = async (e) => {
         const selectedFiles = Array.from(e.target.files);
         if (selectedFiles.length > 0) {
@@ -104,15 +110,21 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
 
             // Validate Source Validation
             // Exception: If file source is "Uploads", allow linking anywhere.
-            if (source && res.source !== source && res.source !== "Uploads") {
+            // Exception 2: If we are on "Uploads" page (source prop is "Uploads"), allow linking from ANY source.
+            if (source && source !== "Uploads" && res.source !== source && res.source !== "Uploads") {
                 showAlert("Source Mismatch", `Cannot link file. It belongs to '${res.source || "Unknown"}', but expected '${source}'.`);
                 setUploading(false);
                 return;
             }
 
-            onUpload(res.uploadId); // Save ID
+            if (multiple) {
+                const currentFiles = Array.isArray(file) ? file : (file ? [file] : []);
+                onUpload([...currentFiles, res.uploadId]);
+            } else {
+                onUpload(res.uploadId); // Save ID
+            }
             setLinkMessage("Photo linked successfully!");
-            setFileType(res.filename.toLowerCase().endsWith(".pdf") ? "pdf" : "image");
+
             setLinkId("");
         } catch (error) {
             showAlert("Not Found", "File ID not found.");
@@ -202,16 +214,18 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                 <div className="flex flex-col gap-2">
                     <div className="flex items-start gap-2">
                         <Input
-                            placeholder="Link Existing File ID"
-                            className="bg-white border-pink-200 focus-visible:ring-pink-500 text-sm"
+                            placeholder={linkEnabled ? "Link Existing File ID" : "Link Customer to enable ID linking"}
+                            className="bg-white border-pink-200 focus-visible:ring-pink-500 text-sm disabled:opacity-50 disabled:bg-gray-100"
                             value={linkId}
                             onChange={(e) => setLinkId(e.target.value)}
+                            disabled={!linkEnabled || uploading}
                         />
                         <Button
                             variant="outline"
-                            className="bg-white border-pink-200 hover:bg-pink-50 text-gray-900"
+                            className="bg-white border-pink-200 hover:bg-pink-50 text-gray-900 disabled:opacity-50"
                             onClick={handleLink}
-                            disabled={uploading}
+                            disabled={!linkEnabled || uploading}
+
                         >
                             Link
                         </Button>
@@ -262,7 +276,7 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                                         // Need to call onUpload with new array.
                                         const currentFiles = Array.isArray(file) ? file : [file];
                                         const newFiles = currentFiles.filter((_, i) => i !== index);
-                                        onUpload(newFiles.length > 0 ? newFiles : null);
+                                        onUpload(newFiles.length > 0 ? newFiles : []);
                                     } else {
                                         onRemove();
                                         setLinkMessage("");

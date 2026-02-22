@@ -23,15 +23,18 @@ export function AddonPricingConfig() {
         ]);
         setPhotoItems(items);
         setAddonsStart(addons);
-        setPricingRules(rules);
+        // Inject transient ID for React keys and deletion logic, since backend DTO lacks ID
+        setPricingRules(rules.map(r => ({ ...r, id: crypto.randomUUID() })));
     };
 
     const savePricingRules = async (newRules) => {
         setPricingRules(newRules); // Optimistic
-        await configurationService.savePricingRules(newRules);
-        // Refresh rules
+        // Strip transient ID before saving
+        const payload = newRules.map(({ id, ...rest }) => rest);
+        await configurationService.savePricingRules(payload);
+        // Refresh rules to get backend state (re-inject IDs)
         const rules = await configurationService.getPricingRules();
-        setPricingRules(rules);
+        setPricingRules(rules.map(r => ({ ...r, id: crypto.randomUUID() })));
     };
 
     const [selectedItem, setSelectedItem] = useState("");
@@ -55,12 +58,15 @@ export function AddonPricingConfig() {
         const sortedSelection = [...selectedAddonIds].sort().join(",");
 
         const existingRule = pricingRules.find(rule =>
-            (rule.photoItemId === selectedItemObj?.id || rule.item === selectedItem) &&
+            (rule.photoItemId === selectedItemObj?.id || rule.photoItemName === selectedItem) &&
             (rule.addonIds || []).sort().join(",") === sortedSelection
         );
 
         if (existingRule) {
-            setNewPrice({ base: existingRule.basePrice, customer: existingRule.customerPrice });
+            setNewPrice({
+                base: existingRule.regularBasePrice !== undefined ? existingRule.regularBasePrice : existingRule.basePrice,
+                customer: existingRule.regularCustomerPrice !== undefined ? existingRule.regularCustomerPrice : existingRule.customerPrice
+            });
             setEditingRuleId(existingRule.id);
         } else {
             setNewPrice({ base: "", customer: "" });
@@ -87,11 +93,14 @@ export function AddonPricingConfig() {
         const resolvedAddons = selectedAddonIds.map(id => addonsStart.find(a => a.id === id)?.name || "Unknown");
 
         const ruleData = {
-            item: selectedItem,
-            addonIds: selectedAddonIds, // Use IDs
-            addons: resolvedAddons, // Provide names for Optimistic UI
-            basePrice: parsePrice(newPrice.base),
-            customerPrice: parsePrice(newPrice.customer)
+            photoItemName: selectedItem, // Match backend DTO
+            photoItemId: selectedItemObj?.id,
+            addonIds: selectedAddonIds,
+            addonNames: resolvedAddons, // Match backend DTO
+            regularBasePrice: parsePrice(newPrice.base),
+            regularCustomerPrice: parsePrice(newPrice.customer),
+            instantBasePrice: parsePrice(newPrice.base), // Fallback or separate input needed? Assuming same for now or 0
+            instantCustomerPrice: parsePrice(newPrice.customer)
         };
 
         if (editingRuleId) {
@@ -99,7 +108,7 @@ export function AddonPricingConfig() {
             savePricingRules(pricingRules.map(r => r.id === editingRuleId ? { ...ruleData, id: editingRuleId } : r));
         } else {
             // Add new rule
-            savePricingRules([...pricingRules, { ...ruleData, id: crypto.randomUUID?.() || Date.now().toString() }]);
+            savePricingRules([...pricingRules, { ...ruleData, id: crypto.randomUUID() }]);
         }
 
         // Reset inputs
@@ -124,13 +133,16 @@ export function AddonPricingConfig() {
     };
 
     const handleEdit = (rule) => {
-        setSelectedItem(rule.item || rule.photoItemName);
+        setSelectedItem(rule.photoItemName || rule.item);
         // Use IDs from the rule
         setSelectedAddonIds(rule.addonIds || []);
-        setNewPrice({ base: rule.basePrice, customer: rule.customerPrice });
+        setNewPrice({
+            base: rule.regularBasePrice !== undefined ? rule.regularBasePrice : rule.basePrice,
+            customer: rule.regularCustomerPrice !== undefined ? rule.regularCustomerPrice : rule.customerPrice
+        });
         setEditingRuleId(rule.id);
         // Ensure the filter doesn't hide the item being edited
-        setFilterPhotoItem(rule.item || rule.photoItemName);
+        setFilterPhotoItem(rule.photoItemName || rule.item);
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -167,7 +179,7 @@ export function AddonPricingConfig() {
                                             className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary disabled:opacity-50"
                                             checked={selectedAddonIds.includes(addon.id)}
                                             onChange={() => handleAddonToggle(addon.id)}
-                                            disabled={!!editingRuleId}
+
                                         />
                                         <span>{addon.name}</span>
                                     </label>
@@ -253,21 +265,21 @@ export function AddonPricingConfig() {
                     </TableHeader>
                     <TableBody>
                         {pricingRules
-                            .filter(rule => !filterPhotoItem || (rule.item === filterPhotoItem || rule.photoItemName === filterPhotoItem))
+                            .filter(rule => !filterPhotoItem || (rule.photoItemName === filterPhotoItem || rule.item === filterPhotoItem))
                             .map((rule) => (
                                 <TableRow key={rule.id} className={editingRuleId === rule.id ? "bg-muted/50" : ""}>
-                                    <TableCell className="font-medium py-2">{rule.item || rule.photoItemName}</TableCell>
+                                    <TableCell className="font-medium py-2">{rule.photoItemName || rule.item}</TableCell>
                                     <TableCell className="py-2">
                                         <div className="flex gap-1 flex-wrap">
-                                            {(rule.addons || []).map(a => (
+                                            {(rule.addonNames || rule.addons || []).map(a => (
                                                 <span key={a} className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
                                                     {a}
                                                 </span>
                                             ))}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right py-2">{rule.basePrice}</TableCell>
-                                    <TableCell className="text-right py-2">{rule.customerPrice}</TableCell>
+                                    <TableCell className="text-right py-2">{rule.regularBasePrice !== undefined ? rule.regularBasePrice : rule.basePrice}</TableCell>
+                                    <TableCell className="text-right py-2">{rule.regularCustomerPrice !== undefined ? rule.regularCustomerPrice : rule.customerPrice}</TableCell>
                                     <TableCell className="py-2 text-right">
                                         <Button variant="ghost" size="icon" className="h-8 w-8 mr-1" onClick={() => handleEdit(rule)}>
                                             <Edit2 className="w-4 h-4" />

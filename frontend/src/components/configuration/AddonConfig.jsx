@@ -55,7 +55,9 @@ export function AddonConfig() {
     const handleSave = async (silent = false) => {
         setSaving(true);
         try {
-            await configurationService.saveAddons(addons);
+            // Sanitize IDs: New items have numeric timestamp IDs, remove them so backend generates UUIDs
+            const payload = addons.map(a => (typeof a.id === 'number' ? { ...a, id: null } : a));
+            await configurationService.saveAddons(payload);
             if (!silent) showAlert("Success", "Addons saved successfully.");
             await loadAddons(); // Refresh to sync IDs
         } catch (e) {
@@ -91,11 +93,20 @@ export function AddonConfig() {
     };
 
     const handleDelete = async (id) => {
+        // Optimistic update
         const newAddons = addons.filter(i => i.id !== id);
         setAddons(newAddons);
+
+        // If it was a temporary item (numeric ID), we don't need to call backend delete if it wasn't saved yet?
+        // But the current logic treats the array as the source of truth.
+        // If we delete a temp item that hasn't been saved, the backend doesn't know about it.
+        // However, if we have OTHER pending temp items in the list, we must be careful.
+        // The safest approach is to send the full list (sanitized) as the new state.
+
         setSaving(true);
         try {
-            await configurationService.saveAddons(newAddons);
+            const payload = newAddons.map(a => (typeof a.id === 'number' ? { ...a, id: null } : a));
+            await configurationService.saveAddons(payload);
         } catch (e) {
             console.error(e);
             showAlert("Error", "Failed to delete addon.");

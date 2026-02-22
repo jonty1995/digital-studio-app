@@ -98,7 +98,7 @@ export default function ServiceOrders() {
     };
 
     useEffect(() => { setPage(0); }, [dateRange, searchQuery, filters]);
-    useEffect(() => { fetchOrders(); }, [page, dateRange, searchQuery, filters, scrollBlockSize]);
+    useEffect(() => { fetchOrders(); }, [page, dateRange, searchQuery, filters]);
 
     const handleSaved = async (payload, id = null) => {
         try {

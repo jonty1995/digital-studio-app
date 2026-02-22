@@ -13,7 +13,7 @@ public interface PhotoOrderRepository extends JpaRepository<PhotoOrder, java.uti
         org.springframework.data.jpa.repository.JpaSpecificationExecutor<PhotoOrder> {
     List<PhotoOrder> findByOrderByCreatedAtDesc();
 
-    @Query("SELECT DISTINCT p.uploadId FROM PhotoOrder p WHERE p.customer.mobile = :mobile AND p.uploadId IS NOT NULL ORDER BY p.uploadId DESC")
+    @Query("SELECT DISTINCT p.uploadId FROM PhotoOrder p WHERE p.customer.mobile = :mobile AND p.uploadId IS NOT NULL AND p.status NOT IN ('Discard', 'Discarded') ORDER BY p.uploadId DESC")
     List<String> findDistinctRecentUploads(String mobile, org.springframework.data.domain.Pageable pageable);
 
     @Modifying
