@@ -58,22 +58,31 @@ public class LoggingAspect {
         }
 
         // Log Entry
-        log.info("Enter: {}(){}{} with argument[s] = {}", methodName, urlInfo,
-                !urlInfo.isEmpty() ? " " : "", // separator
-                Arrays.toString(joinPoint.getArgs()));
+        try {
+            log.info("Enter: {}(){}{} with argument[s] = {}", methodName, urlInfo,
+                    !urlInfo.isEmpty() ? " " : "", // separator
+                    Arrays.toString(joinPoint.getArgs()));
+        } catch (Exception e) {
+            // Logging failure should not crash the app
+            System.err.println("Logging aspect entry error: " + e.getMessage());
+        }
 
         try {
             Object result = joinPoint.proceed();
 
-            if (result != null) {
-                if (isPrimitiveOrWrapper(result.getClass()) || result instanceof String) {
-                    log.info("Exit: {}() with result = {}", methodName, result);
+            try {
+                if (result != null) {
+                    if (isPrimitiveOrWrapper(result.getClass()) || result instanceof String) {
+                        log.info("Exit: {}() with result = {}", methodName, result);
+                    } else {
+                        log.debug("Exit: {}() with result = {}", methodName, result);
+                        log.info("Exit: {}() (Result details in DEBUG)", methodName);
+                    }
                 } else {
-                    log.debug("Exit: {}() with result = {}", methodName, result);
-                    log.info("Exit: {}() (Result details in DEBUG)", methodName);
+                    log.info("Exit: {}() with result = null", methodName);
                 }
-            } else {
-                log.info("Exit: {}() with result = null", methodName);
+            } catch (Exception e) {
+                // Logging failure should not crash the app
             }
 
             return result;

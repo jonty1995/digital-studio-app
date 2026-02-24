@@ -9,11 +9,12 @@ import { Modal } from "@/components/ui/modal";
 import { useEmail } from "@/contexts/EmailContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
+import * as labService from "@/services/labProcessService";
+import { configurationService } from "@/services/configurationService";
 
 export default function LabPhotoProcess() {
     const [activeTab, setActiveTab] = useState("Action"); // Action or Logs
     const [groups, setGroups] = useState([]);
-    const [processDate, setProcessDate] = useState(new Date().toISOString().split('T')[0]);
     const [generating, setGenerating] = useState(false);
     const [loading, setLoading] = useState(true);
     const [alert, setAlert] = useState({ open: false, title: "", message: "", onConfirm: null, folderExists: false });
@@ -33,9 +34,8 @@ export default function LabPhotoProcess() {
 
     const fetchConfig = async () => {
         try {
-            const res = await fetch("/api/config/values");
-            if (res.ok) {
-                const data = await res.json();
+            const data = await configurationService.getValues();
+            if (data) {
                 const groupNamesConfig = data.find(item => item.name === "GROUP_NAMES");
                 if (groupNamesConfig && groupNamesConfig.value) {
                     const names = groupNamesConfig.value.split(",").map(n => n.trim()).filter(n => n !== "");
@@ -68,9 +68,8 @@ export default function LabPhotoProcess() {
     const fetchLogs = async () => {
         setLoadingLogs(true);
         try {
-            const res = await fetch("/api/lab-process/logs");
-            if (res.ok) {
-                const data = await res.json();
+            const data = await labService.fetchLabProcessLogs();
+            if (data) {
                 setLogs(data);
             }
         } catch (error) {
@@ -109,10 +108,10 @@ export default function LabPhotoProcess() {
         }
 
         try {
-            const res = await fetch(`/api/lab-process/check-exists?processDate=${processDate}`);
-            if (res.ok) {
-                const { exists } = await res.json();
-                setAlert(prev => ({ ...prev, folderExists: exists }));
+            const today = new Date().toISOString().split('T')[0];
+            const data = await labService.checkFolderExists(today);
+            if (data) {
+                setAlert(prev => ({ ...prev, folderExists: data.exists }));
                 setShowConfirmModal(true);
             }
         } catch (error) {
@@ -122,31 +121,60 @@ export default function LabPhotoProcess() {
     };
 
     const saveLog = async (action, category = null, recipient = null, batchSummary = null, files = null) => {
-        try {
-            const res = await fetch("/api/lab-process/logs", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    processDate,
-                    action,
-                    category,
-                    recipient,
-                    groupSummary: batchSummary || groups.map(g => `${g.name}: ${g.files.length}`).join(", "),
-                    fileListJson: files ? files.map(f => f.name).join(", ") : groups.flatMap(g => g.files.map(f => f.file.name)).join(", ")
-                })
+        let finalGroupSummary = batchSummary;
+        let finalFileList = "";
+
+        if (action === "Generated") {
+            finalGroupSummary = groups.map(g => `${g.name}: ${g.files.length}`).join(", ");
+            const fileLines = [];
+            groups.forEach(group => {
+                group.files.forEach((f, idx) => {
+                    const flags = [];
+                    if (f.frame) flags.push("Frame");
+                    if (f.lamination) flags.push("Lam");
+                    const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
+                    fileLines.push(`${f.file.name} -> ${group.name} (${idx + 1})${flagStr}`);
+                });
             });
-            if (res.ok) {
+            finalFileList = fileLines.join("\n");
+        } else {
+            finalGroupSummary = batchSummary;
+            finalFileList = files ? files.map(f => f.name).join(", ") : "";
+        }
+
+        try {
+            const data = await labService.saveLabProcessLog(
+                action,
+                category,
+                recipient,
+                finalGroupSummary,
+                files || finalFileList.split("\n")
+            );
+            if (data) {
                 fetchLogs(); // Refresh logs
+                return data;
             }
         } catch (e) {
             console.error("Failed to save log", e);
+        }
+        return null;
+    };
+
+    const updateLog = async (id, action) => {
+        try {
+            const success = await labService.updateLabProcessLog(id, action);
+            if (success) {
+                fetchLogs();
+            }
+        } catch (e) {
+            console.error("Failed to update log", e);
         }
     };
 
     const deleteLog = async (id) => {
         try {
-            const res = await fetch(`/api/lab-process/logs/${id}`, { method: "DELETE" });
-            if (res.ok) {
+            const success = await labService.deleteLabProcessLog(id);
+            if (success) {
                 setLogs(logs.filter(log => log.id !== id));
             }
         } catch (error) {
@@ -163,52 +191,27 @@ export default function LabPhotoProcess() {
         setShowConfirmModal(false);
         setGenerating(true);
         try {
-            if (overwrite) {
-                const clearRes = await fetch(`/api/lab-process/folder?processDate=${processDate}`, {
-                    method: "DELETE"
-                });
-                if (!clearRes.ok) {
-                    const error = await clearRes.json();
-                    throw new Error(error.error || "Failed to clear existing folder");
-                }
-            }
-
             for (const group of groups) {
-                const formData = new FormData();
-                formData.append("groupName", group.name);
-                group.files.forEach(fileObj => {
-                    formData.append("files", fileObj.file);
-                });
-
-                const res = await fetch(`/api/lab-process/generate?processDate=${processDate}`, {
-                    method: "POST",
-                    body: formData
-                });
-
-                if (!res.ok) {
-                    const error = await res.json();
-                    if (error.error === "LAB_PROCESS_PATH_NOT_CONFIGURED") {
-                        throw new Error("Target location not configured. Please set LAB_PROCESS_PATH in Configuration -> Values.");
-                    }
-                    throw new Error(error.error || "Failed to process " + group.name);
-                }
+                await labService.generateGroup(group.name, group.files, today);
             }
 
             await saveLog("Generated");
 
-            const today = new Date().toISOString().split('T')[0];
-            if (processDate === today) {
-                setShowEmailModal(true);
-            } else {
-                handleSkipEmail();
-            }
+            setShowEmailModal(true);
         } catch (error) {
             setGenerating(false);
             showAlert("Error", error.message);
         }
     };
 
-    const { sendEmailQueue } = useEmail();
+    const { sendEmailQueue, progress, status: emailStatus } = useEmail();
+
+    // Sync logs with background email progress
+    useEffect(() => {
+        if (emailStatus === 'sending' || emailStatus === 'success' || emailStatus === 'error') {
+            fetchLogs();
+        }
+    }, [progress.current, emailStatus]);
 
     const doEmail = async () => {
         if (!recipientEmail || !recipientEmail.includes("@")) {
@@ -221,9 +224,8 @@ export default function LabPhotoProcess() {
         try {
             let maxUploadSizeMb = 25;
             try {
-                const configRes = await fetch("/api/config/values");
-                if (configRes.ok) {
-                    const configData = await configRes.json();
+                const configData = await configurationService.getValues();
+                if (configData) {
                     const sizeConfig = configData.find(c => c.name === "EMAIL_MAX_UPLOAD_SIZE");
                     if (sizeConfig && sizeConfig.value) {
                         maxUploadSizeMb = parseInt(sizeConfig.value, 10) || 25;
@@ -241,11 +243,11 @@ export default function LabPhotoProcess() {
                 { id: 'standard', name: 'Standard', filter: f => !f.frame && !f.lamination },
                 { id: 'frame', name: 'Frame', filter: f => f.frame && !f.lamination },
                 { id: 'lamination', name: 'Lamination', filter: f => !f.frame && f.lamination },
-                { id: 'both', name: 'Both (Frame + Lamination)', filter: f => f.frame && f.lamination },
+                { id: 'both', name: 'Frame + Lamination', filter: f => f.frame && f.lamination },
             ];
 
             const overallContent = groups.map(g => `${g.name} - ${g.files.length}`).join(", ");
-            const overallTasks = [];
+            const allEmailBatches = [];
 
             for (const cat of CATEGORIES) {
                 const catFiles = [];
@@ -261,22 +263,25 @@ export default function LabPhotoProcess() {
 
                 if (catFiles.length === 0) continue;
 
-                const catBatches = [];
-                let currentBatch = [];
-                let currentSize = 0;
+                const catBatches = []; // Each element is an array of items (a batch)
 
-                for (const item of catFiles) {
-                    if (currentSize + item.file.size > RAW_FILE_LIMIT_BYTES && currentBatch.length > 0) {
-                        catBatches.push(currentBatch);
-                        currentBatch = [];
-                        currentSize = 0;
+                catFiles.forEach(item => {
+                    // Find the first batch that can accommodate this file
+                    let foundBatch = false;
+                    for (let batch of catBatches) {
+                        const currentBatchSize = batch.reduce((sum, b) => sum + b.file.size, 0);
+                        if (currentBatchSize + item.file.size <= RAW_FILE_LIMIT_BYTES) {
+                            batch.push(item);
+                            foundBatch = true;
+                            break;
+                        }
                     }
-                    currentBatch.push(item);
-                    currentSize += item.file.size;
-                }
-                if (currentBatch.length > 0) {
-                    catBatches.push(currentBatch);
-                }
+
+                    // If no batch has space, create a new one
+                    if (!foundBatch) {
+                        catBatches.push([item]);
+                    }
+                });
 
                 const catOverallContent = groups
                     .map(g => {
@@ -286,33 +291,56 @@ export default function LabPhotoProcess() {
                     .filter(Boolean)
                     .join(", ");
 
-                catBatches.forEach((batch, i) => {
+                catBatches.forEach(batch => {
                     const groupCounts = batch.reduce((acc, item) => {
                         acc[item.groupName] = (acc[item.groupName] || 0) + 1;
                         return acc;
                     }, {});
 
-                    const groupSummary = Object.entries(groupCounts)
-                        .map(([name, count]) => `${name}: ${count} ${count > 1 ? "files" : "file"}`)
+                    const batchSummaryStr = Object.entries(groupCounts)
+                        .map(([name, count]) => `${name} - ${count}`)
+                        .join(", ");
+
+                    const batchBodySummary = Object.entries(groupCounts)
+                        .map(([name, count]) => `${name} - ${count}`)
                         .join("\n");
 
-                    const fileList = batch.map((item, idx) => `  ${idx + 1}. ${item.file.name}`).join("\n");
-
-                    const formData = new FormData();
-                    formData.append("recipient", recipientEmail);
-                    const subjectTag = cat.id === 'standard' ? '' : ` [${cat.name}]`;
-                    formData.append("subject", `${overallContent}${subjectTag}${catBatches.length > 1 ? ` (Part ${i + 1}/${catBatches.length})` : ""}`);
-                    formData.append("body", `Processing Type: ${cat.name}\nBatch ${i + 1} of ${catBatches.length} contains:\n\nGroup Summary:\n${groupSummary}\n\nFiles in this batch:\n${fileList}\n\nOverall this category: ${catOverallContent}`);
-
-                    batch.forEach(({ file }) => {
-                        formData.append("files", file);
+                    allEmailBatches.push({
+                        category: cat,
+                        batch,
+                        catOverallContent,
+                        categoryName: cat.name,
+                        batchSummary: batchSummaryStr,
+                        batchBodySummary,
+                        files: batch.map(cf => cf.file)
                     });
-
-                    overallTasks.push({ formData });
                 });
-
-                await saveLog("Mailed", cat.name, recipientEmail, catOverallContent, catFiles.map(cf => cf.file));
             }
+
+            const totalGlobalParts = allEmailBatches.length;
+            const overallTasks = allEmailBatches.map((batchData, index) => {
+                const { category, batch, categoryName, batchSummary, batchBodySummary, files } = batchData;
+                const fileList = batch.map((item, idx) => `  ${idx + 1}. ${item.file.name}`).join("\n");
+
+                const subjectTag = category.id === 'standard' ? '' : ` [${category.name}]`;
+                const partIndicator = `(Part ${index + 1}/${totalGlobalParts})`;
+                const subject = `${partIndicator} [${batchSummary}]${subjectTag}`;
+                const body = `${partIndicator}\n` +
+                    `-----------------------\n` +
+                    `${batchBodySummary}\n` +
+                    `-----------------------\n` +
+                    `Files:\n` +
+                    `${fileList}`;
+
+                return {
+                    recipient: recipientEmail,
+                    subject,
+                    body,
+                    categoryName,
+                    batchSummary: `${partIndicator} ${batchSummary}`,
+                    files
+                };
+            });
 
             sendEmailQueue(overallTasks);
 
@@ -339,25 +367,22 @@ export default function LabPhotoProcess() {
             (log.groupSummary && log.groupSummary.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (log.fileListJson && log.fileListJson.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        const matchesDate = !dateFilter || log.processDate === dateFilter;
+        const logDate = log.timestamp ? log.timestamp.split('T')[0] : "";
+        const matchesDate = !dateFilter || logDate === dateFilter;
         return matchesSearch && matchesDate;
     });
 
     const handleRowClick = async (log) => {
         if (log.action === "Generated") {
             try {
-                const res = await fetch(`/api/lab-process/open-folder?processDate=${log.processDate}`);
-                if (!res.ok) {
-                    const err = await res.json();
-                    if (err.error === "FOLDER_NOT_FOUND") {
-                        showAlert("Folder Not Found", "The folder for this batch no longer exists on the disk.");
-                    } else {
-                        showAlert("Error", "Failed to open folder: " + err.error);
-                    }
-                }
+                const logDate = log.timestamp.split('T')[0];
+                await labService.openFolder(logDate);
             } catch (error) {
                 console.error("Failed to open folder", error);
-                showAlert("Error", "Failed to communicate with local system.");
+                const errorMsg = error.message.includes("FOLDER_NOT_FOUND")
+                    ? "The folder for this batch no longer exists on the disk."
+                    : "Failed to communicate with local system.";
+                showAlert("Error", errorMsg);
             }
         }
     };
@@ -387,15 +412,6 @@ export default function LabPhotoProcess() {
 
                     {activeTab === "Action" ? (
                         <>
-                            <div className="flex items-center gap-2 border-l border-r px-4 mx-2">
-                                <Calendar className="w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    type="date"
-                                    className="w-[160px] h-9"
-                                    value={processDate}
-                                    onChange={(e) => setProcessDate(e.target.value)}
-                                />
-                            </div>
                             <Button variant="outline" onClick={addGroup} className="gap-2">
                                 <Plus className="w-4 h-4" /> Add Group
                             </Button>
@@ -497,8 +513,9 @@ export default function LabPhotoProcess() {
                                                             <div className="text-xs text-muted-foreground italic">Sent to: {log.recipient}</div>
                                                         )}
                                                         {log.fileListJson && (
-                                                            <div className="text-[10px] text-muted-foreground/80 line-clamp-1 hover:line-clamp-none transition-all cursor-help bg-muted/50 p-1 rounded">
-                                                                Files: {log.fileListJson}
+                                                            <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap bg-muted/50 p-3 rounded-lg border border-muted-foreground/10 font-medium leading-relaxed">
+                                                                <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60 mb-2 border-b pb-1">Processed Files:</div>
+                                                                <div className="font-mono">{log.fileListJson}</div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -532,7 +549,7 @@ export default function LabPhotoProcess() {
                         </div>
                     )}
                     <p className="text-sm text-muted-foreground">
-                        Ready to process <strong>{groups.length} groups</strong> for {processDate}?
+                        Ready to process <strong>{groups.length} groups</strong> for today's batch?
                     </p>
                     <div className="flex justify-end gap-3 pt-4">
                         <Button variant="outline" onClick={() => setShowConfirmModal(false)}>Cancel</Button>

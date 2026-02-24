@@ -19,7 +19,8 @@ export function PhotoItemForm({ items, setItems }) {
         isInstant: false,
         isSeparate: false,
         price: 0,
-        unitPrice: 0
+        unitPrice: 0,
+        basePrice: 0
     });
 
     useEffect(() => {
@@ -51,10 +52,10 @@ export function PhotoItemForm({ items, setItems }) {
             availableAddons
         );
 
-        // Calculate Base Price Unit
+        // Calculate Base Price Unit (Studio Cost)
         const configItem = availableItems.find(i => i.name === newItem.type);
         const basePrice = configItem
-            ? (newItem.isInstant ? (parseFloat(configItem.instantCustomerPrice) || 0) : (parseFloat(configItem.regularCustomerPrice) || 0))
+            ? (newItem.isInstant ? (parseFloat(configItem.instantBasePrice) || 0) : (parseFloat(configItem.regularBasePrice) || 0))
             : 0;
 
         setNewItem(prev => ({

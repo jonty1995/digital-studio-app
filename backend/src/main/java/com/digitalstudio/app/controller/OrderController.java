@@ -50,8 +50,9 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    public PhotoOrder updateStatus(@PathVariable UUID id, @RequestParam String status) {
-        return orderService.updateStatus(id, status);
+    public PhotoOrder updateStatus(@PathVariable UUID id, @RequestParam String status,
+            @RequestParam(required = false) Double paymentAmount) {
+        return orderService.updateStatus(id, status, paymentAmount);
     }
 
     @PostMapping("/bulk/status")

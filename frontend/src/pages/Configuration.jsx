@@ -4,13 +4,14 @@ import { PhotoItemConfig } from "../components/configuration/PhotoItemConfig";
 import { AddonConfig } from "../components/configuration/AddonConfig";
 import { AddonPricingConfig } from "../components/configuration/AddonPricingConfig";
 import { ServiceConfig } from "../components/configuration/ServiceConfig";
+import { CreditCardConfig } from "../components/configuration/CreditCardConfig";
 import { ValueConfig } from "../components/configuration/ValueConfig";
 import { AuditLogs } from "../components/configuration/AuditLogs";
 import { configurationService } from "../services/configurationService";
 import { Download, Upload } from "lucide-react";
-import { Button } from "../components/ui/button";
 
-import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { Button } from "../components/ui/button";
+import { SimpleAlert } from "../components/shared/SimpleAlert";
 
 export default function Configuration() {
     const [activeTab, setActiveTab] = useState("items");
@@ -26,6 +27,7 @@ export default function Configuration() {
         { id: "addons", label: "Addons" },
         { id: "pricing", label: "Addon Pricing" },
         { id: "services", label: "Services" },
+        { id: "cards", label: "Credit Cards" },
         { id: "values", label: "Values" },
         { id: "audit", label: "Audit Trail" },
     ];
@@ -148,6 +150,16 @@ export default function Configuration() {
                                 <p className="text-sm text-muted-foreground">Define available services and their default costs.</p>
                             </div>
                             <ServiceConfig showAlert={showAlert} />
+                        </div>
+                    )}
+
+                    {activeTab === "cards" && (
+                        <div className="animate-in slide-in-from-left-4 fade-in duration-300">
+                            <div className="mb-4">
+                                <h2 className="text-lg font-semibold">Credit Cards Management</h2>
+                                <p className="text-sm text-muted-foreground">Manage cards and track unbilled statements.</p>
+                            </div>
+                            <CreditCardConfig showAlert={showAlert} />
                         </div>
                     )}
 

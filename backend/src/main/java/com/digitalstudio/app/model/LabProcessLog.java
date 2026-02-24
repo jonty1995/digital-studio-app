@@ -13,8 +13,6 @@ public class LabProcessLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String processDate; // The date selected in the process page
-
     private String action; // e.g., "Generated", "Mailed"
 
     private String category; // e.g., "Standard", "Frame", "Lamination", "Both"

@@ -5,6 +5,7 @@ import com.digitalstudio.app.model.Customer;
 import com.digitalstudio.app.repository.BillPaymentRepository;
 import com.digitalstudio.app.repository.CustomerRepository;
 import com.digitalstudio.app.repository.UploadRepository;
+import com.digitalstudio.app.model.FinancialTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +27,9 @@ public class BillPaymentService {
 
     @Autowired
     private CustomerService customerService;
+
+    @Autowired
+    private FinancialService financialService;
 
     public Page<BillPaymentTransaction> getAllTransactions(java.time.LocalDate startDate, java.time.LocalDate endDate,
             String search, java.util.List<String> transactionTypes, int page, int size) {
@@ -106,7 +110,23 @@ public class BillPaymentService {
             }
         }
 
-        return billPaymentRepository.save(transaction);
+        BillPaymentTransaction saved = billPaymentRepository.save(transaction);
+
+        // Record Financial Transaction
+        if (saved.getPayment() != null && saved.getPayment().getAdvanceAmount() != null
+                && saved.getPayment().getAdvanceAmount() > 0) {
+            FinancialTransaction txn = new FinancialTransaction();
+            txn.setAmount(saved.getPayment().getAdvanceAmount());
+            txn.setProfit(0.0); // Simple CREDIT for bill payments, no specific profit tracked here
+            txn.setType("CREDIT");
+            txn.setCategory("Bill Payment");
+            txn.setPaymentMode(saved.getPayment().getPaymentMode());
+            txn.setDescription("Bill Payment: " + saved.getOperator() + " (" + saved.getBillId() + ")");
+            txn.setRelatedId(saved.getId().toString());
+            financialService.recordTransaction(txn);
+        }
+
+        return saved;
     }
 
     public BillPaymentTransaction getById(UUID id) {
@@ -151,6 +171,9 @@ public class BillPaymentService {
             if (paymentObj instanceof java.util.Map) {
                 java.util.Map<String, Object> payMap = (java.util.Map<String, Object>) paymentObj;
                 com.digitalstudio.app.model.Payment payment = transaction.getPayment();
+                Double oldAdvance = (payment != null && payment.getAdvanceAmount() != null) ? payment.getAdvanceAmount()
+                        : 0.0;
+
                 if (payment == null)
                     payment = new com.digitalstudio.app.model.Payment();
 
@@ -160,14 +183,28 @@ public class BillPaymentService {
                     payment.setTotalAmount(((Number) payMap.get("totalAmount")).doubleValue());
                 if (payMap.containsKey("advanceAmount"))
                     payment.setAdvanceAmount(((Number) payMap.get("advanceAmount")).doubleValue());
-                // amountPaid mapped to advanceAmount by convention if needed, removing invalid
-                // setter
+
                 if (payMap.containsKey("discountAmount"))
                     payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
                 if (payMap.containsKey("dueAmount"))
                     payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
 
                 transaction.setPayment(payment);
+
+                Double newAdvance = payment.getAdvanceAmount() != null ? payment.getAdvanceAmount() : 0.0;
+                Double paymentDiff = newAdvance - oldAdvance;
+
+                if (paymentDiff != 0) {
+                    FinancialTransaction txn = new FinancialTransaction();
+                    txn.setAmount(paymentDiff);
+                    txn.setProfit(0.0);
+                    txn.setType("CREDIT");
+                    txn.setCategory("Bill Payment");
+                    txn.setPaymentMode(payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash");
+                    txn.setDescription(paymentDiff < 0 ? "Adjust Advance" : "Bill Payment (Updated)");
+                    txn.setRelatedId(transaction.getId().toString());
+                    financialService.recordTransaction(txn);
+                }
             }
         }
 

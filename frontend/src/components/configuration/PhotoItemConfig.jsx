@@ -26,8 +26,7 @@ export function PhotoItemConfig() {
         setLoading(true);
         try {
             const data = await configurationService.getItems();
-            // Store originalName for safe renaming
-            setItems(data.map(i => ({ ...i, originalName: i.name })));
+            setItems(data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -40,7 +39,6 @@ export function PhotoItemConfig() {
         const newItem = {
             id: newId,
             name: "",
-            originalName: "", // New item has no original name
             regularBasePrice: 0,
             regularCustomerPrice: 0,
             instantBasePrice: 0,

@@ -21,7 +21,8 @@ public class ServiceOrder {
     private Customer customer;
 
     private String serviceName;
-    private Double amount;
+    private Double amount; // Customer Price
+    private Double basePrice; // Cost per unit
     private Integer quantity;
 
     @Column(columnDefinition = "TEXT")

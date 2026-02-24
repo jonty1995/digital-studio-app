@@ -1,3 +1,5 @@
+import { api } from "./api";
+
 export const moneyTransferService = {
     getAll: async (params, signal) => {
         const query = new URLSearchParams();
@@ -10,52 +12,22 @@ export const moneyTransferService = {
             params.types.forEach(type => query.append("types", type));
         }
 
-        const response = await fetch(`/api/money-transfers?${query.toString()}`, { signal });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch money transfers: ${response.status}`);
-        }
-        return response.json();
+        return await api.get(`/money-transfers?${query.toString()}`, { signal });
     },
 
     create: async (transfer) => {
-        const response = await fetch(`/api/money-transfers`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(transfer),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to create money transfer: ${response.status}`);
-        }
-        return response.json();
+        return await api.post(`/money-transfers`, transfer);
     },
 
     updateStatus: async (id, status) => {
-        const response = await fetch(`/api/money-transfers/${id}/status`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: status, // Send plain string as backend expects raw string for status
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to update status: ${response.status}`);
-        }
-        return response.json();
+        return await api.patch(`/money-transfers/${id}/status`, status);
     },
 
     update: async (id, data) => {
-        const response = await fetch(`/api/money-transfers/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to update transfer: ${response.status}`);
-        }
-        return response.json();
+        return await api.put(`/money-transfers/${id}`, data);
     },
 
     getSuggestions: async (mobile) => {
-        const response = await fetch(`/api/money-transfers/suggestions?mobile=${mobile}`);
-        if (!response.ok) throw new Error("Failed to fetch suggestions");
-        return response.json();
+        return await api.get(`/money-transfers/suggestions?mobile=${mobile}`);
     }
 };

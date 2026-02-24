@@ -5,6 +5,7 @@ import com.digitalstudio.app.model.Customer;
 import com.digitalstudio.app.repository.MoneyTransferRepository;
 import com.digitalstudio.app.repository.CustomerRepository;
 import com.digitalstudio.app.repository.UploadRepository;
+import com.digitalstudio.app.model.FinancialTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +32,9 @@ public class MoneyTransferService {
 
     @Autowired
     private CustomerService customerService;
+
+    @Autowired
+    private FinancialService financialService;
 
     public Page<MoneyTransfer> getAllTransfers(LocalDate startDate, LocalDate endDate,
             String search, List<String> types, int page, int size) {
@@ -100,7 +104,24 @@ public class MoneyTransferService {
             }
         }
 
-        return moneyTransferRepository.save(transfer);
+        MoneyTransfer saved = moneyTransferRepository.save(transfer);
+
+        // Record Financial Transaction
+        if (saved.getPayment() != null && saved.getPayment().getAdvanceAmount() != null
+                && saved.getPayment().getAdvanceAmount() != 0) {
+            FinancialTransaction txn = new FinancialTransaction();
+            txn.setAmount(saved.getPayment().getAdvanceAmount());
+            txn.setProfit(0.0);
+            txn.setType("CREDIT");
+            txn.setCategory("Money Transfer");
+            txn.setPaymentMode(
+                    saved.getPayment().getPaymentMode() != null ? saved.getPayment().getPaymentMode() : "Cash");
+            txn.setDescription(saved.getPayment().getAdvanceAmount() < 0 ? "Revert" : "Money Transfer");
+            txn.setRelatedId(saved.getId().toString());
+            financialService.recordTransaction(txn);
+        }
+
+        return saved;
     }
 
     public Optional<MoneyTransfer> getTransferById(UUID id) {
@@ -143,6 +164,9 @@ public class MoneyTransferService {
             if (paymentObj instanceof Map) {
                 Map<String, Object> payMap = (Map<String, Object>) paymentObj;
                 com.digitalstudio.app.model.Payment payment = transfer.getPayment();
+                Double oldAdvance = (payment != null && payment.getAdvanceAmount() != null) ? payment.getAdvanceAmount()
+                        : 0.0;
+
                 if (payment == null)
                     payment = new com.digitalstudio.app.model.Payment();
 
@@ -152,14 +176,28 @@ public class MoneyTransferService {
                     payment.setTotalAmount(((Number) payMap.get("totalAmount")).doubleValue());
                 if (payMap.containsKey("advanceAmount"))
                     payment.setAdvanceAmount(((Number) payMap.get("advanceAmount")).doubleValue());
-                // amountPaid mapped to advanceAmount by convention if needed, removing invalid
-                // setter
+
                 if (payMap.containsKey("discountAmount"))
                     payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
                 if (payMap.containsKey("dueAmount"))
                     payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
 
                 transfer.setPayment(payment);
+
+                Double newAdvance = payment.getAdvanceAmount() != null ? payment.getAdvanceAmount() : 0.0;
+                Double paymentDiff = newAdvance - oldAdvance;
+
+                if (paymentDiff != 0) {
+                    FinancialTransaction txn = new FinancialTransaction();
+                    txn.setAmount(paymentDiff);
+                    txn.setProfit(0.0);
+                    txn.setType("CREDIT");
+                    txn.setCategory("Money Transfer");
+                    txn.setPaymentMode(payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash");
+                    txn.setDescription(paymentDiff < 0 ? "Adjust Advance" : "Money Transfer (Updated)");
+                    txn.setRelatedId(transfer.getId().toString());
+                    financialService.recordTransaction(txn);
+                }
             }
         }
 

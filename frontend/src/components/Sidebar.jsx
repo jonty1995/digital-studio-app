@@ -8,12 +8,13 @@ export function Sidebar() {
 
     const links = [
         { name: "Photo Orders", path: "/photo-orders", icon: ImageIcon },
-        { name: "Lab Photo Process", path: "/lab-photo-process", icon: Beaker },
         { name: "Bill Payment", path: "/bill-payment", icon: Receipt },
         { name: "Money Transfer", path: "/money-transfer", icon: Send },
         { name: "Service", path: "/service-orders", icon: Briefcase },
         { name: "Customers", path: "/customers", icon: Users },
+        { name: "Financial Overview", path: "/transactions", icon: LayoutDashboard },
         { name: "Uploads", path: "/uploads", icon: Folder },
+        { name: "Lab Photo Process", path: "/lab-photo-process", icon: Beaker },
         { name: "Configuration", path: "/configuration", icon: Settings },
         { name: "System Logs", path: "/logs", icon: FileText },
     ]

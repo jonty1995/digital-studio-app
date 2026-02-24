@@ -66,10 +66,23 @@ public class EmailService {
             }
         }
 
-        helper.setFrom(from);
-        helper.setTo(to);
+        String senderName = configurationService.getValue("EMAIL_SENDER_NAME");
+        if (senderName == null || senderName.isEmpty()) {
+            helper.setFrom(from);
+        } else {
+            helper.setFrom(from, senderName);
+        }
+        if (to != null && to.contains(",")) {
+            String[] recipients = to.split(",");
+            for (int i = 0; i < recipients.length; i++) {
+                recipients[i] = recipients[i].trim();
+            }
+            helper.setTo(recipients);
+        } else {
+            helper.setTo(to);
+        }
         helper.setSubject(subject);
-        helper.setText(body, true);
+        helper.setText(body, false);
 
         if (attachments != null) {
             for (MultipartFile file : attachments) {

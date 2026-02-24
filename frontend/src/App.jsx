@@ -10,6 +10,7 @@ import SystemLogs from "./pages/SystemLogs"
 
 import Customers from "./pages/Customers"
 import Uploads from "./pages/Uploads"
+import Transactions from "./pages/Transactions"
 import LabPhotoProcess from "./pages/LabPhotoProcess"
 import { EmailProvider } from "./contexts/EmailContext"
 import { EmailQueueWidget } from "./components/shared/EmailQueueWidget"
@@ -30,6 +31,7 @@ function App() {
             <Route path="uploads" element={<Uploads />} />
             <Route path="logs" element={<SystemLogs />} />
             <Route path="configuration" element={<Configuration />} />
+            <Route path="transactions" element={<Transactions />} />
           </Route>
         </Routes>
       </BrowserRouter>

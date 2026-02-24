@@ -5,12 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 export function EmailQueueWidget() {
-    const { sending, progress, status, error, visible, batchProgress, isDelivering, closeWidget } = useEmail();
+    const { sending, progress, status, error, visible, batchProgress, isDelivering, closeWidget, interrupted, resumeQueue } = useEmail();
     const [isMinimized, setIsMinimized] = React.useState(false);
 
     if (!visible) return null;
 
     const getStatusConfig = () => {
+        if (interrupted) {
+            return {
+                icon: <Mail className="w-4 h-4 text-orange-500" />,
+                title: 'Queue Interrupted',
+                color: 'text-orange-700',
+                bgColor: 'bg-orange-50',
+                border: 'border-orange-200'
+            };
+        }
         if (isDelivering && status === 'sending') {
             return {
                 icon: <Send className="w-4 h-4 animate-pulse text-blue-600" />,
@@ -112,7 +121,22 @@ export function EmailQueueWidget() {
                         </p>
                     )}
 
-                    {!sending && (
+                    {interrupted && (
+                        <div className="space-y-3">
+                            <p className="text-xs text-orange-600 italic">
+                                Page was refreshed. {progress.total - progress.current} batches are still pending.
+                            </p>
+                            <Button
+                                onClick={() => resumeQueue()}
+                                className="w-full bg-orange-600 hover:bg-orange-700 text-white h-8 text-xs gap-2"
+                            >
+                                <Send className="w-3.5 h-3.5" />
+                                Resume Sending
+                            </Button>
+                        </div>
+                    )}
+
+                    {!sending && !interrupted && (
                         <div className="flex justify-end pt-1">
                             <Button size="sm" variant="outline" className="h-8 text-xs" onClick={closeWidget}>
                                 Clear and Close

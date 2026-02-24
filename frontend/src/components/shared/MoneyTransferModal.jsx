@@ -58,37 +58,39 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
                 setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
                 setUploadId(null);
             }
-        } else if (transaction) {
-            // Edit Mode
-            setActiveTab(transaction.transferType || "UPI");
-            setCustomer({
-                mobile: transaction.customer?.mobile || '',
-                name: transaction.customer?.name || '',
-                id: transaction.customer?.id || ''
-            });
+        } else {
+            if (transaction) {
+                // Edit Mode
+                setActiveTab(transaction.transferType || "UPI");
+                setCustomer({
+                    mobile: transaction.customer?.mobile || '',
+                    name: transaction.customer?.name || '',
+                    id: transaction.customer?.id || ''
+                });
 
-            // Bank Name Logic (Check if standard or custom)
-            const standardBanks = ["SBI", "HDFC", "ICICI", "Axis", "PNB"];
-            const isStandard = standardBanks.includes(transaction.bankName);
+                // Bank Name Logic (Check if standard or custom)
+                const standardBanks = ["SBI", "HDFC", "ICICI", "Axis", "PNB"];
+                const isStandard = standardBanks.includes(transaction.bankName);
 
-            setDetails({
-                upiId: transaction.upiId || "",
-                mobileNumber: transaction.mobileNumber || "",
-                recipientName: transaction.recipientName || "",
-                bankName: (transaction.transferType === "ACCOUNT" ? (isStandard ? transaction.bankName : "Other") : ""),
-                customBankName: (transaction.transferType === "ACCOUNT" && !isStandard ? transaction.bankName : ""),
-                ifscCode: transaction.ifscCode || "",
-                accountNumber: transaction.accountNumber || "",
-                amount: transaction.amount?.toString() || ""
-            });
+                setDetails({
+                    upiId: transaction.upiId || "",
+                    mobileNumber: transaction.mobileNumber || "",
+                    recipientName: transaction.recipientName || "",
+                    bankName: (transaction.transferType === "ACCOUNT" ? (isStandard ? transaction.bankName : "Other") : ""),
+                    customBankName: (transaction.transferType === "ACCOUNT" && !isStandard ? transaction.bankName : ""),
+                    ifscCode: transaction.ifscCode || "",
+                    accountNumber: transaction.accountNumber || "",
+                    amount: transaction.amount?.toString() || ""
+                });
 
-            setPayment({
-                mode: transaction.payment?.paymentMode || 'Cash',
-                total: transaction.payment?.totalAmount || 0,
-                discount: transaction.payment?.discountAmount || 0,
-                advance: transaction.payment?.amountPaid || 0
-            });
-            setUploadId(transaction.uploadId);
+                setPayment({
+                    mode: transaction.payment?.paymentMode || 'Cash',
+                    total: transaction.payment?.totalAmount || 0,
+                    discount: transaction.payment?.discountAmount || 0,
+                    advance: transaction.payment?.advanceAmount || 0
+                });
+                setUploadId(transaction.uploadId);
+            }
         }
     }, [isOpen, transaction]);
 
@@ -219,8 +221,7 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
                 payment: {
                     paymentMode: payment.mode,
                     totalAmount: parseFloat(payment.total) || 0,
-                    advanceAmount: parseFloat(payment.total) || 0,
-                    amountPaid: parseFloat(payment.advance) || 0,
+                    advanceAmount: parseFloat(payment.advance) || 0,
                     discountAmount: parseFloat(payment.discount) || 0,
                     dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
                 }
@@ -269,9 +270,10 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
 
                 {renderSuggestions()}
 
-                <div className="bg-card rounded-lg border p-4">
-                    <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Transfer Details</h3>
+                <div className="bg-card rounded-lg border p-4 space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Transfer Details</h3>
                     <div className="grid grid-cols-2 gap-4">
+                        {/* ... (existing fields) ... */}
                         {activeTab === 'UPI' ? (
                             <>
                                 <div className="space-y-2">
@@ -324,6 +326,7 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
                             <Input type="number" onWheel={e => e.target.blur()} value={details.amount} onChange={e => setDetails({ ...details, amount: e.target.value })} placeholder="0.00" />
                         </div>
                     </div>
+
                 </div>
 
                 <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} />

@@ -21,9 +21,43 @@ public class LogController {
         return logService.subscribe();
     }
 
-    @PostMapping("/clear")
-    public ResponseEntity<Void> clearLogs() {
-        logService.clearLogs();
+    @PostMapping("/relay")
+    public ResponseEntity<Void> relayLog(@RequestBody LogRequest request) {
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger("FRONTEND");
+        String message = String.format("[%s] %s", request.getLevel(), request.getMessage());
+
+        switch (request.getLevel().toUpperCase()) {
+            case "ERROR":
+                logger.error(message);
+                break;
+            case "WARN":
+                logger.warn(message);
+                break;
+            default:
+                logger.info(message);
+                break;
+        }
         return ResponseEntity.ok().build();
+    }
+
+    public static class LogRequest {
+        private String level;
+        private String message;
+
+        public String getLevel() {
+            return level;
+        }
+
+        public void setLevel(String level) {
+            this.level = level;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
     }
 }

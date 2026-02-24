@@ -22,6 +22,17 @@ export function LabPhotoGroup({ group, onUpdate, onRemove, index }) {
 
     const scheme = COLOR_SCHEMES[index % COLOR_SCHEMES.length];
 
+    const formatBytes = (bytes, decimals = 2) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    };
+
+    const groupTotalSize = group.files.reduce((acc, f) => acc + (f.file?.size || 0), 0);
+
     const handleFiles = (newFiles) => {
         const imageFiles = Array.from(newFiles).filter(file => file.type.startsWith("image/"));
         if (imageFiles.length === 0) return;
@@ -106,7 +117,12 @@ export function LabPhotoGroup({ group, onUpdate, onRemove, index }) {
                         className="text-lg font-bold bg-transparent border-none focus:ring-0 w-32 placeholder:text-muted-foreground/50"
                         placeholder="Group Name"
                     />
-                    <span className="text-sm font-medium text-muted-foreground">({group.files.length} images)</span>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-medium text-muted-foreground">{group.files.length} images</span>
+                        {group.files.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground/70 -mt-1">{formatBytes(groupTotalSize)} total</span>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -160,6 +176,9 @@ export function LabPhotoGroup({ group, onUpdate, onRemove, index }) {
                             </div>
 
                             <div className="mt-1.5 flex flex-col gap-1 w-full px-1">
+                                <div className="text-[9px] font-bold text-muted-foreground/60 uppercase mb-0.5 tracking-tighter">
+                                    Size: {formatBytes(file.size)}
+                                </div>
                                 <label className="flex items-center gap-1.5 cursor-pointer group/opt">
                                     <input
                                         type="checkbox"

@@ -53,7 +53,6 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 mode: editOrder.payment?.paymentMode || 'Cash',
                 total: editOrder.payment?.totalAmount || 0,
                 discount: editOrder.payment?.discountAmount || 0,
-                discount: editOrder.payment?.discountAmount || 0,
                 advance: editOrder.payment?.advanceAmount || 0
             });
 
@@ -71,25 +70,25 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     // If setPayment sets initial, then setItems sets items, effect runs.
     // If parsedItems match calculated total, it's fine.
     // But if there was a discrepancy, it might auto-correct. Which is usually good.
+    const totalBasePrice = items.reduce((sum, item) => {
+        let bp = parseFloat(item.basePrice);
+        if (isNaN(bp) && configItems.length > 0) {
+            const cfg = configItems.find(c => c.name === item.type);
+            if (cfg) {
+                bp = item.isInstant ? parseFloat(cfg.instantBasePrice) : parseFloat(cfg.regularBasePrice);
+            }
+        }
+        return sum + ((bp || 0) * (item.quantity || 1));
+    }, 0);
+
     useEffect(() => {
         const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
-
-        const totalBasePrice = items.reduce((sum, item) => {
-            let bp = parseFloat(item.basePrice);
-            if (isNaN(bp) && configItems.length > 0) {
-                const cfg = configItems.find(c => c.name === item.type);
-                if (cfg) {
-                    bp = item.isInstant ? parseFloat(cfg.instantCustomerPrice) : parseFloat(cfg.regularCustomerPrice);
-                }
-            }
-            return sum + ((bp || 0) * item.quantity);
-        }, 0);
 
         setPayment(prev => {
             if (prev.total === totalAmount) return prev;
             return { ...prev, total: totalAmount };
         });
-    }, [items, configItems]);
+    }, [items]);
 
     const handleSearchCustomer = async () => {
         console.log("handleSearchCustomer Triggered. Mobile:", customer.mobile);
@@ -328,7 +327,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={editOrder ? "Edit Order" : "New Photo Order"} className="sm:max-w-[700px]" preventOutsideClose={true} noBodyPadding={true}>
+        <Modal isOpen={isOpen} onClose={onClose} title={editOrder ? "Edit Order" : "New Photo Order"} className="sm:max-w-[900px]" preventOutsideClose={true} noBodyPadding={true}>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left Column */}
@@ -369,7 +368,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                         <PaymentMode
                             payment={payment}
                             setPayment={setPayment}
-                            minAdvance={items.reduce((sum, item) => sum + ((parseFloat(item.basePrice) || 0) * item.quantity), 0)}
+                            minAdvance={totalBasePrice}
                         />
                     </div>
                 </div>

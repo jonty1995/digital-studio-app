@@ -1,3 +1,5 @@
+import { api } from "./api";
+
 export const serviceOrderService = {
     getAll: async (params, signal) => {
         const query = new URLSearchParams();
@@ -10,46 +12,18 @@ export const serviceOrderService = {
             params.services.forEach(service => query.append("services", service));
         }
 
-        const response = await fetch(`/api/service-orders?${query.toString()}`, { signal });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch service orders: ${response.status}`);
-        }
-        return response.json();
+        return await api.get(`/service-orders?${query.toString()}`, { signal });
     },
 
     create: async (order) => {
-        const response = await fetch(`/api/service-orders`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(order),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to create service order: ${response.status}`);
-        }
-        return response.json();
+        return await api.post(`/service-orders`, order);
     },
 
     updateStatus: async (id, status) => {
-        const response = await fetch(`/api/service-orders/${id}/status`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: status, // Send plain string
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to update status: ${response.status}`);
-        }
-        return response.json();
+        return await api.patch(`/service-orders/${id}/status`, status);
     },
 
     update: async (id, data) => {
-        const response = await fetch(`/api/service-orders/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to update service order: ${response.status}`);
-        }
-        return response.json();
+        return await api.put(`/service-orders/${id}`, data);
     }
 };

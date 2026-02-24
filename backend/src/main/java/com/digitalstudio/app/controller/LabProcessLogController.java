@@ -27,6 +27,26 @@ public class LabProcessLogController {
         return repository.save(log);
     }
 
+    @PutMapping("/{id}")
+    @SuppressWarnings("null")
+    public LabProcessLog updateLog(@PathVariable Long id, @RequestBody LabProcessLog logDetails) {
+        LabProcessLog log = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Log not found with id: " + id));
+
+        if (logDetails.getAction() != null)
+            log.setAction(logDetails.getAction());
+        if (logDetails.getCategory() != null)
+            log.setCategory(logDetails.getCategory());
+        if (logDetails.getRecipient() != null)
+            log.setRecipient(logDetails.getRecipient());
+        if (logDetails.getGroupSummary() != null)
+            log.setGroupSummary(logDetails.getGroupSummary());
+        if (logDetails.getFileListJson() != null)
+            log.setFileListJson(logDetails.getFileListJson());
+
+        return repository.save(log);
+    }
+
     @DeleteMapping("/{id}")
     @SuppressWarnings("null")
     public ResponseEntity<Void> deleteLog(@PathVariable Long id) {

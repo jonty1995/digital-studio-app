@@ -95,7 +95,19 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
     const isInstant = order.isInstant;
     const currentStatus = order.status;
 
-    const handleStatusUpdate = async (newStatus) => {
+    const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
+    const [paymentAmount, setPaymentAmount] = useState("");
+    const [pendingStatus, setPendingStatus] = useState(null);
+
+    const handleStatusUpdate = async (newStatus, amount = null) => {
+        // If transitioning to Delivered and there's a due amount, prompt for payment if not already provided
+        if (newStatus === 'Delivered' && order.payment?.dueAmount > 0 && amount === null && !showPaymentPrompt) {
+            setPendingStatus(newStatus);
+            setPaymentAmount(order.payment.dueAmount.toString());
+            setShowPaymentPrompt(true);
+            return;
+        }
+
         setIsLoading(true);
         setErrorMsg(null);
 
@@ -111,17 +123,22 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
             let updatedOrder;
             if (updateFn) {
                 // Use provided update function (Bill Payment)
-                // Assuming updateFn returns the updated object or we just trigger refresh via onUpdate
                 updatedOrder = await updateFn(order.id || order.paymentId, newStatus);
             } else {
                 // Default API call (Photo Order)
                 // Backend expects @RequestParam, so we pass it in the URL query string
-                updatedOrder = await api.put(`/orders/${order.orderId}/status?status=${newStatus}`, {});
+                const queryParams = new URLSearchParams();
+                queryParams.append("status", newStatus);
+                if (amount) queryParams.append("paymentAmount", amount);
+
+                updatedOrder = await api.put(`/orders/${order.orderId}/status?${queryParams.toString()}`, {});
             }
 
             if (onUpdate) await onUpdate(updatedOrder);
             setIsDropdownOpen(false);
             setShowRollbackAlert(false);
+            setShowPaymentPrompt(false);
+            setPendingStatus(null);
         } catch (error) {
             console.error("Failed to update status", error);
             setErrorMsg("Failed to update status");
@@ -216,6 +233,26 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
                 description={<>This order is currently <b>{currentStatus}</b>. Do you want to reopen it and set it back to <b>Pending</b>?</>}
                 confirmText="Confirm Rollback"
                 onConfirm={() => handleStatusUpdate("Pending")}
+            />
+
+            <SimpleAlert
+                open={showPaymentPrompt}
+                onOpenChange={setShowPaymentPrompt}
+                type="prompt"
+                title="Collect Due Amount"
+                description={`Order for ${order.customer?.name} has a pending due of ₹${order.payment?.dueAmount}. Enter amount collected during delivery:`}
+                inputValue={paymentAmount}
+                onInputChange={setPaymentAmount}
+                placeholder="0.00"
+                confirmText="Pay & Deliver"
+                onConfirm={() => {
+                    const amount = parseFloat(paymentAmount);
+                    if (isNaN(amount) || amount <= 0) {
+                        handleStatusUpdate(pendingStatus, 0); // Just status change
+                    } else {
+                        handleStatusUpdate(pendingStatus, amount);
+                    }
+                }}
             />
         </>
     );

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CustomerInfo } from "./CustomerInfo";
 import { PaymentMode } from "./PaymentMode";
 import { billPaymentService } from "@/services/billPaymentService";
+import { financialService } from "@/services/financialService";
 import { customerService } from "@/services/customerService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
@@ -24,7 +25,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
         billId: "",
         billCustomerName: "",
         amount: "",
-        status: "Pending" // Added Status to details
+        status: "Pending"
     });
 
     // Payment State (Reused Component)
@@ -54,28 +55,30 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                 setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
                 setUploadId(null);
             }
-        } else if (transaction) {
-            // Edit Mode
-            setActiveTab(transaction.transactionType || "ELECTRICITY");
-            setCustomer({
-                mobile: transaction.customer?.mobile || '',
-                name: transaction.customer?.name || '',
-                id: transaction.customer?.id || ''
-            });
-            setTransactionDetails({
-                operator: transaction.operator || "",
-                billId: transaction.billId || "",
-                billCustomerName: transaction.billCustomerName || "",
-                status: transaction.status || "Pending",
-                amount: transaction.payment?.totalAmount?.toString() || ""
-            });
-            setPayment({
-                mode: transaction.payment?.paymentMode || 'Cash',
-                total: transaction.payment?.totalAmount || 0,
-                discount: transaction.payment?.discountAmount || 0,
-                advance: transaction.payment?.amountPaid || 0
-            });
-            setUploadId(transaction.uploadId);
+        } else {
+            if (transaction) {
+                // Edit Mode
+                setActiveTab(transaction.transactionType || "ELECTRICITY");
+                setCustomer({
+                    mobile: transaction.customer?.mobile || '',
+                    name: transaction.customer?.name || '',
+                    id: transaction.customer?.id || ''
+                });
+                setTransactionDetails({
+                    operator: transaction.operator || "",
+                    billId: transaction.billId || "",
+                    billCustomerName: transaction.billCustomerName || "",
+                    status: transaction.status || "Pending",
+                    amount: transaction.payment?.totalAmount?.toString() || ""
+                });
+                setPayment({
+                    mode: transaction.payment?.paymentMode || 'Cash',
+                    total: transaction.payment?.totalAmount || 0,
+                    discount: transaction.payment?.discountAmount || 0,
+                    advance: transaction.payment?.advanceAmount || 0
+                });
+                setUploadId(transaction.uploadId);
+            }
         }
     }, [isOpen, transaction]);
 
@@ -151,8 +154,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                 payment: {
                     paymentMode: payment.mode,
                     totalAmount: parseFloat(payment.total) || 0,
-                    advanceAmount: parseFloat(payment.total) || 0,
-                    amountPaid: parseFloat(payment.advance) || 0,
+                    advanceAmount: parseFloat(payment.advance) || 0,
                     discountAmount: parseFloat(payment.discount) || 0,
                     dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
                 }
@@ -466,10 +468,11 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                 />
 
                 {/* Transaction Details (Dynamic based on Tab) */}
-                <div className="bg-card rounded-lg border p-4">
-                    <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Transaction Details</h3>
+                <div className="bg-card rounded-lg border p-4 space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Transaction Details</h3>
                     {renderSuggestions()}
                     {renderTabContent()}
+
                 </div>
 
                 {/* Payment Mode (Reused) */}

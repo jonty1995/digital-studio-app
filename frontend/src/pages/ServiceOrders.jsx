@@ -53,7 +53,7 @@ export default function ServiceOrders() {
         loadFilters();
     }, []);
 
-    const fetchOrders = async (isBackground = false) => {
+    const fetchOrders = async (pageNum = page, isReset = false, isBackground = false) => {
         if (!isBackground) setLoading(true);
 
         // Cancel previous request
@@ -65,7 +65,7 @@ export default function ServiceOrders() {
 
         try {
             const params = {
-                page: page,
+                page: pageNum,
                 size: 20,
                 startDate: searchQuery ? "" : dateRange.start,
                 endDate: searchQuery ? "" : dateRange.end,
@@ -76,11 +76,12 @@ export default function ServiceOrders() {
             const nextOrders = data.content || [];
 
             setOrders(prev => {
-                const combined = page === 0 ? nextOrders : [...prev, ...nextOrders];
+                const combined = isReset || pageNum === 0 ? nextOrders : [...prev, ...nextOrders];
                 const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
                 return unique;
             });
 
+            if (isReset || pageNum === 0) setPage(0);
             setHasMore(!data.last && nextOrders.length > 0);
             setTotalItems(data.totalElements || 0);
         } catch (error) {
@@ -109,7 +110,9 @@ export default function ServiceOrders() {
                 await serviceOrderService.create(payload);
                 showAlert("Success", "Service request created successfully.");
             }
-            fetchOrders(true);
+            await fetchOrders(0, true);
+            setIsModalOpen(false);
+            setEditingOrder(null);
         } catch (error) {
             console.error(error);
             showAlert("Error", "Failed to save service request.");
@@ -262,10 +265,10 @@ export default function ServiceOrders() {
                                                     ₹{o.payment?.totalAmount?.toFixed(2) || o.amount?.toFixed(2) || "0.00"}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-top text-green-600`} onClick={() => setSelectedId(isExpanded ? null : o.id)}>
-                                                    ₹{o.payment?.amountPaid?.toFixed(2) || "0.00"}
+                                                    ₹{o.payment?.advanceAmount?.toFixed(2) || "0.00"}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-top text-red-500`} onClick={() => setSelectedId(isExpanded ? null : o.id)}>
-                                                    ₹{o.payment?.dueAmount?.toFixed(2) || (Math.max(0, (o.payment?.totalAmount || o.amount || 0) - (o.payment?.amountPaid || 0)).toFixed(2))}
+                                                    ₹{o.payment?.dueAmount?.toFixed(2) || (Math.max(0, (o.payment?.totalAmount || o.amount || 0) - (o.payment?.advanceAmount || 0)).toFixed(2))}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-top`}>
                                                     <OrderStatus order={o} type="service-order" updateFn={serviceOrderService.updateStatus} onUpdate={() => fetchOrders(true)} />

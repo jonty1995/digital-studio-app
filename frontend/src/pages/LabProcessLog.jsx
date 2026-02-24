@@ -6,6 +6,7 @@ import { Trash2, Loader2, Calendar, FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { format } from "date-fns";
+import * as labService from "@/services/labProcessService";
 
 export default function LabProcessLog() {
     const [logs, setLogs] = useState([]);
@@ -16,9 +17,8 @@ export default function LabProcessLog() {
 
     const fetchLogs = async () => {
         try {
-            const res = await fetch("/api/lab-process/logs");
-            if (res.ok) {
-                const data = await res.json();
+            const data = await labService.fetchLabProcessLogs();
+            if (data) {
                 setLogs(data);
             }
         } catch (error) {
@@ -34,8 +34,8 @@ export default function LabProcessLog() {
 
     const deleteLog = async (id) => {
         try {
-            const res = await fetch(`/api/lab-process/logs/${id}`, { method: "DELETE" });
-            if (res.ok) {
+            const success = await labService.deleteLabProcessLog(id);
+            if (success) {
                 setLogs(logs.filter(log => log.id !== id));
             }
         } catch (error) {
@@ -59,7 +59,8 @@ export default function LabProcessLog() {
             (log.groupSummary && log.groupSummary.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (log.fileListJson && log.fileListJson.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        const matchesDate = !dateFilter || log.processDate === dateFilter;
+        const logDate = log.timestamp ? log.timestamp.split('T')[0] : "";
+        const matchesDate = !dateFilter || logDate === dateFilter;
 
         return matchesSearch && matchesDate;
     });
@@ -100,8 +101,7 @@ export default function LabProcessLog() {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/50">
-                                    <TableHead className="w-[150px]">Timestamp</TableHead>
-                                    <TableHead className="w-[120px]">Process Date</TableHead>
+                                    <TableHead className="w-[200px]">Timestamp</TableHead>
                                     <TableHead className="w-[100px]">Action</TableHead>
                                     <TableHead className="w-[150px]">Category</TableHead>
                                     <TableHead>Summary / Recipient</TableHead>
@@ -112,10 +112,9 @@ export default function LabProcessLog() {
                                 {filteredLogs.length > 0 ? (
                                     filteredLogs.map((log) => (
                                         <TableRow key={log.id} className="hover:bg-muted/30 transition-colors">
-                                            <TableCell className="text-xs font-medium">
+                                            <TableCell className="text-sm font-medium">
                                                 {format(new LocalDateTime(log.timestamp), "dd MMM yyyy HH:mm")}
                                             </TableCell>
-                                            <TableCell className="text-sm">{log.processDate}</TableCell>
                                             <TableCell>
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${log.action === 'Mailed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
                                                     }`}>
@@ -130,8 +129,9 @@ export default function LabProcessLog() {
                                                         <div className="text-xs text-muted-foreground italic">Sent to: {log.recipient}</div>
                                                     )}
                                                     {log.fileListJson && (
-                                                        <div className="text-[10px] text-muted-foreground/80 line-clamp-1 hover:line-clamp-none transition-all cursor-help bg-muted/50 p-1 rounded">
-                                                            Files: {log.fileListJson}
+                                                        <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap bg-muted/50 p-3 rounded-lg border border-muted-foreground/10 font-medium leading-relaxed">
+                                                            <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60 mb-2 border-b pb-1">Processed Files:</div>
+                                                            <div className="font-mono">{log.fileListJson}</div>
                                                         </div>
                                                     )}
                                                 </div>

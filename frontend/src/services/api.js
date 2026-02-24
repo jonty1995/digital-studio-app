@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_DIR || "/api";
+console.log("API_BASE_URL:", API_BASE_URL);
 
 export const api = {
     get: async (endpoint, options = {}) => {
@@ -69,5 +70,24 @@ export const api = {
         } catch (e) {
             return true;
         }
+    },
+    patch: async (endpoint, data) => {
+        const headers = { 'Content-Type': 'application/json' };
+        const body = typeof data === 'string' ? data : JSON.stringify(data);
+
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'PATCH',
+            headers,
+            body,
+        });
+        if (!response.ok) {
+            let errorMsg = response.statusText;
+            try {
+                const errData = await response.json();
+                if (errData && errData.error) errorMsg = errData.error;
+            } catch (e) { }
+            throw new Error(`API Error: ${errorMsg}`);
+        }
+        return response.json();
     }
 };

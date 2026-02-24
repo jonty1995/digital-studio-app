@@ -83,7 +83,7 @@ export default function MoneyTransfer() {
         fetchConfig();
     }, []);
 
-    const fetchTransfers = async (isBackground = false) => {
+    const fetchTransfers = async (pageNum = page, isReset = false, isBackground = false) => {
         if (!isBackground) setLoading(true);
 
         // Cancel previous request
@@ -96,16 +96,19 @@ export default function MoneyTransfer() {
         try {
             const activeTypes = searchQuery ? Object.keys(filters) : Object.keys(filters).filter(k => filters[k]);
             const params = {
-                page, size: scrollBlockSize,
+                page: pageNum,
+                size: scrollBlockSize,
                 startDate: searchQuery ? "" : dateRange.start,
                 endDate: searchQuery ? "" : dateRange.end,
                 search: searchQuery, types: activeTypes
             };
             const data = await moneyTransferService.getAll(params, controller.signal);
             setTransfers(prev => {
-                const combined = page === 0 ? data.content : [...prev, ...data.content];
+                const combined = isReset || pageNum === 0 ? data.content : [...prev, ...data.content];
                 return Array.from(new Map(combined.map(i => [i.id, i])).values());
             });
+
+            if (isReset || pageNum === 0) setPage(0);
             setHasMore(!data.last && data.content.length > 0);
             setTotalItems(data.totalElements);
         } catch (e) {
@@ -136,9 +139,15 @@ export default function MoneyTransfer() {
         if (sortConfig.key === 'customer.id') {
             aValue = a.customer?.id || '';
             bValue = b.customer?.id || '';
-        } else if (sortConfig.key === 'amount') {
-            aValue = a.amount || 0;
-            bValue = b.amount || 0;
+        } else if (sortConfig.key === 'total') {
+            aValue = a.payment?.totalAmount || 0;
+            bValue = b.payment?.totalAmount || 0;
+        } else if (sortConfig.key === 'advance') {
+            aValue = a.payment?.advanceAmount || 0;
+            bValue = b.payment?.advanceAmount || 0;
+        } else if (sortConfig.key === 'due') {
+            aValue = a.payment?.dueAmount || 0;
+            bValue = b.payment?.dueAmount || 0;
         } else if (sortConfig.key === 'status') {
             aValue = a.status || '';
             bValue = b.status || '';
@@ -163,7 +172,7 @@ export default function MoneyTransfer() {
             showAlert("Success", "Transfer created successfully.");
         }
 
-        fetchTransfers();
+        await fetchTransfers(0, true);
         setIsModalOpen(false);
         setEditingTransaction(null);
     };
@@ -284,8 +293,14 @@ export default function MoneyTransfer() {
                                     Customer ID <SortIcon column="customer.id" />
                                 </TableHead>
                                 <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Details</TableHead>
-                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('amount')}>
-                                    Amount <SortIcon column="amount" />
+                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('total')}>
+                                    Total <SortIcon column="total" />
+                                </TableHead>
+                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('advance')}>
+                                    Adv <SortIcon column="advance" />
+                                </TableHead>
+                                <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('due')}>
+                                    Due <SortIcon column="due" />
                                 </TableHead>
                                 <TableHead className={`cursor-pointer hover:text-primary font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`} onClick={() => handleSort('status')}>
                                     Status <SortIcon column="status" />
@@ -345,7 +360,9 @@ export default function MoneyTransfer() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className={`${pClass} align-middle font-semibold`}>₹{t.amount?.toFixed(2)}</TableCell>
+                                            <TableCell className={`${pClass} align-middle font-medium`}>₹{t.payment?.totalAmount?.toFixed(2)}</TableCell>
+                                            <TableCell className={`${pClass} align-middle font-medium text-emerald-600`}>₹{t.payment?.advanceAmount?.toFixed(2)}</TableCell>
+                                            <TableCell className={`${pClass} align-middle font-semibold text-red-600`}>₹{t.payment?.dueAmount?.toFixed(2)}</TableCell>
                                             <TableCell className={`${pClass} align-middle`}>
                                                 <OrderStatus order={t} type="money-transfer" updateFn={moneyTransferService.updateStatus} onUpdate={() => fetchTransfers(true)} />
                                             </TableCell>

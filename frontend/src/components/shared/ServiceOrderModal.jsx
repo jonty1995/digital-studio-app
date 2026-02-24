@@ -24,7 +24,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
         amount: "",
         description: "",
         quantity: 1, // Default quantity
-        isCustom: false // Track if custom service
+        isCustom: false, // Track if custom service
     });
     const [saveAsNew, setSaveAsNew] = useState(true);
 
@@ -61,35 +61,37 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
             setSaveAsNew(true);
             setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
             setDocumentIds([]);
-        } else if (order) {
-            // Edit Mode
-            setCustomer({
-                mobile: order.customer?.mobile || '',
-                name: order.customer?.name || '',
-                id: order.customer?.id || ''
-            });
-            setDetails({
-                serviceName: order.serviceName || '',
-                amount: order.amount?.toString() || '',
-                description: order.description || '',
-                quantity: order.quantity || 1,
-                isCustom: false // Assuming edit of existing means it's already set
-            });
-
-            if (order.payment) {
-                setPayment({
-                    mode: order.payment.paymentMode || 'Cash',
-                    total: order.payment.totalAmount || 0,
-                    discount: order.payment.discountAmount || 0,
-                    advance: order.payment.amountPaid || 0
+        } else {
+            if (order) {
+                // Edit Mode
+                setCustomer({
+                    mobile: order.customer?.mobile || '',
+                    name: order.customer?.name || '',
+                    id: order.customer?.id || ''
                 });
-            }
+                setDetails({
+                    serviceName: order.serviceName || '',
+                    amount: order.amount?.toString() || '',
+                    description: order.description || '',
+                    quantity: order.quantity || 1,
+                    isCustom: false
+                });
 
-            if (order.uploadIdsJson) {
-                try {
-                    setDocumentIds(JSON.parse(order.uploadIdsJson));
-                } catch (e) {
-                    setDocumentIds([]);
+                if (order.payment) {
+                    setPayment({
+                        mode: order.payment.paymentMode || 'Cash',
+                        total: order.payment.totalAmount || 0,
+                        discount: order.payment.discountAmount || 0,
+                        advance: order.payment.advanceAmount || 0
+                    });
+                }
+
+                if (order.uploadIdsJson) {
+                    try {
+                        setDocumentIds(JSON.parse(order.uploadIdsJson));
+                    } catch (e) {
+                        setDocumentIds([]);
+                    }
                 }
             }
         }
@@ -165,8 +167,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                 payment: {
                     paymentMode: payment.mode,
                     totalAmount: parseFloat(payment.total) || 0,
-                    advanceAmount: parseFloat(payment.total) || 0,
-                    amountPaid: parseFloat(payment.advance) || 0,
+                    advanceAmount: parseFloat(payment.advance) || 0,
                     discountAmount: parseFloat(payment.discount) || 0,
                     dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
                 }
@@ -311,25 +312,26 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                                 instantUpload={false}
                             />
                         </div>
+
                     </div>
                 </div>
-
-                <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} />
-
-                <div className="flex justify-end gap-3 mt-4">
-                    <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={saving}>
-                        {saving ? "Saving..." : (order ? "Update Service" : "Save Service")}
-                    </Button>
-                </div>
-
-                <SimpleAlert
-                    open={alertState.open}
-                    onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
-                    title={alertState.title}
-                    description={alertState.description}
-                />
             </div>
-        </Modal>
+
+            <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} />
+
+            <div className="flex justify-end gap-3 mt-4">
+                <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+                <Button onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving..." : (order ? "Update Service" : "Save Service")}
+                </Button>
+            </div>
+
+            <SimpleAlert
+                open={alertState.open}
+                onOpenChange={(open) => setAlertState(prev => ({ ...prev, open }))}
+                title={alertState.title}
+                description={alertState.description}
+            />
+        </Modal >
     );
 }

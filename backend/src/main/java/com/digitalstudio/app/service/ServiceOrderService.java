@@ -5,6 +5,7 @@ import com.digitalstudio.app.model.Customer;
 import com.digitalstudio.app.repository.ServiceOrderRepository;
 import com.digitalstudio.app.repository.CustomerRepository;
 import com.digitalstudio.app.repository.UploadRepository;
+import com.digitalstudio.app.model.FinancialTransaction;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,9 @@ public class ServiceOrderService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private FinancialService financialService;
 
     public Page<ServiceOrder> getAllOrders(LocalDate startDate, LocalDate endDate,
             String search, List<String> services, int page, int size) {
@@ -142,7 +146,24 @@ public class ServiceOrderService {
             order.setCustomer(finalCustomer);
         }
 
-        return serviceOrderRepository.save(order);
+        ServiceOrder saved = serviceOrderRepository.save(order);
+
+        // Record Financial Transaction
+        if (saved.getPayment() != null && saved.getPayment().getAdvanceAmount() != null
+                && saved.getPayment().getAdvanceAmount() != 0) {
+            FinancialTransaction txn = new FinancialTransaction();
+            txn.setAmount(saved.getPayment().getAdvanceAmount());
+            txn.setProfit(0.0);
+            txn.setType("CREDIT");
+            txn.setCategory("Service Orders");
+            txn.setPaymentMode(
+                    saved.getPayment().getPaymentMode() != null ? saved.getPayment().getPaymentMode() : "Cash");
+            txn.setDescription(saved.getPayment().getAdvanceAmount() < 0 ? "Revert" : "Advance");
+            txn.setRelatedId(saved.getId().toString());
+            financialService.recordTransaction(txn);
+        }
+
+        return saved;
     }
 
     public ServiceOrder getOrderById(UUID id) {
@@ -176,6 +197,9 @@ public class ServiceOrderService {
             if (paymentObj instanceof Map) {
                 Map<String, Object> payMap = (Map<String, Object>) paymentObj;
                 com.digitalstudio.app.model.Payment payment = order.getPayment();
+                Double oldAdvance = (payment != null && payment.getAdvanceAmount() != null) ? payment.getAdvanceAmount()
+                        : 0.0;
+
                 if (payment == null)
                     payment = new com.digitalstudio.app.model.Payment();
 
@@ -185,14 +209,28 @@ public class ServiceOrderService {
                     payment.setTotalAmount(((Number) payMap.get("totalAmount")).doubleValue());
                 if (payMap.containsKey("advanceAmount"))
                     payment.setAdvanceAmount(((Number) payMap.get("advanceAmount")).doubleValue());
-                // amountPaid is typically tracked via advanceAmount in this simple model or
-                // calculated
+
                 if (payMap.containsKey("discountAmount"))
                     payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
                 if (payMap.containsKey("dueAmount"))
                     payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
 
                 order.setPayment(payment);
+
+                Double newAdvance = payment.getAdvanceAmount() != null ? payment.getAdvanceAmount() : 0.0;
+                Double paymentDiff = newAdvance - oldAdvance;
+
+                if (paymentDiff != 0) {
+                    FinancialTransaction txn = new FinancialTransaction();
+                    txn.setAmount(paymentDiff);
+                    txn.setProfit(0.0);
+                    txn.setType("CREDIT");
+                    txn.setCategory("Service Orders");
+                    txn.setPaymentMode(payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash");
+                    txn.setDescription(paymentDiff < 0 ? "Adjust Advance" : "Additional Advance");
+                    txn.setRelatedId(order.getId().toString());
+                    financialService.recordTransaction(txn);
+                }
             }
         }
 
