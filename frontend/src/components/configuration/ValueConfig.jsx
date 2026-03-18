@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { configurationService } from "@/services/configurationService";
 
 export function ValueConfig() {
     const [values, setValues] = useState([]);
@@ -26,10 +27,8 @@ export function ValueConfig() {
     const fetchValues = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/config/values");
-            if (res.ok) {
-                setValues(await res.json());
-            }
+            const data = await configurationService.getValues();
+            setValues(data || []);
         } catch (error) {
             console.error("Failed to load values", error);
         } finally {
@@ -57,20 +56,12 @@ export function ValueConfig() {
     const handleSave = async (silent = false) => {
         setSaving(true);
         try {
-            const res = await fetch("/api/config/values", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values),
-            });
-            if (res.ok) {
-                setValues(await res.json());
-                if (!silent) showAlert("Success", "Configuration saved successfully.");
-            } else {
-                showAlert("Error", "Failed to save configuration.");
-            }
+            const data = await configurationService.saveValues(values);
+            setValues(data || []);
+            if (!silent) showAlert("Success", "Configuration saved successfully.");
         } catch (error) {
             console.error("Failed to save", error);
-            showAlert("Error", "An unexpected error occurred while saving.");
+            showAlert("Error", "Failed to save configuration.");
         } finally {
             setSaving(false);
         }

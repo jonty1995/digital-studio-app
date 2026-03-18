@@ -11,6 +11,7 @@ import com.digitalstudio.app.repository.ServiceItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional
+@Slf4j
 public class ConfigurationService {
 
     @Autowired
@@ -355,27 +357,7 @@ public class ConfigurationService {
     }
 
     public void importAll(ConfigExportDTO dto) {
-        // 1. PRE-PROCESS & VALIDATE (Dry Run phase)
-        // Ensure all PhotoItems can be serialized correctly before touching the DB
-        if (dto.getPhotoItems() != null) {
-            for (PhotoItem item : dto.getPhotoItems()) {
-                // This triggers JSON serialization. If it fails, the whole method throws
-                // exception
-                // and nothing is deleted because of @Transactional
-                serializePricingRules(item);
-            }
-        }
-
-        // 2. EXECUTE (Atomic phase)
-        // If we reached here, pre-processing succeeded.
-        if (dto.getAddons() != null) {
-            addonRepository.deleteAllInBatch();
-            addonRepository.saveAll(dto.getAddons());
-        }
-        if (dto.getPhotoItems() != null) {
-            photoItemRepository.deleteAllInBatch();
-            photoItemRepository.saveAll(dto.getPhotoItems());
-        }
+        // 1. SERVICES & VALUES (No inter-dependencies)
         if (dto.getServices() != null) {
             serviceItemRepository.deleteAllInBatch();
             serviceItemRepository.saveAll(dto.getServices());
@@ -383,6 +365,41 @@ public class ConfigurationService {
         if (dto.getValues() != null) {
             valueRepository.deleteAllInBatch();
             valueRepository.saveAll(dto.getValues());
+        }
+
+        // 2. ADDONS (Create map to handle newly generated UUIDs)
+        Map<UUID, UUID> addonIdMap = new HashMap<>();
+        if (dto.getAddons() != null) {
+            addonRepository.deleteAllInBatch();
+            for (Addon importedAddon : dto.getAddons()) {
+                UUID oldId = importedAddon.getId();
+                importedAddon.setId(null); // Force new ID generation
+                Addon saved = addonRepository.save(importedAddon);
+                if (oldId != null) {
+                    addonIdMap.put(oldId, saved.getId());
+                }
+            }
+        }
+
+        // 3. PHOTO ITEMS (Fix dangling UUIDs in nested Pricing Rules, then Save)
+        if (dto.getPhotoItems() != null) {
+            photoItemRepository.deleteAllInBatch();
+            
+            for (PhotoItem item : dto.getPhotoItems()) {
+                if (item.getPricingRules() != null) {
+                    for (AddonPricingRule rule : item.getPricingRules()) {
+                         if (rule.getAddonIds() != null) {
+                             List<UUID> mappedAddonIds = rule.getAddonIds().stream()
+                                  .map(oldId -> addonIdMap.getOrDefault(oldId, oldId))
+                                  .collect(Collectors.toList());
+                             rule.setAddonIds(mappedAddonIds);
+                         }
+                    }
+                }
+                serializePricingRules(item);
+            }
+            
+            photoItemRepository.saveAll(dto.getPhotoItems());
         }
     }
 }

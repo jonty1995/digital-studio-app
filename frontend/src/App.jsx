@@ -1,6 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Layout from "./Layout"
+import { AuthProvider } from "./contexts/AuthContext"
+import ProtectedRoute from "./components/shared/ProtectedRoute"
 
+import Login from "./pages/Login"
+import AdminPermissions from "./pages/AdminPermissions"
 import PhotoOrders from "./pages/PhotoOrders"
 import Configuration from "./pages/Configuration"
 import BillPayment from "./pages/BillPayment"
@@ -17,26 +21,30 @@ import { EmailQueueWidget } from "./components/shared/EmailQueueWidget"
 
 function App() {
   return (
-    <EmailProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/photo-orders" replace />} />
-            <Route path="photo-orders" element={<PhotoOrders />} />
-            <Route path="bill-payment" element={<BillPayment />} />
-            <Route path="money-transfer" element={<MoneyTransfer />} />
-            <Route path="service-orders" element={<ServiceOrders />} />
-            <Route path="lab-photo-process" element={<LabPhotoProcess />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="uploads" element={<Uploads />} />
-            <Route path="logs" element={<SystemLogs />} />
-            <Route path="configuration" element={<Configuration />} />
-            <Route path="transactions" element={<Transactions />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-      <EmailQueueWidget />
-    </EmailProvider>
+    <AuthProvider>
+      <EmailProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Navigate to="/photo-orders" replace />} />
+              <Route path="photo-orders" element={<ProtectedRoute path="/photo-orders"><PhotoOrders /></ProtectedRoute>} />
+              <Route path="bill-payment" element={<ProtectedRoute path="/bill-payment"><BillPayment /></ProtectedRoute>} />
+              <Route path="money-transfer" element={<ProtectedRoute path="/money-transfer"><MoneyTransfer /></ProtectedRoute>} />
+              <Route path="service-orders" element={<ProtectedRoute path="/service-orders"><ServiceOrders /></ProtectedRoute>} />
+              <Route path="lab-photo-process" element={<ProtectedRoute path="/lab-photo-process"><LabPhotoProcess /></ProtectedRoute>} />
+              <Route path="customers" element={<ProtectedRoute path="/customers"><Customers /></ProtectedRoute>} />
+              <Route path="uploads" element={<ProtectedRoute path="/uploads"><Uploads /></ProtectedRoute>} />
+              <Route path="logs" element={<ProtectedRoute path="/logs"><SystemLogs /></ProtectedRoute>} />
+              <Route path="configuration" element={<ProtectedRoute path="/configuration"><Configuration /></ProtectedRoute>} />
+              <Route path="transactions" element={<ProtectedRoute path="/transactions"><Transactions /></ProtectedRoute>} />
+              <Route path="admin/permissions" element={<AdminPermissions />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+        <EmailQueueWidget />
+      </EmailProvider>
+    </AuthProvider>
   )
 }
 

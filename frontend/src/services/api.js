@@ -1,8 +1,17 @@
 const API_BASE_URL = import.meta.env.VITE_API_DIR || "/api";
 console.log("API_BASE_URL:", API_BASE_URL);
 
+const getHeaders = (initialHeaders = {}) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+        return { ...initialHeaders, 'Authorization': `Bearer ${token}` };
+    }
+    return initialHeaders;
+};
+
 export const api = {
     get: async (endpoint, options = {}) => {
+        options.headers = getHeaders(options.headers);
         const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
         if (!response.ok) {
             throw new Error(`API Error: ${response.statusText}`);
@@ -11,7 +20,8 @@ export const api = {
     },
     post: async (endpoint, data) => {
         const isFormData = data instanceof FormData;
-        const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+        const baseHeaders = isFormData ? {} : { 'Content-Type': 'application/json' };
+        const headers = getHeaders(baseHeaders);
         const body = isFormData ? data : JSON.stringify(data);
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -31,7 +41,8 @@ export const api = {
     },
     put: async (endpoint, data) => {
         const isFormData = data instanceof FormData;
-        const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+        const baseHeaders = isFormData ? {} : { 'Content-Type': 'application/json' };
+        const headers = getHeaders(baseHeaders);
         const body = isFormData ? data : JSON.stringify(data);
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -50,8 +61,10 @@ export const api = {
         return response.json();
     },
     delete: async (endpoint) => {
+        const headers = getHeaders();
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'DELETE',
+            headers
         });
         if (!response.ok) {
             let errorMsg = response.statusText;
@@ -61,9 +74,6 @@ export const api = {
             } catch (e) { }
             throw new Error(`API Error: ${errorMsg}`);
         }
-        // Return true or json? FileService expects true or check response.
-        // Delete usually returns 200 OK or 204 No Content.
-        // If 204, .json() fails.
         if (response.status === 204) return true;
         try {
             return await response.json();
@@ -72,7 +82,8 @@ export const api = {
         }
     },
     patch: async (endpoint, data) => {
-        const headers = { 'Content-Type': 'application/json' };
+        const baseHeaders = { 'Content-Type': 'application/json' };
+        const headers = getHeaders(baseHeaders);
         const body = typeof data === 'string' ? data : JSON.stringify(data);
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {

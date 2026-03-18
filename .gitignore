@@ -46,3 +46,7 @@ frontend.log
 # OS
 Thumbs.db
 Desktop.ini
+
+# Data / Storage
+uploads/
+lab/

@@ -1,12 +1,14 @@
 import { Link, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send, Briefcase, Beaker } from "lucide-react"
+import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send, Briefcase, Beaker, ShieldCheck, LogOut } from "lucide-react"
+import { useAuth } from "../contexts/AuthContext"
 
 export function Sidebar() {
     const location = useLocation()
+    const { user, permissions, logout } = useAuth()
 
-    const links = [
+    const allLinks = [
         { name: "Photo Orders", path: "/photo-orders", icon: ImageIcon },
         { name: "Bill Payment", path: "/bill-payment", icon: Receipt },
         { name: "Money Transfer", path: "/money-transfer", icon: Send },
@@ -19,15 +21,18 @@ export function Sidebar() {
         { name: "System Logs", path: "/logs", icon: FileText },
     ]
 
+    // Filter links based on user permissions
+    const visibleLinks = allLinks.filter(link => permissions.includes(link.path))
+
     return (
-        <div className="pb-12 w-64 border-r min-h-screen bg-background">
+        <div className="pb-12 w-64 border-r min-h-screen bg-background flex flex-col justify-between">
             <div className="space-y-4 py-4">
                 <div className="px-3 py-2">
                     <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
                         Digital Studio
                     </h2>
                     <div className="space-y-1">
-                        {links.map((link) => (
+                        {visibleLinks.map((link) => (
                             <Button
                                 key={link.path}
                                 variant={location.pathname.startsWith(link.path) ? "secondary" : "ghost"}
@@ -41,7 +46,42 @@ export function Sidebar() {
                             </Button>
                         ))}
                     </div>
+
+                    {user?.role === "ADMIN" && (
+                        <div className="mt-8 pt-4 border-t border-slate-800">
+                             <Button
+                                variant={location.pathname === "/admin/permissions" ? "secondary" : "ghost"}
+                                className="w-full justify-start text-blue-400 hover:text-blue-300 hover:bg-slate-800"
+                                asChild
+                            >
+                                <Link to="/admin/permissions">
+                                    <ShieldCheck className="mr-2 h-4 w-4" />
+                                    Admin UI
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
                 </div>
+            </div>
+            
+            <div className="px-5 py-4 border-t border-slate-800">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-primary border border-slate-700">
+                        {user?.username?.[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                        <div className="text-sm font-medium">{user?.username}</div>
+                        <div className="text-xs text-slate-500">{user?.role}</div>
+                    </div>
+                </div>
+                <Button 
+                    variant="destructive" 
+                    className="w-full justify-start bg-red-900/20 text-red-400 hover:bg-red-900/40 hover:text-red-300 border-none" 
+                    onClick={logout}
+                >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                </Button>
             </div>
         </div>
     )

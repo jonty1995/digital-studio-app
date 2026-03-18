@@ -50,9 +50,24 @@ A comprehensive full-stack application for managing digital studio operations, i
 └── README.md           # Project Documentation
 ```
 
-## ⚙️ Setup & Installation
+### Docker Deployment (Recommended for Raspberry Pi & Windows)
 
-### Backend
+The application provides a multi-architecture Docker setup (Linux/amd64 and Linux/arm64) that containerizes the MySQL database, Spring Boot backend, and React frontend.
+
+1. Ensure Docker and Docker Compose are installed on your system.
+2. Navigate to the project root directory.
+3. Use the provided deployment scripts:
+   - **Windows:** Run `deploy.bat`
+   - **Linux / Raspberry Pi:** Run `./deploy.sh`
+4. Alternatively, run the standard compose command:
+   ```bash
+   docker compose up -d --build
+   ```
+5. The frontend will be available at `http://localhost` (Port 80) and will automatically proxy API requests to the internal backend container.
+
+### Manual Setup (Development)
+
+#### Backend
 1. Navigate to the backend directory:
    ```bash
    cd backend
@@ -63,7 +78,7 @@ A comprehensive full-stack application for managing digital studio operations, i
    mvn spring-boot:run
    ```
 
-### Frontend
+#### Frontend
 1. Navigate to the frontend directory:
    ```bash
    cd frontend

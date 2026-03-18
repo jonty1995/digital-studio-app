@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Maven/Java
+target/
+*.jar
+*.class
+
+# Node/React
+node_modules/
+dist/
+build/
+.env.local
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.iml
+
+# Logs & Data
+logs/
+uploads/
+*.log
+backend.log
+frontend.log
+
+# Temporary
+config_audit.json
+config_audit_v2.json
+config_audit_v3.json

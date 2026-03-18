@@ -63,7 +63,14 @@ export default function Configuration() {
                 setTimeout(() => window.location.reload(), 2000);
             } catch (err) {
                 console.error(err);
-                const msg = err.response?.data || err.message || "Unknown Error";
+                let msg = err.message || "Unknown Error";
+                if (err.response?.data) {
+                    if (typeof err.response.data === 'string') {
+                        msg = err.response.data;
+                    } else {
+                        msg = err.response.data.error || err.response.data.message || JSON.stringify(err.response.data);
+                    }
+                }
                 showAlert("Import Failed", `Failed to import configuration: ${msg}`);
             }
         };
