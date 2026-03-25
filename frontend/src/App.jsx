@@ -16,6 +16,8 @@ import Customers from "./pages/Customers"
 import Uploads from "./pages/Uploads"
 import Transactions from "./pages/Transactions"
 import LabPhotoProcess from "./pages/LabPhotoProcess"
+import ForgotPassword from "./pages/ForgotPassword"
+import ResetPassword from "./pages/ResetPassword"
 import { EmailProvider } from "./contexts/EmailContext"
 import { EmailQueueWidget } from "./components/shared/EmailQueueWidget"
 
@@ -26,6 +28,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Navigate to="/photo-orders" replace />} />
               <Route path="photo-orders" element={<ProtectedRoute path="/photo-orders"><PhotoOrders /></ProtectedRoute>} />

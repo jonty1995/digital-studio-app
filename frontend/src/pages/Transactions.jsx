@@ -13,8 +13,8 @@ export default function Transactions() {
     const [transactions, setTransactions] = useState([]);
     const [cards, setCards] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [summary, setSummary] = useState({ totalInflow: 0, totalOutflow: 0, totalProfit: 0 });
-    const [activeTab, setActiveTab] = useState("history"); // "history" or "summary"
+    const [summary, setSummary] = useState({ totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
+    const [activeTab, setActiveTab] = useState("summary"); // "history" or "summary"
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
 
@@ -48,7 +48,7 @@ export default function Transactions() {
             setTransactions(txnData?.content || []);
             setTotalPages(txnData?.totalPages || 0);
             setCards(cardData || []);
-            setSummary(summaryData || { totalInflow: 0, totalOutflow: 0, totalProfit: 0 });
+            setSummary(summaryData || { totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
 
             // Fetch unbilled amounts for cards
             const updatedCards = await Promise.all(cardData.map(async card => {
@@ -122,20 +122,20 @@ export default function Transactions() {
                 {/* Visual Tab Switcher */}
                 <div className="flex p-1 bg-muted/50 rounded-xl border w-fit">
                     <button
-                        onClick={() => setActiveTab("history")}
-                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        <History className="w-4 h-4" />
-                        Transaction History
-                    </button>
-                    <button
                         onClick={() => setActiveTab("summary")}
                         className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'summary' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         <TrendingUp className="w-4 h-4" />
                         Analytics Summary
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("history")}
+                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        <History className="w-4 h-4" />
+                        Transaction History
                     </button>
                 </div>
 
@@ -218,6 +218,26 @@ export default function Transactions() {
                                     <span className="text-4xl font-black">₹{summary.totalOutflow.toLocaleString()}</span>
                                 </div>
                                 <p className="text-[10px] mt-4 font-medium py-1 px-2 bg-white/20 rounded-full w-fit">DIRECT OVERHEADS</p>
+                            </div>
+                        </div>
+
+                        {/* Payment Mode Breakdown */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-card border rounded-xl p-4 shadow-sm border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">UPI Collections</p>
+                                <h3 className="text-xl font-bold text-blue-600">₹{summary.totalUPI?.toLocaleString() || 0}</h3>
+                            </div>
+                            <div className="bg-card border rounded-xl p-4 shadow-sm border-l-4 border-l-emerald-500 hover:shadow-md transition-shadow">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Cash Collections</p>
+                                <h3 className="text-xl font-bold text-emerald-600">₹{summary.totalCash?.toLocaleString() || 0}</h3>
+                            </div>
+                            <div className="bg-card border rounded-xl p-4 shadow-sm border-l-4 border-l-orange-500 hover:shadow-md transition-shadow">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Bank Transfer</p>
+                                <h3 className="text-xl font-bold text-orange-600">₹{summary.totalBankTransfer?.toLocaleString() || 0}</h3>
+                            </div>
+                            <div className="bg-card border rounded-xl p-4 shadow-sm border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Card Collections</p>
+                                <h3 className="text-xl font-bold text-purple-600">₹{summary.totalCard?.toLocaleString() || 0}</h3>
                             </div>
                         </div>
 

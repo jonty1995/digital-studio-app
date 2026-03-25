@@ -1,11 +1,11 @@
 services:
   db:
-    image: mysql:8.0
+    image: mariadb:10.11 # Highly recommended for Raspberry Pi/ARM64
     container_name: digital-studio-db
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: digital_studio_db
-      MYSQL_ROOT_PASSWORD: Passw0rd
+      MARIADB_DATABASE: digital_studio_db
+      MARIADB_ROOT_PASSWORD: Passw0rd
     ports:
       - "3306:3306"
     volumes:
@@ -13,7 +13,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ] # MariaDB specific
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,14 +32,13 @@ services:
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASS=Passw0rd
+      - JAVA_OPTS=-Xmx512m -Xms256m # Control Java Memory usage
     ports:
       - "8081:8081"
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
       - ./lab:/app/lab
-      # Mount the entire host filesystem for absolute path flexibility via the Configuration UI
-      - /:/host_machine
     networks:
       - app-network
 
@@ -53,7 +52,6 @@ services:
       - backend
     ports:
       - "80:80"
-      - "5174:80" # Mapping original dev port to 80 for backward compatibility if needed
     networks:
       - app-network
 

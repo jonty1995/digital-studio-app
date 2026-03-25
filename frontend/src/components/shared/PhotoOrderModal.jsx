@@ -369,6 +369,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                             payment={payment}
                             setPayment={setPayment}
                             minAdvance={totalBasePrice}
+                            hideModes={['Card', 'Customer Card']}
                         />
                     </div>
                 </div>

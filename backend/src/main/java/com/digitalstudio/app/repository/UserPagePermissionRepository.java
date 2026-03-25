@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface UserPagePermissionRepository extends JpaRepository<UserPagePermission, Long> {
     List<UserPagePermission> findByUserId(Long userId);
     Optional<UserPagePermission> findByUserIdAndPagePath(Long userId, String pagePath);
+    void deleteByUserId(Long userId);
 }

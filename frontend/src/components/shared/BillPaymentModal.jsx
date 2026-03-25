@@ -29,7 +29,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
     });
 
     // Payment State (Reused Component)
-    const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+    const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0, commission: 0 });
     const [uploadId, setUploadId] = useState(null);
 
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
@@ -52,7 +52,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                     status: "Pending",
                     amount: ""
                 });
-                setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+                setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0, commission: 0 });
                 setUploadId(null);
             }
         } else {
@@ -75,7 +75,8 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                     mode: transaction.payment?.paymentMode || 'Cash',
                     total: transaction.payment?.totalAmount || 0,
                     discount: transaction.payment?.discountAmount || 0,
-                    advance: transaction.payment?.advanceAmount || 0
+                    advance: transaction.payment?.advanceAmount || 0,
+                    commission: transaction.payment?.commission || 0
                 });
                 setUploadId(transaction.uploadId);
             }
@@ -128,6 +129,9 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
     const handleSaveTransaction = async () => {
         if (!customer.name) return showAlert("Missing Customer", "Customer Name is required.");
         if (!transactionDetails.amount) return showAlert("Missing Amount", "Amount is required.");
+        if (payment.mode === 'Customer Card' && payment.commission > payment.total) {
+            return showAlert("Invalid Commission", "Commission cannot be greater than the total amount.");
+        }
 
         if (activeTab === 'ELECTRICITY') {
             if (!transactionDetails.operator || !transactionDetails.billId) return showAlert("Missing Details", "Operator and Consumer ID are required.");
@@ -156,6 +160,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                     totalAmount: parseFloat(payment.total) || 0,
                     advanceAmount: parseFloat(payment.advance) || 0,
                     discountAmount: parseFloat(payment.discount) || 0,
+                    commission: parseFloat(payment.commission) || 0,
                     dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
                 }
             };
@@ -480,6 +485,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                     payment={payment}
                     setPayment={setPayment}
                     minAdvance={payment.total}
+                    allowCommission={true}
                 />
 
                 <div className="flex justify-end gap-3 mt-4">

@@ -153,7 +153,15 @@ public class ServiceOrderService {
                 && saved.getPayment().getAdvanceAmount() != 0) {
             FinancialTransaction txn = new FinancialTransaction();
             txn.setAmount(saved.getPayment().getAdvanceAmount());
-            txn.setProfit(0.0);
+            
+            // Record commission as profit if paid by Customer Card
+            Double commission = saved.getPayment().getCommission() != null ? saved.getPayment().getCommission() : 0.0;
+            if ("Customer Card".equalsIgnoreCase(saved.getPayment().getPaymentMode())) {
+                txn.setProfit(commission);
+            } else {
+                txn.setProfit(0.0);
+            }
+            
             txn.setType("CREDIT");
             txn.setCategory("Service Orders");
             txn.setPaymentMode(
@@ -214,6 +222,8 @@ public class ServiceOrderService {
                     payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
                 if (payMap.containsKey("dueAmount"))
                     payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
+                if (payMap.containsKey("commission"))
+                    payment.setCommission(((Number) payMap.get("commission")).doubleValue());
 
                 order.setPayment(payment);
 
@@ -223,7 +233,15 @@ public class ServiceOrderService {
                 if (paymentDiff != 0) {
                     FinancialTransaction txn = new FinancialTransaction();
                     txn.setAmount(paymentDiff);
-                    txn.setProfit(0.0);
+                    
+                    // Record commission as profit if paid by Customer Card
+                    Double commission = payment.getCommission() != null ? payment.getCommission() : 0.0;
+                    if ("Customer Card".equalsIgnoreCase(payment.getPaymentMode())) {
+                        txn.setProfit(commission);
+                    } else {
+                        txn.setProfit(0.0);
+                    }
+                    
                     txn.setType("CREDIT");
                     txn.setCategory("Service Orders");
                     txn.setPaymentMode(payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash");

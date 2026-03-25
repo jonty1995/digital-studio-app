@@ -48,43 +48,80 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedUsers() {
         // Seed Admin (Jonty)
-        if (userRepository.findByUsername("Jonty").isEmpty()) {
-            User admin = User.builder()
+        User jonty = userRepository.findByUsernameIgnoreCase("Jonty").orElse(null);
+        if (jonty == null) {
+            jonty = User.builder()
                 .username("Jonty")
+                .email("jontysadhukhan@gmail.com")
                 .password(passwordEncoder.encode("lion17007"))
                 .role(Role.ADMIN)
                 .build();
-            admin = userRepository.save(admin);
-            log.info("Created Admin User: Jonty");
+            jonty = userRepository.save(jonty);
+            log.info("SEEDER: Created Admin User: Jonty");
             
             // Grant Admin access to everything
             for (String path : ALL_FRONTEND_PATHS) {
                 permissionRepository.save(UserPagePermission.builder()
-                    .userId(admin.getId())
+                    .userId(jonty.getId())
                     .pagePath(path)
                     .hasAccess(true)
                     .build());
             }
+        } else {
+            // Ensure Jonty has admin role and correct email
+            boolean updated = false;
+            if (jonty.getRole() != Role.ADMIN) {
+                jonty.setRole(Role.ADMIN);
+                updated = true;
+            }
+            if (!"jontysadhukhan@gmail.com".equals(jonty.getEmail())) {
+                jonty.setEmail("jontysadhukhan@gmail.com");
+                updated = true;
+            }
+            // Force password reset to default for now as requested
+            jonty.setPassword(passwordEncoder.encode("lion17007"));
+            updated = true;
+
+            if (updated) {
+                userRepository.save(jonty);
+                log.info("SEEDER: Updated Admin User: Jonty (Password/Email/Role)");
+            }
         }
 
+        // Cleanup duplicate "jonty" (lowercase) if it exists and is different from "Jonty"
+        userRepository.findByUsername("jonty").ifPresent(u -> {
+            if (!u.getId().equals(jonty.getId())) {
+                log.info("SEEDER: Removing legacy lowercase 'jonty' user");
+                permissionRepository.deleteByUserId(u.getId());
+                userRepository.delete(u);
+            }
+        });
+
         // Seed User (Dona)
-        if (userRepository.findByUsername("Dona").isEmpty()) {
-            User user = User.builder()
+        User dona = userRepository.findByUsernameIgnoreCase("Dona").orElse(null);
+        if (dona == null) {
+            dona = User.builder()
                 .username("Dona")
-                .password(passwordEncoder.encode("Sarmistha@1995"))
+                .email("dona@digitalstudio.com")
+                .password(passwordEncoder.encode("dona9355"))
                 .role(Role.USER)
                 .build();
-            user = userRepository.save(user);
-            log.info("Created Normal User: Dona");
+            dona = userRepository.save(dona);
+            log.info("SEEDER: Created Standard User: Dona");
 
-            // Grant Dona access to common pages by default, but restrict sensitive ones
             for (String path : ALL_FRONTEND_PATHS) {
                 boolean hasAccess = !path.equals("/configuration") && !path.equals("/logs") && !path.equals("/transactions");
                 permissionRepository.save(UserPagePermission.builder()
-                    .userId(user.getId())
+                    .userId(dona.getId())
                     .pagePath(path)
                     .hasAccess(hasAccess)
                     .build());
+            }
+        } else {
+            if (dona.getEmail() == null || dona.getEmail().isEmpty()) {
+                dona.setEmail("dona@digitalstudio.com");
+                userRepository.save(dona);
+                log.info("SEEDER: Updated Email for User: Dona");
             }
         }
     }

@@ -21,6 +21,7 @@ public class Payment {
     private Double advanceAmount;
     private Double dueAmount;
     private String paymentMode;
+    private Double commission; // New field for card payment commission
 
     @CreationTimestamp
     @Column(updatable = false)

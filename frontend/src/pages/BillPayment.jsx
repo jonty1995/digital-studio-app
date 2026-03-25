@@ -249,7 +249,7 @@ export default function BillPayment() {
         try {
             await billPaymentService.update(uploadModalState.txn.id, { uploadId });
             setUploadModalState({ isOpen: false, txn: null });
-            fetchTransactions(true); // Silent refresh
+            fetchTransactions(page, true, true); // Silent refresh
             showAlert("Success", "Receipt linked successfully.");
         } catch (error) {
             console.error("Failed to link receipt:", error);
@@ -260,7 +260,7 @@ export default function BillPayment() {
     const handleReceiptUnlink = async (txn) => {
         try {
             await billPaymentService.update(txn.id, { uploadId: null });
-            fetchTransactions(true); // Silent refresh
+            fetchTransactions(page, true, true); // Silent refresh
             showAlert("Success", "Receipt unlinked successfully.");
         } catch (error) {
             console.error("Failed to unlink receipt:", error);
@@ -283,7 +283,7 @@ export default function BillPayment() {
             // Assuming 1:1 for receipts usually.
             await fileService.delete(txn.uploadId, remarks);
 
-            fetchTransactions(true); // Silent refresh
+            fetchTransactions(page, true, true); // Silent refresh
             showAlert("Success", "Receipt file deleted and unlinked.");
         } catch (error) {
             console.error("Failed to delete receipt file:", error);
@@ -303,7 +303,7 @@ export default function BillPayment() {
             const source = "Bill Payment";
             const uploadResponse = await fileService.upload(file, source);
             await billPaymentService.update(txn.id, { uploadId: uploadResponse.uploadId });
-            fetchTransactions(true); // Silent refresh
+            fetchTransactions(page, true, true); // Silent refresh
             showAlert("Success", "Receipt uploaded successfully.");
         } catch (error) {
             console.error("Upload failed:", error);
@@ -521,7 +521,7 @@ export default function BillPayment() {
                                                         order={txn}
                                                         type="bill-payment"
                                                         updateFn={(id, status) => billPaymentService.updateStatus(id, status)}
-                                                        onUpdate={() => fetchTransactions(true)}
+                                                        onUpdate={() => fetchTransactions(page, true, true)}
                                                     />
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>

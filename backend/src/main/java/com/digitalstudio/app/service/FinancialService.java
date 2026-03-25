@@ -110,9 +110,26 @@ public class FinancialService {
         double totalOutflow = 0.0;
         double totalProfit = 0.0;
 
+        double upiTotal = 0.0;
+        double cashTotal = 0.0;
+        double bankTotal = 0.0;
+        double cardTotal = 0.0;
+
         for (FinancialTransaction txn : transactions) {
+            String mode = txn.getPaymentMode();
             if ("CREDIT".equals(txn.getType())) {
                 totalInflow += txn.getAmount();
+
+                if (mode != null) {
+                    if ("UPI".equalsIgnoreCase(mode))
+                        upiTotal += txn.getAmount();
+                    else if ("Cash".equalsIgnoreCase(mode))
+                        cashTotal += txn.getAmount();
+                    else if ("Bank Transfer".equalsIgnoreCase(mode) || "BANK".equalsIgnoreCase(mode))
+                        bankTotal += txn.getAmount();
+                    else if ("Card".equalsIgnoreCase(mode) || "Customer Card".equalsIgnoreCase(mode))
+                        cardTotal += txn.getAmount();
+                }
             } else if ("DEBIT".equals(txn.getType())) {
                 totalOutflow += txn.getAmount();
             }
@@ -125,6 +142,10 @@ public class FinancialService {
         summary.put("totalInflow", totalInflow);
         summary.put("totalOutflow", totalOutflow);
         summary.put("totalProfit", totalProfit);
+        summary.put("totalUPI", upiTotal);
+        summary.put("totalCash", cashTotal);
+        summary.put("totalBankTransfer", bankTotal);
+        summary.put("totalCard", cardTotal);
         return summary;
     }
 }

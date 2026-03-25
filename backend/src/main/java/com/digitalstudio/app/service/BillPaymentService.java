@@ -117,7 +117,15 @@ public class BillPaymentService {
                 && saved.getPayment().getAdvanceAmount() > 0) {
             FinancialTransaction txn = new FinancialTransaction();
             txn.setAmount(saved.getPayment().getAdvanceAmount());
-            txn.setProfit(0.0); // Simple CREDIT for bill payments, no specific profit tracked here
+            
+            // Record commission as profit if paid by Customer Card
+            Double commission = saved.getPayment().getCommission() != null ? saved.getPayment().getCommission() : 0.0;
+            if ("Customer Card".equalsIgnoreCase(saved.getPayment().getPaymentMode())) {
+                txn.setProfit(commission);
+            } else {
+                txn.setProfit(0.0);
+            }
+            
             txn.setType("CREDIT");
             txn.setCategory("Bill Payment");
             txn.setPaymentMode(saved.getPayment().getPaymentMode());
@@ -188,6 +196,8 @@ public class BillPaymentService {
                     payment.setDiscountAmount(((Number) payMap.get("discountAmount")).doubleValue());
                 if (payMap.containsKey("dueAmount"))
                     payment.setDueAmount(((Number) payMap.get("dueAmount")).doubleValue());
+                if (payMap.containsKey("commission"))
+                    payment.setCommission(((Number) payMap.get("commission")).doubleValue());
 
                 transaction.setPayment(payment);
 
@@ -197,7 +207,15 @@ public class BillPaymentService {
                 if (paymentDiff != 0) {
                     FinancialTransaction txn = new FinancialTransaction();
                     txn.setAmount(paymentDiff);
-                    txn.setProfit(0.0);
+                    
+                    // Record commission as profit if paid by Customer Card
+                    Double commission = payment.getCommission() != null ? payment.getCommission() : 0.0;
+                    if ("Customer Card".equalsIgnoreCase(payment.getPaymentMode())) {
+                        txn.setProfit(commission);
+                    } else {
+                        txn.setProfit(0.0);
+                    }
+                    
                     txn.setType("CREDIT");
                     txn.setCategory("Bill Payment");
                     txn.setPaymentMode(payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash");

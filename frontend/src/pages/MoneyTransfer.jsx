@@ -182,7 +182,7 @@ export default function MoneyTransfer() {
         try {
             await moneyTransferService.update(uploadModalState.txn.id, { uploadId });
             setUploadModalState({ isOpen: false, txn: null });
-            fetchTransfers(true); // Silent refresh
+            fetchTransfers(page, true, true); // Silent refresh
             showAlert("Success", "Receipt linked successfully.");
         } catch (error) {
             console.error("Failed to link receipt:", error);
@@ -193,7 +193,7 @@ export default function MoneyTransfer() {
     const handleReceiptUnlink = async (txn) => {
         try {
             await moneyTransferService.update(txn.id, { uploadId: null });
-            fetchTransfers(true); // Silent refresh
+            fetchTransfers(page, true, true); // Silent refresh
             showAlert("Success", "Receipt unlinked successfully.");
         } catch (error) {
             console.error("Failed to unlink receipt:", error);
@@ -214,7 +214,7 @@ export default function MoneyTransfer() {
             // 2. Delete file
             await fileService.delete(txn.uploadId, remarks);
 
-            fetchTransfers(true); // Silent refresh
+            fetchTransfers(page, true, true); // Silent refresh
             showAlert("Success", "Receipt file deleted and unlinked.");
         } catch (error) {
             console.error("Failed to delete receipt file:", error);
@@ -233,7 +233,7 @@ export default function MoneyTransfer() {
             const source = "Money Transfer";
             const uploadResponse = await fileService.upload(file, source);
             await moneyTransferService.update(txn.id, { uploadId: uploadResponse.uploadId });
-            fetchTransfers(true); // Silent refresh
+            fetchTransfers(page, true, true); // Silent refresh
             showAlert("Success", "Receipt uploaded successfully.");
         } catch (error) {
             console.error("Upload failed:", error);
@@ -364,7 +364,7 @@ export default function MoneyTransfer() {
                                             <TableCell className={`${pClass} align-middle font-medium text-emerald-600`}>₹{t.payment?.advanceAmount?.toFixed(2)}</TableCell>
                                             <TableCell className={`${pClass} align-middle font-semibold text-red-600`}>₹{t.payment?.dueAmount?.toFixed(2)}</TableCell>
                                             <TableCell className={`${pClass} align-middle`}>
-                                                <OrderStatus order={t} type="money-transfer" updateFn={moneyTransferService.updateStatus} onUpdate={() => fetchTransfers(true)} />
+                                                <OrderStatus order={t} type="money-transfer" updateFn={moneyTransferService.updateStatus} onUpdate={() => fetchTransfers(page, true, true)} />
                                             </TableCell>
                                             <TableCell className="align-middle">
                                                 <div className="flex items-center gap-2">

@@ -3,13 +3,13 @@ import { Label } from "@/components/ui/label"
 import { IndianRupee, Smartphone, CreditCard, IdCard, Building2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function PaymentMode({ payment, setPayment, minAdvance }) {
+export function PaymentMode({ payment, setPayment, minAdvance, allowCommission, hideModes = [] }) {
     // payment: { mode: 'Cash', total: 0, advance: 0, discount: 0 }
 
     const due = (Number(payment.total) || 0) - (Number(payment.advance) || 0) - (Number(payment.discount) || 0)
 
     const handleChange = (e) => {
-        const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+        let val = e.target.value === '' ? '' : parseFloat(e.target.value);
         setPayment(prev => ({ ...prev, [e.target.name]: val }))
     }
 
@@ -40,7 +40,7 @@ export function PaymentMode({ payment, setPayment, minAdvance }) {
         { id: "Card", label: "Card", icon: CreditCard },
         { id: "Customer Card", label: "Customer Card", icon: IdCard },
         { id: "Bank Transfer", label: "Bank Transfer", icon: Building2 },
-    ]
+    ].filter(m => !hideModes.includes(m.id))
 
     return (
         <div className="space-y-4 rounded-md border p-4 bg-card">
@@ -87,6 +87,27 @@ export function PaymentMode({ payment, setPayment, minAdvance }) {
                         {due.toFixed(2)}
                     </div>
                 </div>
+                {allowCommission && payment.mode === 'Customer Card' && (
+                    <div className="grid gap-2">
+                        <Label className={cn("flex justify-between", payment.commission > payment.total ? "text-red-600" : "text-blue-600")}>
+                            <span>Commission (Profit)</span>
+                            {payment.commission > payment.total && <span className="text-[10px] font-bold uppercase animate-pulse">Cannot exceed Total</span>}
+                        </Label>
+                        <Input
+                            type="number"
+                            name="commission"
+                            min="0"
+                            onWheel={(e) => e.target.blur()}
+                            value={payment.commission || ''}
+                            onChange={handleChange}
+                            placeholder="Profit amount"
+                            className={cn(
+                                "border-blue-200 focus:border-blue-600",
+                                payment.commission > payment.total && "border-red-500 focus:border-red-600 ring-red-100"
+                            )}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )

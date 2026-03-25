@@ -29,7 +29,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
     const [saveAsNew, setSaveAsNew] = useState(true);
 
     // Payment State
-    const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+    const [payment, setPayment] = useState({ mode: 'Cash', total: 0, discount: 0, advance: 0, commission: 0 });
     const [documentIds, setDocumentIds] = useState([]); // Array of file IDs or File objects
     const [serviceItems, setServiceItems] = useState([]);
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
@@ -59,7 +59,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                 isCustom: false
             });
             setSaveAsNew(true);
-            setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0 });
+            setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0, commission: 0 });
             setDocumentIds([]);
         } else {
             if (order) {
@@ -82,7 +82,8 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                         mode: order.payment.paymentMode || 'Cash',
                         total: order.payment.totalAmount || 0,
                         discount: order.payment.discountAmount || 0,
-                        advance: order.payment.advanceAmount || 0
+                        advance: order.payment.advanceAmount || 0,
+                        commission: order.payment.commission || 0
                     });
                 }
 
@@ -122,6 +123,9 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
         if (!customer.name) return showAlert("Missing Customer", "Customer Name is required.");
         if (!details.serviceName) return showAlert("Missing Service", "Service Name is required.");
         if (!details.amount) return showAlert("Missing Amount", "Amount is required.");
+        if (payment.mode === 'Customer Card' && payment.commission > payment.total) {
+            return showAlert("Invalid Commission", "Commission cannot be greater than the total amount.");
+        }
 
         setSaving(true);
         try {
@@ -169,6 +173,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                     totalAmount: parseFloat(payment.total) || 0,
                     advanceAmount: parseFloat(payment.advance) || 0,
                     discountAmount: parseFloat(payment.discount) || 0,
+                    commission: parseFloat(payment.commission) || 0,
                     dueAmount: (parseFloat(payment.total) || 0) - (parseFloat(payment.advance) || 0) - (parseFloat(payment.discount) || 0)
                 }
             };
@@ -317,7 +322,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                 </div>
             </div>
 
-            <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} />
+            <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} allowCommission={true} />
 
             <div className="flex justify-end gap-3 mt-4">
                 <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>

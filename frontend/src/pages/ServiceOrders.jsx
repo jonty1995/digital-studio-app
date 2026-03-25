@@ -271,7 +271,7 @@ export default function ServiceOrders() {
                                                     ₹{o.payment?.dueAmount?.toFixed(2) || (Math.max(0, (o.payment?.totalAmount || o.amount || 0) - (o.payment?.advanceAmount || 0)).toFixed(2))}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-top`}>
-                                                    <OrderStatus order={o} type="service-order" updateFn={serviceOrderService.updateStatus} onUpdate={() => fetchOrders(true)} />
+                                                    <OrderStatus order={o} type="service" updateFn={serviceOrderService.updateStatus} onUpdate={() => fetchOrders(page, true, true)} />
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-top`}>
                                                     {(o.status === 'Pending' || o.status === 'Discarded') && (

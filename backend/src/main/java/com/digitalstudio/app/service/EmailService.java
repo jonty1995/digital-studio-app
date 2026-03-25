@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 @Service
 public class EmailService {
@@ -22,56 +23,14 @@ public class EmailService {
     public void sendEmailWithAttachments(String to, String subject, String body, MultipartFile[] attachments)
             throws MessagingException, IOException {
 
-        // Apply dynamic configuration if present
-        if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl) {
-            org.springframework.mail.javamail.JavaMailSenderImpl impl = (org.springframework.mail.javamail.JavaMailSenderImpl) mailSender;
-
-            String host = configurationService.getValue("EMAIL_HOST");
-            if (host != null && !host.trim().isEmpty()) {
-                impl.setHost(host);
-            }
-
-            String port = configurationService.getValue("EMAIL_PORT");
-            if (port != null && !port.trim().isEmpty()) {
-                try {
-                    impl.setPort(Integer.parseInt(port));
-                } catch (NumberFormatException e) {
-                    // Ignore invalid port
-                }
-            }
-
-            String user = configurationService.getValue("EMAIL_USERNAME");
-            if (user != null && !user.trim().isEmpty()) {
-                impl.setUsername(user);
-            }
-
-            String pass = configurationService.getValue("EMAIL_PASSWORD");
-            if (pass != null && !pass.trim().isEmpty()) {
-                impl.setPassword(pass);
-            }
-        }
+        applyDynamicConfiguration();
 
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-        String from = configurationService.getValue("EMAIL_USERNAME");
-        if (from == null || from.isEmpty()) {
-            // Fallback to current mailSender username if configured in properties
-            if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl) {
-                from = ((org.springframework.mail.javamail.JavaMailSenderImpl) mailSender).getUsername();
-            }
-            // Absolute fallback
-            if (from == null || from.isEmpty()) {
-                from = "jontysadhukhan@gmail.com";
-            }
-        }
+        String from = getFromAddress();
+        setSender(helper, from);
 
-        String senderName = configurationService.getValue("EMAIL_SENDER_NAME");
-        if (senderName == null || senderName.isEmpty()) {
-            helper.setFrom(from);
-        } else {
-            helper.setFrom(from, senderName);
-        }
         if (to != null && to.contains(",")) {
             String[] recipients = to.split(",");
             for (int i = 0; i < recipients.length; i++) {
@@ -87,11 +46,87 @@ public class EmailService {
         if (attachments != null) {
             for (MultipartFile file : attachments) {
                 if (file != null && !file.isEmpty()) {
-                    helper.addAttachment(file.getOriginalFilename(), file);
+                    String filename = file.getOriginalFilename();
+                    if (filename != null) {
+                        helper.addAttachment(filename, file);
+                    }
                 }
             }
         }
+        mailSender.send(message);
+    }
+
+    public void sendSimpleEmail(String to, String subject, String body) throws MessagingException {
+        applyDynamicConfiguration();
+        
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+        String from = getFromAddress();
+        setSender(helper, from);
+        
+        if (to != null) {
+            helper.setTo(to);
+        }
+        helper.setSubject(subject);
+        helper.setText(body, true); // true for HTML
 
         mailSender.send(message);
+    }
+
+    private void applyDynamicConfiguration() {
+        if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl) {
+            org.springframework.mail.javamail.JavaMailSenderImpl impl = (org.springframework.mail.javamail.JavaMailSenderImpl) mailSender;
+
+            String host = configurationService.getValue("EMAIL_HOST");
+            if (host != null && !host.trim().isEmpty()) {
+                impl.setHost(host);
+            }
+
+            String port = configurationService.getValue("EMAIL_PORT");
+            if (port != null && !port.trim().isEmpty()) {
+                try {
+                    impl.setPort(Integer.parseInt(port));
+                } catch (NumberFormatException e) {
+                    // Ignore
+                }
+            }
+
+            String user = configurationService.getValue("EMAIL_USERNAME");
+            if (user != null && !user.trim().isEmpty()) {
+                impl.setUsername(user);
+            }
+
+            String pass = configurationService.getValue("EMAIL_PASSWORD");
+            if (pass != null && !pass.trim().isEmpty()) {
+                impl.setPassword(pass);
+            }
+        }
+    }
+
+    private String getFromAddress() {
+        String from = configurationService.getValue("EMAIL_USERNAME");
+        if (from == null || from.isEmpty()) {
+            if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl) {
+                from = ((org.springframework.mail.javamail.JavaMailSenderImpl) mailSender).getUsername();
+            }
+            if (from == null || from.isEmpty()) {
+                from = "jontysadhukhan@gmail.com";
+            }
+        }
+        return from;
+    }
+
+    private void setSender(MimeMessageHelper helper, String from) throws MessagingException {
+        String senderName = configurationService.getValue("EMAIL_SENDER_NAME");
+        if (senderName == null || senderName.isEmpty()) {
+            helper.setFrom(from);
+        } else {
+            try {
+                helper.setFrom(from, senderName);
+            } catch (UnsupportedEncodingException e) {
+                helper.setFrom(from);
+            }
+        }
     }
 }

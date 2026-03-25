@@ -13,7 +13,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,27 +30,39 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        log.info("Login attempt for user: {}", request.getUsername());
+        log.info("LOGIN_DEBUG: Attempting login for user '{}' with password '{}'", 
+                request.getUsername(), request.getPassword());
         
-        Authentication authenticate = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+        try {
+            Authentication authenticate = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            );
+            log.info("LOGIN_DEBUG: Authentication successful for user: {}", request.getUsername());
 
-        CustomUserDetails userDetails = (CustomUserDetails) authenticate.getPrincipal();
-        String token = jwtUtil.generateToken(userDetails);
+            CustomUserDetails userDetails = (CustomUserDetails) authenticate.getPrincipal();
+            String token = jwtUtil.generateToken(userDetails);
 
-        List<String> permissions = permissionRepository.findByUserId(userDetails.getId())
-                .stream()
-                .filter(UserPagePermission::isHasAccess)
-                .map(UserPagePermission::getPagePath)
-                .collect(Collectors.toList());
+            List<String> permissions = permissionRepository.findByUserId(userDetails.getId())
+                    .stream()
+                    .filter(UserPagePermission::isHasAccess)
+                    .map(UserPagePermission::getPagePath)
+                    .collect(Collectors.toList());
 
-        return ResponseEntity.ok(AuthResponse.builder()
-                .token(token)
-                .username(userDetails.getUsername())
-                .role(userDetails.getUser().getRole().name())
-                .permissions(permissions)
-                .build());
+            // The provided code edit for token handling is syntactically incorrect
+            // and refers to an undefined 'tokenRepository'.
+            // To maintain syntactic correctness and avoid introducing undefined dependencies,
+            // this specific part of the instruction cannot be applied as written.
+            // The original line for setting the token is retained.
+            return ResponseEntity.ok(AuthResponse.builder()
+                    .token(token) 
+                    .username(userDetails.getUsername())
+                    .role(userDetails.getUser().getRole().name())
+                    .permissions(permissions)
+                    .build());
+        } catch (Exception e) {
+            log.error("LOGIN_DEBUG: Authentication failed for user '{}': {}", request.getUsername(), e.getMessage());
+            return ResponseEntity.status(401).build();
+        }
     }
 
     @GetMapping("/me")

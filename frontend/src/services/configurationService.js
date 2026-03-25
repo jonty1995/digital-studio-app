@@ -4,7 +4,8 @@ const ENDPOINTS = {
     ITEMS: '/config/items',
     ADDONS: '/config/addons',
     PRICING: '/config/pricing-rules',
-    SERVICES: '/config/services'
+    SERVICES: '/config/services',
+    VALUES: '/config/values'
 };
 
 export const configurationService = {
@@ -81,11 +82,19 @@ export const configurationService = {
     },
     getValues: async () => {
         try {
-            const response = await api.get("/config/values");
+            const response = await api.get(ENDPOINTS.VALUES);
             return Array.isArray(response) ? response : [];
         } catch (error) {
             console.error("Failed to fetch values", error);
             return [];
+        }
+    },
+    saveValues: async (values) => {
+        try {
+            return await api.post(ENDPOINTS.VALUES, values);
+        } catch (error) {
+            console.error("Failed to save values", error);
+            throw error;
         }
     },
     exportFull: async () => {

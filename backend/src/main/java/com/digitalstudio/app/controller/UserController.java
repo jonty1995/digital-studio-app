@@ -69,13 +69,46 @@ public class UserController {
         log.info("Resetting password for user ID: {}", userId);
         String newPassword = request.get("newPassword");
         
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error resetting password for user {}: {}", userId, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PutMapping("/{userId}")
+    public ResponseEntity<User> updateUser(@PathVariable Long userId, @RequestBody Map<String, String> request) {
+        log.info("Updating user ID: {}", userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-                
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-        
-        return ResponseEntity.ok().build();
+
+        String username = request.get("username");
+        String email = request.get("email");
+        String roleStr = request.get("role");
+
+        if (username != null && !username.trim().isEmpty()) {
+            user.setUsername(username);
+        }
+        if (email != null && !email.trim().isEmpty()) {
+            user.setEmail(email);
+        }
+        if (roleStr != null) {
+            try {
+                user.setRole(com.digitalstudio.app.model.Role.valueOf(roleStr));
+            } catch (IllegalArgumentException e) {
+                // Keep existing role
+            }
+        }
+
+        User savedUser = userRepository.save(user);
+        savedUser.setPassword(null);
+        return ResponseEntity.ok(savedUser);
     }
 
     @PostMapping
@@ -83,19 +116,23 @@ public class UserController {
         log.info("Creating new user");
         String username = request.get("username");
         String password = request.get("password");
+        String email = request.get("email");
         String roleStr = request.getOrDefault("role", "USER");
 
         if (username == null || username.trim().isEmpty() || password == null || password.trim().length() < 5) {
+            log.warn("Invalid user creation request: username={}, (password hidden)", username);
             return ResponseEntity.badRequest().build();
         }
 
-        if (userRepository.findByUsername(username).isPresent()) {
-            throw new RuntimeException("Username already exists");
+        if (userRepository.findByUsernameIgnoreCase(username).isPresent()) {
+            log.warn("User already exists: {}", username);
+            return ResponseEntity.status(409).body(null); // Conflict
         }
 
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
+        user.setEmail(email);
         
         try {
             user.setRole(com.digitalstudio.app.model.Role.valueOf(roleStr));
@@ -103,11 +140,13 @@ public class UserController {
             user.setRole(com.digitalstudio.app.model.Role.USER);
         }
 
-        User savedUser = userRepository.save(user);
-        
-        // Don't leak the encoded password back in the response
-        savedUser.setPassword(null);
-
-        return ResponseEntity.ok(savedUser);
+        try {
+            User savedUser = userRepository.save(user);
+            savedUser.setPassword(null);
+            return ResponseEntity.ok(savedUser);
+        } catch (Exception e) {
+            log.error("Error creating user: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
