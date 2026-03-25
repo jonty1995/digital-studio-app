@@ -39,7 +39,6 @@ frontend.log
 .port_config
 
 # Environment
-.env
 .env.local
 .env.*.local
 
