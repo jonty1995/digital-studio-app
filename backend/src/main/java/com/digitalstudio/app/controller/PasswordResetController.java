@@ -10,6 +10,7 @@ import com.digitalstudio.app.service.EmailService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -31,9 +32,12 @@ public class PasswordResetController {
     private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
-        log.info("Processing forgot-password for email: {}", request.getEmail());
-        Optional<User> userOptional = userRepository.findByEmail(request.getEmail());
+    public ResponseEntity<?> forgotPassword(
+            @RequestBody ForgotPasswordRequest request,
+            @RequestHeader(value = "Origin", required = false) String origin,
+            HttpServletRequest httpRequest) {
+        log.info("Processing forgot-password for username: {} (Origin: {})", request.getUsername(), origin);
+        Optional<User> userOptional = userRepository.findByUsernameIgnoreCase(request.getUsername());
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();
@@ -52,26 +56,45 @@ public class PasswordResetController {
                 tokenRepository.save(token);
             }
 
-            // Send email
-            String resetLink = "http://localhost:5173/reset-password?token=" + tokenValue;
+            // Determine Base URL purely from Request
+            String baseUrl = origin;
+            if (baseUrl == null || baseUrl.isEmpty()) {
+                // Construct from request if Origin is missing (e.g. same-origin or non-browser)
+                String scheme = httpRequest.getScheme();
+                String serverName = httpRequest.getServerName();
+                int port = httpRequest.getServerPort();
+                
+                baseUrl = scheme + "://" + serverName;
+                if (port != 80 && port != 443 && port != 8081) {
+                    baseUrl += ":" + port;
+                }
+            }
+            
+            if (baseUrl != null && baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
+
+            // Construct reset link
+            String resetLink = baseUrl + "/reset-password?token=" + tokenValue;
             String emailBody = "<h3>Password Reset Request</h3>" +
                     "<p>Click the link below to reset your password. This link will expire in 24 hours.</p>" +
                     "<p><a href=\"" + resetLink + "\">Reset Password Link</a></p>" +
                     "<p>If you did not request a password reset, please ignore this email.</p>";
 
             try {
+                log.info("Generating password reset link for {}: {}", user.getEmail(), resetLink);
                 emailService.sendSimpleEmail(user.getEmail(), "Password Reset Request", emailBody);
                 log.info("Reset email sent to: {}", user.getEmail());
-            } catch (MessagingException e) {
+            } catch (Exception e) {
                 log.error("Failed to send reset email to {}", user.getEmail(), e);
-                return ResponseEntity.internalServerError().body(Map.of("message", "Failed to send email. Please try again later."));
+                // Return success anyway in development so the user can see the link in the logs
+                return ResponseEntity.ok(Map.of("message", "If an account exists with this username, a reset link has been sent to the associated email (check logs if email fails)."));
             }
         } else {
-            log.warn("Forgot password request for non-existent email: {}", request.getEmail());
-            // Security best practice: don't reveal if user exists, but here we can return success for simplicity if needed
+            log.warn("Forgot password request for non-existent username: {}", request.getUsername());
         }
 
-        return ResponseEntity.ok(Map.of("message", "If an account exists with this email, a reset link has been sent."));
+        return ResponseEntity.ok(Map.of("message", "If an account exists with this username, a reset link has been sent to the associated email."));
     }
 
     @PostMapping("/reset-password")

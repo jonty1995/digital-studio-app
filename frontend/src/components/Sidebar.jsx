@@ -3,10 +3,15 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send, Briefcase, Beaker, ShieldCheck, LogOut } from "lucide-react"
 import { useAuth } from "../contexts/AuthContext"
+import { useState } from "react"
+import { SimpleAlert } from "./shared/SimpleAlert"
+import { useNavigate } from "react-router-dom"
 
 export function Sidebar() {
     const location = useLocation()
+    const navigate = useNavigate()
     const { user, permissions, logout } = useAuth()
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
 
     const allLinks = [
         { name: "Photo Orders", path: "/photo-orders", icon: ImageIcon },
@@ -74,15 +79,28 @@ export function Sidebar() {
                         <div className="text-xs text-slate-500">{user?.role}</div>
                     </div>
                 </div>
-                <Button 
+                 <Button 
                     variant="destructive" 
                     className="w-full justify-start bg-red-900/20 text-red-400 hover:bg-red-900/40 hover:text-red-300 border-none" 
-                    onClick={logout}
+                    onClick={() => setIsLogoutModalOpen(true)}
                 >
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                 </Button>
             </div>
+
+            <SimpleAlert
+                open={isLogoutModalOpen}
+                onOpenChange={setIsLogoutModalOpen}
+                title="Confirm Logout"
+                description="Are you sure you want to sign out of Digital Studio?"
+                onConfirm={() => {
+                    logout();
+                    navigate("/login");
+                }}
+                confirmText="Sign Out"
+                cancelText="Cancel"
+            />
         </div>
     )
 }

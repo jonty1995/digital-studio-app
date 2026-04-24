@@ -49,3 +49,16 @@ Desktop.ini
 # Data / Storage
 uploads/
 lab/
+logs/
+db_data/
+
+# Deployment Artifacts
+deploy.zip
+*.zip
+*.jar
+*.txt
+
+# Environment
+.env
+.env.local
+.env.*.local

@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("token")
+    sessionStorage.clear()
     setToken(null)
     setUser(null)
     setPermissions([])

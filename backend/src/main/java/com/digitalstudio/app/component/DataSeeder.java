@@ -5,6 +5,8 @@ import com.digitalstudio.app.model.User;
 import com.digitalstudio.app.model.UserPagePermission;
 import com.digitalstudio.app.repository.UserRepository;
 import com.digitalstudio.app.repository.UserPagePermissionRepository;
+import com.digitalstudio.app.repository.ValueConfigurationRepository;
+import com.digitalstudio.app.model.ValueConfiguration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -22,6 +24,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final UserPagePermissionRepository permissionRepository;
+    private final ValueConfigurationRepository configRepository;
     private final PasswordEncoder passwordEncoder;
 
     // List of all protectable frontend paths
@@ -43,7 +46,29 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) throws Exception {
         log.info("Running Data Seeder...");
         seedUsers();
+        seedEmailConfig();
         log.info("Data Seeding Complete.");
+    }
+
+    private void seedEmailConfig() {
+        String[][] configs = {
+            {"EMAIL_HOST", "smtp.gmail.com", "SMTP server address (e.g., smtp.gmail.com)"},
+            {"EMAIL_PORT", "587", "SMTP server port (e.g., 587 or 465)"},
+            {"EMAIL_USERNAME", "jontysadhukhan@gmail.com", "System sender email address"},
+            {"EMAIL_PASSWORD", "", "App Password (NOT your regular Gmail password)"},
+            {"EMAIL_SENDER_NAME", "Digital Studio", "Name displayed in outgoing emails"}
+        };
+
+        for (String[] c : configs) {
+            if (!configRepository.existsById(c[0])) {
+                ValueConfiguration vc = new ValueConfiguration();
+                vc.setName(c[0]);
+                vc.setValue(c[1]);
+                vc.setDescription(c[2]);
+                configRepository.save(vc);
+                log.info("SEEDER: Created Configuration: {}", c[0]);
+            }
+        }
     }
 
     private void seedUsers() {
@@ -68,29 +93,13 @@ public class DataSeeder implements CommandLineRunner {
                     .build());
             }
         } else {
-            // Ensure Jonty has admin role and correct email
-            boolean updated = false;
-            if (jonty.getRole() != Role.ADMIN) {
-                jonty.setRole(Role.ADMIN);
-                updated = true;
-            }
-            if (!"jontysadhukhan@gmail.com".equals(jonty.getEmail())) {
-                jonty.setEmail("jontysadhukhan@gmail.com");
-                updated = true;
-            }
-            // Force password reset to default for now as requested
-            jonty.setPassword(passwordEncoder.encode("lion17007"));
-            updated = true;
-
-            if (updated) {
-                userRepository.save(jonty);
-                log.info("SEEDER: Updated Admin User: Jonty (Password/Email/Role)");
-            }
+            log.info("SEEDER: Admin User: Jonty already exists. Skipping creation.");
         }
 
         // Cleanup duplicate "jonty" (lowercase) if it exists and is different from "Jonty"
+        final Long jontyId = jonty.getId();
         userRepository.findByUsername("jonty").ifPresent(u -> {
-            if (!u.getId().equals(jonty.getId())) {
+            if (!u.getId().equals(jontyId)) {
                 log.info("SEEDER: Removing legacy lowercase 'jonty' user");
                 permissionRepository.deleteByUserId(u.getId());
                 userRepository.delete(u);

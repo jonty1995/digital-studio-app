@@ -1,13 +1,13 @@
 @echo off
 echo Starting Digital Studio Deployment...
 
-:: Ensure we have the necessary directories for volumes
-if not exist "uploads" mkdir "uploads"
-if not exist "logs" mkdir "logs"
-if not exist "lab" mkdir "lab"
+:: Ensure we have the necessary directories for volumes (Relative to project root)
+if not exist "../uploads" mkdir "../uploads"
+if not exist "../logs" mkdir "../logs"
+if not exist "../lab" mkdir "../lab"
 
 echo Directories ready. Building and starting Docker containers...
-docker compose up -d --build
+docker compose -f ../docker-compose.yml up -d --build
 
 echo.
 echo Deployment initiated!

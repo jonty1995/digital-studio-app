@@ -1,0 +1,19 @@
+# Runtime-only Dockerfile for Raspberry Pi 5
+# No compilation happens here, just runs the pre-built JAR.
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+# COPY the pre-built JAR from the target folder
+COPY target/app.jar app.jar
+
+# Setup directories and permissions
+RUN mkdir -p /app/logs /app/uploads /app/lab && \
+    chmod -R 777 /app/logs /app/uploads /app/lab
+
+# Best practice: Run as a non-root user
+RUN groupadd -r spring && useradd -r -g spring spring
+USER spring:spring
+
+EXPOSE 8081
+
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-jar", "app.jar"]
