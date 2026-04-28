@@ -1,12 +1,12 @@
 import { api } from "./api";
 
 export const financialService = {
-    // Credit Card Management
-    getCards: () => api.get("/financial/cards"),
-    saveCard: (card) => api.post("/financial/cards", card),
-    deleteCard: (id) => api.delete(`/financial/cards/${id}`),
-    markCardAsPaid: (id) => api.post(`/financial/cards/${id}/pay`),
-    getUnbilledAmount: (id) => api.get(`/financial/cards/${id}/unbilled`),
+    // Account Management
+    getAccounts: () => api.get("/financial/accounts"),
+    saveAccount: (account) => api.post("/financial/accounts", account),
+    deleteAccount: (id) => api.delete(`/financial/accounts/${id}`),
+    markAccountAsPaid: (id) => api.post(`/financial/accounts/${id}/pay`),
+    getUnbilledAmount: (id) => api.get(`/financial/accounts/${id}/unbilled`),
 
     // Transactions
     getTransactions: (params) => {
@@ -18,10 +18,10 @@ export const financialService = {
         return api.get(`/financial/summary?${query}`);
     },
     recordTransaction: (txn) => api.post("/financial/transactions", txn),
-    linkTransactionToCard: (txnId, cardId) => {
-        const url = cardId
-            ? `/financial/transactions/${txnId}/link-card?cardId=${cardId}`
-            : `/financial/transactions/${txnId}/link-card`;
+    linkTransactionToAccount: (txnId, accountId) => {
+        const url = accountId
+            ? `/financial/transactions/${txnId}/link-account?accountId=${accountId}`
+            : `/financial/transactions/${txnId}/link-account`;
         return api.put(url);
     },
 };

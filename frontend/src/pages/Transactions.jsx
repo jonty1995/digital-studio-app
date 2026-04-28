@@ -2,32 +2,36 @@ import { useState, useEffect } from "react";
 import { PageHeader } from "../components/shared/PageHeader";
 import { financialService } from "../services/financialService";
 import {
-    TrendingUp, TrendingDown, CreditCard as CardIcon,
+    TrendingUp, TrendingDown, CreditCard as CardIcon, Wallet, Landmark, PiggyBank,
     ArrowUpRight, ArrowDownRight, Filter, Search,
     Download, LayoutDashboard, Plus, History, RotateCcw
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { SimpleAlert } from "../components/shared/SimpleAlert";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { Badge } from "../components/ui/badge";
 
 export default function Transactions() {
     const [transactions, setTransactions] = useState([]);
-    const [cards, setCards] = useState([]);
+    const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState({ totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
-    const [activeTab, setActiveTab] = useState("summary"); // "history" or "summary"
+    const [activeTab, setActiveTab] = useState("history"); // "history" or "summary"
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
 
     // UI Local State
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, txnId: null });
-    const [dragOverCardId, setDragOverCardId] = useState(null);
+    const [dragOverAccountId, setDragOverAccountId] = useState(null);
 
     const [filters, setFilters] = useState({
         type: "",
-        category: "",
+        categories: [],
         startDate: "",
         endDate: ""
     });
+
+    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "MISC"];
 
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
@@ -39,23 +43,32 @@ export default function Transactions() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [txnData, cardData, summaryData] = await Promise.all([
-                financialService.getTransactions({ ...filters, page, size: 20 }),
-                financialService.getCards(),
-                financialService.getSummary(filters)
+
+            const activeFilters = { ...filters };
+            if (activeFilters.categories && activeFilters.categories.length === 0) {
+                delete activeFilters.categories;
+            }
+
+            const [txnData, accountData, summaryData] = await Promise.all([
+                financialService.getTransactions({ ...activeFilters, page, size: 20 }),
+                financialService.getAccounts(),
+                financialService.getSummary(activeFilters)
             ]);
 
             setTransactions(txnData?.content || []);
             setTotalPages(txnData?.totalPages || 0);
-            setCards(cardData || []);
+            setAccounts(accountData || []);
             setSummary(summaryData || { totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
 
             // Fetch unbilled amounts for cards
-            const updatedCards = await Promise.all(cardData.map(async card => {
-                const unbilled = await financialService.getUnbilledAmount(card.id);
-                return { ...card, unbilled };
+            const updatedAccounts = await Promise.all(accountData.map(async account => {
+                if (account.accountType === 'CREDIT_CARD') {
+                    const unbilled = await financialService.getUnbilledAmount(account.id);
+                    return { ...account, unbilled };
+                }
+                return account;
             }));
-            setCards(updatedCards);
+            setAccounts(updatedAccounts);
         } catch (e) {
             console.error(e);
             showAlert("Error", "Failed to load financial data.");
@@ -64,24 +77,24 @@ export default function Transactions() {
         }
     };
 
-    const handleResetCard = async (id) => {
-        if (!window.confirm("Mark this card as paid and create a DEBIT entry in the ledger for the statement amount?")) return;
+    const handleResetAccount = async (id) => {
+        if (!window.confirm("Mark this account as paid and create a DEBIT entry in the ledger for the statement amount?")) return;
         try {
-            await financialService.markCardAsPaid(id);
+            await financialService.markAccountAsPaid(id);
             fetchData();
-            showAlert("Success", "Credit card statement cleared and recorded in ledger.");
+            showAlert("Success", "Account statement cleared and recorded in ledger.");
         } catch (e) {
-            showAlert("Error", "Failed to reset card.");
+            showAlert("Error", "Failed to reset account.");
         }
     };
 
-    const handleLinkToCard = async (txnId, cardId) => {
+    const handleLinkToAccount = async (txnId, accountId) => {
         try {
-            await financialService.linkTransactionToCard(txnId, cardId);
+            await financialService.linkTransactionToAccount(txnId, accountId);
             fetchData();
             setContextMenu({ visible: false, x: 0, y: 0, txnId: null });
         } catch (e) {
-            showAlert("Error", "Failed to link transaction to card.");
+            showAlert("Error", "Failed to link transaction to account.");
         }
     };
 
@@ -94,18 +107,18 @@ export default function Transactions() {
         e.dataTransfer.setData("txnId", txnId);
     };
 
-    const onDrop = async (e, cardId) => {
+    const onDrop = async (e, accountId) => {
         e.preventDefault();
-        setDragOverCardId(null);
+        setDragOverAccountId(null);
         const txnId = e.dataTransfer.getData("txnId");
-        if (txnId && cardId) {
-            handleLinkToCard(txnId, cardId);
+        if (txnId && accountId) {
+            handleLinkToAccount(txnId, accountId);
         }
     };
 
     return (
         <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
-            <PageHeader title="Financial Ledger">
+            <PageHeader title="Financial Overview">
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="gap-2">
                         <Download className="w-4 h-4" />
@@ -122,20 +135,20 @@ export default function Transactions() {
                 {/* Visual Tab Switcher */}
                 <div className="flex p-1 bg-muted/50 rounded-xl border w-fit">
                     <button
-                        onClick={() => setActiveTab("summary")}
-                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'summary' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                    >
-                        <TrendingUp className="w-4 h-4" />
-                        Analytics Summary
-                    </button>
-                    <button
                         onClick={() => setActiveTab("history")}
                         className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         <History className="w-4 h-4" />
                         Transaction History
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("summary")}
+                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'summary' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        <TrendingUp className="w-4 h-4" />
+                        Analytics Summary
                     </button>
                 </div>
 
@@ -154,21 +167,44 @@ export default function Transactions() {
                         </select>
                     </div>
 
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border">
-                        <LayoutDashboard className="w-4 h-4 text-muted-foreground" />
-                        <select
-                            className="bg-transparent text-sm font-medium focus:outline-none"
-                            value={filters.category}
-                            onChange={e => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                        >
-                            <option value="">All Categories</option>
-                            <option value="Photo Orders">Photo Orders</option>
-                            <option value="Bill Payment">Bill Payments</option>
-                            <option value="Service Orders">Services</option>
-                            <option value="Money Transfer">Money Transfers</option>
-                            <option value="MISC">Miscellaneous</option>
-                        </select>
-                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-9 gap-2 bg-muted border font-normal text-muted-foreground">
+                                <LayoutDashboard className="h-4 w-4" />
+                                {filters.categories.length === 0 ? "All Categories" : "Categories"}
+                                {filters.categories.length > 0 && (
+                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                                        {filters.categories.length} Active
+                                    </Badge>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-4">
+                            <div className="space-y-3">
+                                <h4 className="font-medium text-sm text-muted-foreground pb-2 border-b">Filter by Category</h4>
+                                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                    {CATEGORIES.map(category => (
+                                        <label key={category} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
+                                            <input
+                                                type="checkbox"
+                                                checked={filters.categories.includes(category)}
+                                                onChange={() => {
+                                                    setFilters(prev => ({
+                                                        ...prev,
+                                                        categories: prev.categories.includes(category)
+                                                            ? prev.categories.filter(c => c !== category)
+                                                            : [...prev.categories, category]
+                                                    }));
+                                                }}
+                                                className="w-4 h-4 rounded border-input"
+                                            />
+                                            <span className="truncate" title={category}>{category}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
 
                     <div className="flex-1"></div>
 
@@ -268,37 +304,46 @@ export default function Transactions() {
                     </div>
                 ) : (
                     <div className="space-y-6 animate-in fade-in duration-500">
-                        {/* Credit card cards (only in History) */}
+                        {/* Account cards (only in History) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {cards.map(card => (
+                            {accounts.map(account => {
+                                let Icon = CardIcon;
+                                if (account.accountType === "IN_HAND") Icon = Wallet;
+                                else if (account.accountType === "POT") Icon = PiggyBank;
+                                else if (account.accountType === "BANK_ACCOUNT") Icon = Landmark;
+
+                                return (
                                 <div
-                                    key={card.id}
-                                    onDragOver={(e) => { e.preventDefault(); setDragOverCardId(card.id); }}
-                                    onDragLeave={() => setDragOverCardId(null)}
-                                    onDrop={(e) => onDrop(e, card.id)}
-                                    className={`bg-card border rounded-xl p-4 shadow-sm relative overflow-hidden group transition-all ${dragOverCardId === card.id ? 'ring-2 ring-blue-500 bg-blue-50/50 scale-[1.02]' : ''
+                                    key={account.id}
+                                    onDragOver={(e) => { e.preventDefault(); setDragOverAccountId(account.id); }}
+                                    onDragLeave={() => setDragOverAccountId(null)}
+                                    onDrop={(e) => onDrop(e, account.id)}
+                                    className={`bg-card border rounded-xl p-4 shadow-sm relative overflow-hidden group transition-all ${dragOverAccountId === account.id ? 'ring-2 ring-blue-500 bg-blue-50/50 scale-[1.02]' : ''
                                         }`}
                                 >
                                     <div className="absolute top-0 right-0 p-2 opacity-50">
-                                        <CardIcon className="w-8 h-8 rotate-12" style={{ color: card.color }} />
+                                        <Icon className="w-8 h-8 rotate-12" style={{ color: account.color }} />
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{card.name}</p>
-                                        <h3 className="text-2xl font-bold">₹{card.unbilled?.toLocaleString() || 0}</h3>
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{account.name}</p>
+                                        <h3 className="text-2xl font-bold">
+                                            {account.accountType === "CREDIT_CARD" ? `₹${account.unbilled?.toLocaleString() || 0}` : "—"}
+                                        </h3>
                                         <div className="flex items-center gap-1.5 pt-1">
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold">UNBILLED</span>
-                                            <span className="text-[10px] text-muted-foreground">Cycle: {card.billingDate}th</span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase">{account.accountType.replace('_', ' ')}</span>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => handleResetCard(card.id)}
-                                        className="absolute bottom-2 right-2 p-1.5 bg-muted rounded-md hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                                        title="Clear Statement"
-                                    >
-                                        <RotateCcw className="w-3.5 h-3.5" />
-                                    </button>
+                                    {account.accountType === "CREDIT_CARD" && (
+                                        <button
+                                            onClick={() => handleResetAccount(account.id)}
+                                            className="absolute bottom-2 right-2 p-1.5 bg-muted rounded-md hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                            title="Clear Statement"
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
                                 </div>
-                            ))}
+                            )})}
                         </div>
 
                         {/* Transactions Table */}
@@ -343,18 +388,18 @@ export default function Transactions() {
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold">{txn.description}</span>
-                                                    {txn.creditCardId && (
+                                                    {txn.accountId && (
                                                         <span className="text-[10px] text-blue-600 font-bold flex items-center gap-1">
                                                             <CardIcon className="w-2.5 h-2.5" />
-                                                            {cards.find(c => c.id === txn.creditCardId)?.name || 'Linked Card'}
+                                                            {accounts.find(a => a.id === txn.accountId)?.name || 'Linked Account'}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wide ${txn.creditCardId ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-muted border-muted-foreground/20'
+                                                <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wide ${txn.accountId ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-muted border-muted-foreground/20'
                                                     }`}>
-                                                    {txn.creditCardId ? 'CREDIT_CARD' : txn.paymentMode}
+                                                    {txn.accountId ? accounts.find(a => a.id === txn.accountId)?.accountType || 'ACCOUNT' : txn.paymentMode}
                                                 </span>
                                             </td>
                                             <td className={`px-4 py-3 text-right font-bold ${txn.type === 'CREDIT' ? 'text-green-600' : 'text-red-600'}`}>
@@ -384,25 +429,25 @@ export default function Transactions() {
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className="px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-widest border-b mb-1">
-                                    Link to Card
+                                    Link to Account
                                 </div>
-                                {cards.map(card => (
+                                {accounts.map(account => (
                                     <button
-                                        key={card.id}
-                                        onClick={() => handleLinkToCard(contextMenu.txnId, card.id)}
+                                        key={account.id}
+                                        onClick={() => handleLinkToAccount(contextMenu.txnId, account.id)}
                                         className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
                                     >
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: card.color }}></div>
-                                        <span className="font-medium">{card.name}</span>
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: account.color }}></div>
+                                        <span className="font-medium">{account.name}</span>
                                     </button>
                                 ))}
                                 <Button
                                     variant="ghost"
                                     className="w-full justify-start rounded-none h-auto py-2 text-red-500 hover:text-red-600 hover:bg-red-50 text-xs font-semibold"
-                                    onClick={() => handleLinkToCard(contextMenu.txnId, null)}
+                                    onClick={() => handleLinkToAccount(contextMenu.txnId, null)}
                                 >
                                     <RotateCcw className="w-3 h-3 mr-2" />
-                                    Unlink Card
+                                    Unlink Account
                                 </Button>
                             </div>
                         )}

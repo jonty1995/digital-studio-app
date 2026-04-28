@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card";
@@ -12,10 +12,23 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotPasswordEnabled, setForgotPasswordEnabled] = useState(true);
 
-  const { login } = useAuth();
+  const { login, api } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const response = await api.get("/auth/status");
+        setForgotPasswordEnabled(response.data.forgotPasswordEnabled);
+      } catch (err) {
+        console.error("Failed to fetch auth status", err);
+      }
+    };
+    checkAuthStatus();
+  }, [api]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -72,14 +85,16 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <div className="flex justify-end">
-                <Link 
-                  to="/forgot-password" 
-                  className="text-sm text-primary hover:text-blue-400 font-medium transition-colors"
-                >
-                  Forgot Password?
-                </Link>
-              </div>
+              {forgotPasswordEnabled && (
+                <div className="flex justify-end">
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-sm text-primary hover:text-blue-400 font-medium transition-colors"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
+              )}
             </div>
             
             {error && (

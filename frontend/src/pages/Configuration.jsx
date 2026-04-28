@@ -4,7 +4,7 @@ import { PhotoItemConfig } from "../components/configuration/PhotoItemConfig";
 import { AddonConfig } from "../components/configuration/AddonConfig";
 import { AddonPricingConfig } from "../components/configuration/AddonPricingConfig";
 import { ServiceConfig } from "../components/configuration/ServiceConfig";
-import { CreditCardConfig } from "../components/configuration/CreditCardConfig";
+import { AccountConfig } from "../components/configuration/AccountConfig";
 import { ValueConfig } from "../components/configuration/ValueConfig";
 import { AuditLogs } from "../components/configuration/AuditLogs";
 import { configurationService } from "../services/configurationService";
@@ -27,7 +27,7 @@ export default function Configuration() {
         { id: "addons", label: "Addons" },
         { id: "pricing", label: "Addon Pricing" },
         { id: "services", label: "Services" },
-        { id: "cards", label: "Credit Cards" },
+        { id: "accounts", label: "Account Management" },
         { id: "values", label: "Values" },
         { id: "audit", label: "Audit Trail" },
     ];
@@ -160,13 +160,13 @@ export default function Configuration() {
                         </div>
                     )}
 
-                    {activeTab === "cards" && (
+                    {activeTab === "accounts" && (
                         <div className="animate-in slide-in-from-left-4 fade-in duration-300">
                             <div className="mb-4">
-                                <h2 className="text-lg font-semibold">Credit Cards Management</h2>
-                                <p className="text-sm text-muted-foreground">Manage cards and track unbilled statements.</p>
+                                <h2 className="text-lg font-semibold">Account Management</h2>
+                                <p className="text-sm text-muted-foreground">Manage your bank accounts, cash in hand, and credit cards.</p>
                             </div>
-                            <CreditCardConfig showAlert={showAlert} />
+                            <AccountConfig showAlert={showAlert} />
                         </div>
                     )}
 

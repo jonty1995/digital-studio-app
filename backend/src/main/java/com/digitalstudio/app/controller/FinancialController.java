@@ -1,6 +1,6 @@
 package com.digitalstudio.app.controller;
 
-import com.digitalstudio.app.model.CreditCard;
+import com.digitalstudio.app.model.FinancialAccount;
 import com.digitalstudio.app.model.FinancialTransaction;
 import com.digitalstudio.app.service.FinancialService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,29 +23,29 @@ public class FinancialController {
     @Autowired
     private FinancialService financialService;
 
-    // Credit Cards
-    @GetMapping("/cards")
-    public List<CreditCard> getAllCards() {
-        return financialService.getAllCards();
+    // Accounts
+    @GetMapping("/accounts")
+    public List<FinancialAccount> getAllAccounts() {
+        return financialService.getAllAccounts();
     }
 
-    @PostMapping("/cards")
-    public CreditCard saveCard(@RequestBody CreditCard card) {
-        return financialService.saveCard(card);
+    @PostMapping("/accounts")
+    public FinancialAccount saveAccount(@RequestBody FinancialAccount account) {
+        return financialService.saveAccount(account);
     }
 
-    @DeleteMapping("/cards/{id}")
-    public void deleteCard(@PathVariable UUID id) {
-        financialService.deleteCard(id);
+    @DeleteMapping("/accounts/{id}")
+    public void deleteAccount(@PathVariable UUID id) {
+        financialService.deleteAccount(id);
     }
 
-    @PostMapping("/cards/{id}/pay")
-    public org.springframework.http.ResponseEntity<Void> markCardAsPaid(@PathVariable UUID id) {
+    @PostMapping("/accounts/{id}/pay")
+    public org.springframework.http.ResponseEntity<Void> markAccountAsPaid(@PathVariable UUID id) {
         financialService.markAsPaid(id);
         return org.springframework.http.ResponseEntity.ok().build();
     }
 
-    @GetMapping("/cards/{id}/unbilled")
+    @GetMapping("/accounts/{id}/unbilled")
     public Double getUnbilledAmount(@PathVariable UUID id) {
         return financialService.getUnbilledAmount(id);
     }
@@ -56,7 +56,7 @@ public class FinancialController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) List<String> categories,
             @RequestParam(required = false) String paymentMode,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -76,8 +76,8 @@ public class FinancialController {
             if (type != null && !type.isEmpty()) {
                 predicates.add(cb.equal(root.get("type"), type));
             }
-            if (category != null && !category.isEmpty()) {
-                predicates.add(cb.equal(root.get("category"), category));
+            if (categories != null && !categories.isEmpty()) {
+                predicates.add(root.get("category").in(categories));
             }
             if (paymentMode != null && !paymentMode.isEmpty()) {
                 predicates.add(cb.equal(root.get("paymentMode"), paymentMode));
@@ -99,7 +99,7 @@ public class FinancialController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) List<String> categories,
             @RequestParam(required = false) String paymentMode) {
 
         org.springframework.data.jpa.domain.Specification<FinancialTransaction> spec = (root, query, cb) -> {
@@ -114,8 +114,8 @@ public class FinancialController {
             if (type != null && !type.isEmpty()) {
                 predicates.add(cb.equal(root.get("type"), type));
             }
-            if (category != null && !category.isEmpty()) {
-                predicates.add(cb.equal(root.get("category"), category));
+            if (categories != null && !categories.isEmpty()) {
+                predicates.add(root.get("category").in(categories));
             }
             if (paymentMode != null && !paymentMode.isEmpty()) {
                 predicates.add(cb.equal(root.get("paymentMode"), paymentMode));
@@ -127,8 +127,8 @@ public class FinancialController {
         return financialService.getSummary(spec);
     }
 
-    @PutMapping("/transactions/{id}/link-card")
-    public FinancialTransaction linkToCard(@PathVariable UUID id, @RequestParam(required = false) UUID cardId) {
-        return financialService.linkTransactionToCard(id, cardId);
+    @PutMapping("/transactions/{id}/link-account")
+    public FinancialTransaction linkToAccount(@PathVariable UUID id, @RequestParam(required = false) UUID accountId) {
+        return financialService.linkTransactionToAccount(id, accountId);
     }
 }

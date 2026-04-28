@@ -1,9 +1,10 @@
 package com.digitalstudio.app.service;
 
 import com.digitalstudio.app.model.FinancialTransaction;
-import com.digitalstudio.app.model.CreditCard;
+import com.digitalstudio.app.model.FinancialAccount;
+import com.digitalstudio.app.model.AccountType;
 import com.digitalstudio.app.repository.FinancialTransactionRepository;
-import com.digitalstudio.app.repository.CreditCardRepository;
+import com.digitalstudio.app.repository.FinancialAccountRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +24,7 @@ public class FinancialService {
     private FinancialTransactionRepository transactionRepository;
 
     @Autowired
-    private CreditCardRepository creditCardRepository;
+    private FinancialAccountRepository accountRepository;
 
     public FinancialTransaction recordTransaction(FinancialTransaction txn) {
         if (txn.getTimestamp() == null) {
@@ -32,20 +33,20 @@ public class FinancialService {
         return transactionRepository.save(txn);
     }
 
-    public List<CreditCard> getAllCards() {
-        return creditCardRepository.findAll();
+    public List<FinancialAccount> getAllAccounts() {
+        return accountRepository.findAll();
     }
 
-    public CreditCard saveCard(CreditCard card) {
-        if (card == null)
-            throw new IllegalArgumentException("Card cannot be null");
-        return creditCardRepository.save(card);
+    public FinancialAccount saveAccount(FinancialAccount account) {
+        if (account == null)
+            throw new IllegalArgumentException("Account cannot be null");
+        return accountRepository.save(account);
     }
 
-    public void deleteCard(UUID id) {
+    public void deleteAccount(UUID id) {
         if (id == null)
             return;
-        creditCardRepository.deleteById(id);
+        accountRepository.deleteById(id);
     }
 
     public Page<FinancialTransaction> getTransactions(Specification<FinancialTransaction> spec, Pageable pageable) {
@@ -57,33 +58,33 @@ public class FinancialService {
         return transactionRepository.findAll(effectiveSpec, pageable);
     }
 
-    public Double getUnbilledAmount(UUID cardId) {
-        CreditCard card = creditCardRepository.findById(cardId).orElse(null);
-        if (card == null)
+    public Double getUnbilledAmount(UUID accountId) {
+        FinancialAccount account = accountRepository.findById(accountId).orElse(null);
+        if (account == null || account.getAccountType() != AccountType.CREDIT_CARD)
             return 0.0;
 
-        LocalDateTime since = card.getLastRepaymentDate();
+        LocalDateTime since = account.getLastRepaymentDate();
         // If never repaid, we sum all debits.
         // If repaid, we sum all debits AFTER the last repayment date.
         return transactionRepository.findAll().stream()
-                .filter(t -> cardId.equals(t.getCreditCardId()))
+                .filter(t -> accountId.equals(t.getAccountId()))
                 .filter(t -> since == null || t.getTimestamp().isAfter(since))
                 .mapToDouble(FinancialTransaction::getAmount)
                 .sum();
     }
 
-    public FinancialTransaction linkTransactionToCard(UUID transactionId, UUID cardId) {
+    public FinancialTransaction linkTransactionToAccount(UUID transactionId, UUID accountId) {
         FinancialTransaction txn = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
-        txn.setCreditCardId(cardId);
+        txn.setAccountId(accountId);
         return transactionRepository.save(txn);
     }
 
-    public void markAsPaid(UUID cardId) {
-        CreditCard card = creditCardRepository.findById(cardId)
-                .orElseThrow(() -> new RuntimeException("Card not found"));
+    public void markAsPaid(UUID accountId) {
+        FinancialAccount account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
 
-        Double unbilled = getUnbilledAmount(cardId);
+        Double unbilled = getUnbilledAmount(accountId);
 
         if (unbilled > 0) {
             FinancialTransaction repaymentTxn = new FinancialTransaction();
@@ -92,13 +93,13 @@ public class FinancialService {
             repaymentTxn.setType("DEBIT");
             repaymentTxn.setCategory("Credit Card Repayment");
             repaymentTxn.setPaymentMode("BANK");
-            repaymentTxn.setDescription("Statement Paid for " + card.getName());
+            repaymentTxn.setDescription("Statement Paid for " + account.getName());
             repaymentTxn.setTimestamp(LocalDateTime.now());
             transactionRepository.save(repaymentTxn);
         }
 
-        card.setLastRepaymentDate(LocalDateTime.now());
-        creditCardRepository.save(card);
+        account.setLastRepaymentDate(LocalDateTime.now());
+        accountRepository.save(account);
     }
 
     public java.util.Map<String, Double> getSummary(Specification<FinancialTransaction> spec) {

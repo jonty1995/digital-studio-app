@@ -27,5 +27,5 @@ public class FinancialTransaction {
 
     private String relatedId; // ID of Order/Bill/etc.
 
-    private UUID creditCardId; // Linked if paymentMode is CREDIT_CARD
+    private UUID accountId; // Linked FinancialAccount
 }

@@ -37,7 +37,7 @@ public class BillPaymentTransaction {
 
     private String uploadId; // For receipt/bill image
 
-    private UUID creditCardId; // The card used by the studio to pay the bill
+    private UUID accountId; // The account used by the studio to pay the bill
 
     @CreationTimestamp
     private LocalDateTime createdAt;

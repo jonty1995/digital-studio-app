@@ -36,9 +36,15 @@ export default function AdminPermissions() {
   // Create user state
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUsername, setNewUsername] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserConfirmPassword, setNewUserConfirmPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState("USER");
+
+  // Edit user state
+  const [editUsername, setEditUsername] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState("USER");
 
   useEffect(() => {
     fetchUsers();
@@ -58,6 +64,13 @@ export default function AdminPermissions() {
   const loadUserPermissions = async (userId) => {
     setSelectedUserId(userId);
     setIsCreatingUser(false);
+    const selectedUser = users.find(u => u.id === userId);
+    if (selectedUser) {
+      setEditUsername(selectedUser.username || "");
+      setEditEmail(selectedUser.email || "");
+      setEditRole(selectedUser.role || "USER");
+    }
+
     try {
       const data = await api.get(`/admin/users/${userId}/permissions`);
       const mergedPerms = ALL_PATHS.map(p => {
@@ -78,6 +91,24 @@ export default function AdminPermissions() {
     setPermissions(prev => prev.map(p => 
       p.pagePath === path ? { ...p, hasAccess: !p.hasAccess } : p
     ));
+  };
+
+  const handleUpdateUserDetails = async () => {
+    if (!selectedUserId) return;
+    setSaving(true);
+    try {
+      await api.put(`/admin/users/${selectedUserId}`, {
+        username: editUsername,
+        email: editEmail,
+        role: editRole
+      });
+      setAlert({ type: "success", message: "User details updated successfully!" });
+      fetchUsers(); // Refresh list to show updated names/roles
+    } catch (err) {
+      setAlert({ type: "error", message: "Failed to update user details." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -117,8 +148,8 @@ export default function AdminPermissions() {
   };
 
   const handleCreateUser = async () => {
-    if (!newUsername || !newUserPassword) {
-      setAlert({ type: "error", message: "Username and password are required." });
+    if (!newUsername || !newUserPassword || !newUserEmail) {
+      setAlert({ type: "error", message: "Username, Email, and password are required." });
       return;
     }
     if (newUserPassword.length < 5) {
@@ -134,12 +165,14 @@ export default function AdminPermissions() {
     try {
       await api.post("/admin/users", { 
         username: newUsername, 
+        email: newUserEmail,
         password: newUserPassword, 
         role: newUserRole 
       });
       setAlert({ type: "success", message: `User '${newUsername}' created successfully!` });
       setIsCreatingUser(false);
       setNewUsername("");
+      setNewUserEmail("");
       setNewUserPassword("");
       setNewUserConfirmPassword("");
       setNewUserRole("USER");
@@ -231,6 +264,16 @@ export default function AdminPermissions() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Email Address</label>
+                  <input 
+                    type="email" 
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    value={newUserEmail}
+                    onChange={e => setNewUserEmail(e.target.value)}
+                    placeholder="user@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Password</label>
                   <input 
                     type="password" 
@@ -261,7 +304,7 @@ export default function AdminPermissions() {
                 </div>
                 <Button 
                   onClick={handleCreateUser} 
-                  disabled={saving || !newUsername || newUserPassword.length < 5 || newUserPassword !== newUserConfirmPassword}
+                  disabled={saving || !newUsername || !newUserEmail || newUserPassword.length < 5 || newUserPassword !== newUserConfirmPassword}
                   className="w-full bg-primary hover:bg-primary/90 text-white"
                 >
                   {saving ? "Creating..." : "Create User"}
@@ -278,12 +321,56 @@ export default function AdminPermissions() {
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
+                  <CardTitle className="text-lg">User Details</CardTitle>
+                  <CardDescription>Update the basic identity and role for this user.</CardDescription>
+                </div>
+                <Button onClick={handleUpdateUserDetails} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? "Saving..." : "Update Details"}
+                </Button>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Username</label>
+                  <input 
+                    type="text" 
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    value={editUsername}
+                    onChange={e => setEditUsername(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Email ID</label>
+                  <input 
+                    type="email" 
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    value={editEmail}
+                    onChange={e => setEditEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Role</label>
+                  <select 
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none"
+                    value={editRole}
+                    onChange={e => setEditRole(e.target.value)}
+                  >
+                    <option value="USER">User (Standard)</option>
+                    <option value="ADMIN">Admin (Full Access)</option>
+                  </select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
                   <CardTitle className="text-lg">Page Permissions</CardTitle>
                   <CardDescription>Grant or revoke access to specific modules for this user.</CardDescription>
                 </div>
                 <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-white">
                   <Save className="w-4 h-4 mr-2" />
-                  {saving ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : "Save Permissions"}
                 </Button>
               </CardHeader>
               <CardContent>

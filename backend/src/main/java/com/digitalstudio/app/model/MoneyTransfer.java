@@ -44,7 +44,7 @@ public class MoneyTransfer {
 
     private String uploadId; // Receipt file
 
-    private UUID creditCardId; // The card used to send the money
+    private UUID accountId; // The account used to send the money
 
     @CreationTimestamp
     private LocalDateTime createdAt;
