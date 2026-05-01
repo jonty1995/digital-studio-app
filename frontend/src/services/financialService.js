@@ -6,7 +6,7 @@ export const financialService = {
     saveAccount: (account) => api.post("/financial/accounts", account),
     deleteAccount: (id) => api.delete(`/financial/accounts/${id}`),
     markAccountAsPaid: (id) => api.post(`/financial/accounts/${id}/pay`),
-    getUnbilledAmount: (id) => api.get(`/financial/accounts/${id}/unbilled`),
+    getAccountBalance: (id) => api.get(`/financial/accounts/${id}/balance`),
 
     // Transactions
     getTransactions: (params) => {
@@ -24,4 +24,5 @@ export const financialService = {
             : `/financial/transactions/${txnId}/link-account`;
         return api.put(url);
     },
+    recordTransfer: (data) => api.post("/financial/transactions/transfer", data),
 };

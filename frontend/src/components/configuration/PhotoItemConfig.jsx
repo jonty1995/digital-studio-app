@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Edit2, X, Check, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { configurationService } from "@/services/configurationService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
-export function PhotoItemConfig() {
+export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -35,6 +36,10 @@ export function PhotoItemConfig() {
     };
 
     const handleAdd = () => {
+        if (!canAdd) {
+            showAlert("Permission Denied", "You do not have permission to add new items.");
+            return;
+        }
         const newId = Date.now(); // Temp numeric ID
         const newItem = {
             id: newId,
@@ -42,7 +47,9 @@ export function PhotoItemConfig() {
             regularBasePrice: 0,
             regularCustomerPrice: 0,
             instantBasePrice: 0,
-            instantCustomerPrice: 0
+            instantCustomerPrice: 0,
+            hasRegular: true,
+            hasInstant: true
         };
         setItems([...items, newItem]);
         setEditingId(newId);
@@ -105,6 +112,11 @@ export function PhotoItemConfig() {
             return;
         }
 
+        if (item.hasRegular === false && item.hasInstant === false) {
+            showAlert("Selection Required", "At least one pricing type (Regular or Instant) must be selected.");
+            return;
+        }
+
         await handleSave(true);
         setEditingId(null);
     };
@@ -115,6 +127,10 @@ export function PhotoItemConfig() {
     };
 
     const handleDelete = async (id) => {
+        if (!canDelete) {
+            showAlert("Permission Denied", "You do not have permission to delete items.");
+            return;
+        }
         const newItems = items.filter(i => i.id !== id);
         setItems(newItems);
         // We need to persist deletion immediately to match other configs
@@ -137,7 +153,7 @@ export function PhotoItemConfig() {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center">
-                <Button onClick={handleAdd} size="sm" className="gap-2">
+                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
                     <Plus className="w-4 h-4" /> Add Item
                 </Button>
             </div>
@@ -146,24 +162,30 @@ export function PhotoItemConfig() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[200px]">Item Name</TableHead>
-                            <TableHead className="text-right">Regular Base</TableHead>
-                            <TableHead className="text-right">Regular Cust.</TableHead>
-                            <TableHead className="text-right">Instant Base</TableHead>
-                            <TableHead className="text-right">Instant Cust.</TableHead>
+                            <TableHead className="w-[180px]">Item Name</TableHead>
+                            <TableHead className="text-center w-[80px]">Regular</TableHead>
+                            <TableHead className="text-right">Reg. Base</TableHead>
+                            <TableHead className="text-right">Reg. Cust.</TableHead>
+                            <TableHead className="text-center w-[80px]">Instant</TableHead>
+                            <TableHead className="text-right">Inst. Base</TableHead>
+                            <TableHead className="text-right">Inst. Cust.</TableHead>
                             <TableHead className="text-right w-[100px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {items.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
                                     No photo items configured.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             items.map((item) => {
                                 const isEditing = editingId === item.id;
+                                // Default flags if null from backend
+                                const hasRegular = item.hasRegular !== false;
+                                const hasInstant = item.hasInstant !== false;
+
                                 return (
                                     <TableRow key={item.id}>
                                         <TableCell>
@@ -177,6 +199,16 @@ export function PhotoItemConfig() {
                                                 <span className="font-medium">{item.name}</span>
                                             )}
                                         </TableCell>
+                                        {/* Regular Checkbox */}
+                                        <TableCell className="text-center">
+                                            <div className="flex justify-center">
+                                                <Checkbox
+                                                    checked={hasRegular}
+                                                    disabled={!isEditing}
+                                                    onCheckedChange={(checked) => handleChange(item.id, "hasRegular", checked)}
+                                                />
+                                            </div>
+                                        </TableCell>
                                         <TableCell>
                                             {isEditing ? (
                                                 <Input
@@ -186,9 +218,10 @@ export function PhotoItemConfig() {
                                                     value={item.regularBasePrice}
                                                     onChange={(e) => handleChange(item.id, "regularBasePrice", e.target.value)}
                                                     className="text-right"
+                                                    disabled={!hasRegular}
                                                 />
                                             ) : (
-                                                <div className="text-right">{item.regularBasePrice}</div>
+                                                <div className={`text-right ${!hasRegular ? 'opacity-20' : ''}`}>{item.regularBasePrice}</div>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -200,10 +233,21 @@ export function PhotoItemConfig() {
                                                     value={item.regularCustomerPrice}
                                                     onChange={(e) => handleChange(item.id, "regularCustomerPrice", e.target.value)}
                                                     className="text-right"
+                                                    disabled={!hasRegular}
                                                 />
                                             ) : (
-                                                <div className="text-right">{item.regularCustomerPrice}</div>
+                                                <div className={`text-right ${!hasRegular ? 'opacity-20' : ''}`}>{item.regularCustomerPrice}</div>
                                             )}
+                                        </TableCell>
+                                        {/* Instant Checkbox */}
+                                        <TableCell className="text-center">
+                                            <div className="flex justify-center">
+                                                <Checkbox
+                                                    checked={hasInstant}
+                                                    disabled={!isEditing}
+                                                    onCheckedChange={(checked) => handleChange(item.id, "hasInstant", checked)}
+                                                />
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             {isEditing ? (
@@ -214,9 +258,10 @@ export function PhotoItemConfig() {
                                                     value={item.instantBasePrice}
                                                     onChange={(e) => handleChange(item.id, "instantBasePrice", e.target.value)}
                                                     className="text-right"
+                                                    disabled={!hasInstant}
                                                 />
                                             ) : (
-                                                <div className="text-right">{item.instantBasePrice}</div>
+                                                <div className={`text-right ${!hasInstant ? 'opacity-20' : ''}`}>{item.instantBasePrice}</div>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -228,9 +273,10 @@ export function PhotoItemConfig() {
                                                     value={item.instantCustomerPrice}
                                                     onChange={(e) => handleChange(item.id, "instantCustomerPrice", e.target.value)}
                                                     className="text-right"
+                                                    disabled={!hasInstant}
                                                 />
                                             ) : (
-                                                <div className="text-right">{item.instantCustomerPrice}</div>
+                                                <div className={`text-right ${!hasInstant ? 'opacity-20' : ''}`}>{item.instantCustomerPrice}</div>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -261,7 +307,14 @@ export function PhotoItemConfig() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => setEditingId(item.id)}
+                                                            onClick={() => {
+                                                                if (!canEdit) {
+                                                                    showAlert("Permission Denied", "You do not have permission to edit items.");
+                                                                    return;
+                                                                }
+                                                                setEditingId(item.id);
+                                                            }}
+                                                            className={!canEdit ? 'opacity-50' : ''}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </Button>
@@ -269,7 +322,7 @@ export function PhotoItemConfig() {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => handleDelete(item.id)}
-                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            className={`text-destructive hover:text-destructive hover:bg-destructive/10 ${!canDelete ? 'opacity-50' : ''}`}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>

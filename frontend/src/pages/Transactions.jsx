@@ -10,6 +10,8 @@ import { Button } from "../components/ui/button";
 import { SimpleAlert } from "../components/shared/SimpleAlert";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { Badge } from "../components/ui/badge";
+import { ManualEntryModal } from "../components/financial/ManualEntryModal";
+import { DateUtils } from "../utils/DateUtils";
 
 export default function Transactions() {
     const [transactions, setTransactions] = useState([]);
@@ -27,9 +29,11 @@ export default function Transactions() {
     const [filters, setFilters] = useState({
         type: "",
         categories: [],
-        startDate: "",
-        endDate: ""
+        startDate: DateUtils.formatForInput(new Date()),
+        endDate: DateUtils.formatForInput(new Date())
     });
+
+    const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
 
     const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "MISC"];
 
@@ -60,13 +64,10 @@ export default function Transactions() {
             setAccounts(accountData || []);
             setSummary(summaryData || { totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
 
-            // Fetch unbilled amounts for cards
+            // Fetch balances for all accounts
             const updatedAccounts = await Promise.all(accountData.map(async account => {
-                if (account.accountType === 'CREDIT_CARD') {
-                    const unbilled = await financialService.getUnbilledAmount(account.id);
-                    return { ...account, unbilled };
-                }
-                return account;
+                const balance = await financialService.getAccountBalance(account.id);
+                return { ...account, balance };
             }));
             setAccounts(updatedAccounts);
         } catch (e) {
@@ -124,7 +125,7 @@ export default function Transactions() {
                         <Download className="w-4 h-4" />
                         Export Report
                     </Button>
-                    <Button size="sm" className="gap-2" onClick={() => showAlert("Feature Soon", "Manual transaction entry coming soon.")}>
+                    <Button size="sm" className="gap-2" onClick={() => setIsManualEntryModalOpen(true)}>
                         <Plus className="w-4 h-4" />
                         Manual Entry
                     </Button>
@@ -326,8 +327,8 @@ export default function Transactions() {
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{account.name}</p>
-                                        <h3 className="text-2xl font-bold">
-                                            {account.accountType === "CREDIT_CARD" ? `₹${account.unbilled?.toLocaleString() || 0}` : "—"}
+                                        <h3 className={`text-2xl font-bold ${account.balance < 0 ? 'text-red-500' : ''}`}>
+                                            {account.balance < 0 ? '-' : ''}₹{Math.abs(account.balance || 0).toLocaleString()}
                                         </h3>
                                         <div className="flex items-center gap-1.5 pt-1">
                                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase">{account.accountType.replace('_', ' ')}</span>
@@ -372,7 +373,7 @@ export default function Transactions() {
                                                 }`}
                                         >
                                             <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                                                {new Date(txn.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                {DateUtils.format(txn.timestamp)}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] ${txn.type === 'CREDIT' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -485,6 +486,17 @@ export default function Transactions() {
                 onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))}
                 title={alertConfig.title}
                 description={alertConfig.message}
+            />
+
+            <ManualEntryModal
+                isOpen={isManualEntryModalOpen}
+                onClose={() => setIsManualEntryModalOpen(false)}
+                accounts={accounts}
+                onSuccess={() => {
+                    showAlert("Success", "Manual entry saved successfully.");
+                    fetchData();
+                }}
+                showAlert={showAlert}
             />
         </div>
     );

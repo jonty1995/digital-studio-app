@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Image as ImageIcon, Loader2, Download, RefreshCw, Upload, UserPlus, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Filter, Trash2, Search } from "lucide-react";
 import { LinkCustomerModal } from "../components/shared/LinkCustomerModal";
 
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
@@ -83,11 +83,7 @@ export default function Uploads() {
     const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
 
     const [dateRange, setDateRange] = useState(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
+        const today = DateUtils.formatForInput(new Date());
         return { start: today, end: today };
     });
     const [excludedSources, setExcludedSources] = useState([]);
@@ -727,9 +723,9 @@ export default function Uploads() {
                                             <TableCell className={`${paddingClass} max-w-[250px] truncate text-xs text-muted-foreground`} title={upload.uploadPath}>
                                                 {upload.uploadPath || "-"}
                                             </TableCell>
-                                            <TableCell className={`${paddingClass} text-muted-foreground`}>
-                                                {upload.createdAt ? format(new Date(upload.createdAt), "dd MMM yyyy") : "-"}
-                                            </TableCell>
+                                             <TableCell className={`${paddingClass} text-muted-foreground text-xs whitespace-nowrap`}>
+                                                 {upload.createdAt ? DateUtils.format(upload.createdAt) : "-"}
+                                             </TableCell>
 
                                             <TableCell className={`${paddingClass}`}>
                                                 <textarea

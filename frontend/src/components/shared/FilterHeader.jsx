@@ -110,6 +110,7 @@ export const FilterHeader = ({
                         />
                         {searchQuery && (
                             <button
+                                type="button"
                                 onClick={() => onSearchChange("")}
                                 className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground focus:outline-none"
                                 aria-label="Clear search"

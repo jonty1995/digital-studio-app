@@ -12,6 +12,8 @@ export function Sidebar() {
     const navigate = useNavigate()
     const { user, permissions, logout } = useAuth()
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
+    
+    console.log("Sidebar rendering, permissions:", permissions);
 
     const allLinks = [
         { name: "Photo Orders", path: "/photo-orders", icon: ImageIcon },
@@ -31,25 +33,42 @@ export function Sidebar() {
 
     return (
         <div className="pb-12 w-64 border-r min-h-screen bg-background flex flex-col justify-between">
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 flex-grow overflow-y-auto scrollbar-thin">
                 <div className="px-3 py-2">
                     <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
                         Digital Studio
                     </h2>
                     <div className="space-y-1">
-                        {visibleLinks.map((link) => (
-                            <Button
-                                key={link.path}
-                                variant={location.pathname.startsWith(link.path) ? "secondary" : "ghost"}
-                                className="w-full justify-start"
-                                asChild
-                            >
-                                <Link to={link.path}>
-                                    <link.icon className="mr-2 h-4 w-4" />
-                                    {link.name}
-                                </Link>
-                            </Button>
-                        ))}
+                        {allLinks.map((link) => {
+                            const hasPermission = useAuth().hasPermission(link.path);
+                            return (
+                                <Button
+                                    key={link.path}
+                                    variant={location.pathname.startsWith(link.path) ? "secondary" : "ghost"}
+                                    className={cn(
+                                        "w-full justify-start relative group",
+                                        !hasPermission && "opacity-50 cursor-not-allowed grayscale"
+                                    )}
+                                    disabled={!hasPermission}
+                                    asChild={hasPermission}
+                                >
+                                    {hasPermission ? (
+                                        <Link to={link.path}>
+                                            <link.icon className="mr-2 h-4 w-4" />
+                                            {link.name}
+                                        </Link>
+                                    ) : (
+                                        <div className="flex items-center w-full">
+                                            <link.icon className="mr-2 h-4 w-4" />
+                                            <span>{link.name}</span>
+                                            <span className="ml-auto text-[8px] font-bold uppercase text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                                Denied
+                                            </span>
+                                        </div>
+                                    )}
+                                </Button>
+                            );
+                        })}
                     </div>
 
                     {user?.role === "ADMIN" && (

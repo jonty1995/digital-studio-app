@@ -221,11 +221,11 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                             disabled={!linkEnabled || uploading}
                         />
                         <Button
+                            type="button"
                             variant="outline"
                             className="bg-white border-pink-200 hover:bg-pink-50 text-gray-900 disabled:opacity-50"
                             onClick={handleLink}
                             disabled={!linkEnabled || uploading}
-
                         >
                             Link
                         </Button>

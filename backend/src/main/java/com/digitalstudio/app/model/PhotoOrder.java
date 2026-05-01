@@ -14,7 +14,7 @@ public class PhotoOrder {
     @GeneratedValue(strategy = GenerationType.UUID)
     private java.util.UUID orderId;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "customer_id", columnDefinition = "BIGINT")
     private Customer customer;
 

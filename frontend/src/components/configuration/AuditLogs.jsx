@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +15,8 @@ export function AuditLogs() {
 
     // Filters
     // Set default range: Start = 30 days ago, End = Today
-    const [startDate, setStartDate] = useState(format(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"));
-    const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const [startDate, setStartDate] = useState(DateUtils.formatForInput(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)));
+    const [endDate, setEndDate] = useState(DateUtils.formatForInput(new Date()));
 
     const [selectedModules, setSelectedModules] = useState([]);
 
@@ -39,8 +39,8 @@ export function AuditLogs() {
         try {
             // Construct query params
             const params = new URLSearchParams();
-            params.append("startDate", new Date(startDate + "T00:00:00").toISOString());
-            params.append("endDate", new Date(endDate + "T23:59:59").toISOString());
+            params.append("startDate", DateUtils.getStartOfDayUTC(startDate));
+            params.append("endDate", DateUtils.getEndOfDayUTC(endDate));
 
             if (selectedModules.length > 0) {
                 selectedModules.forEach(m => params.append("entityTypes", m));
@@ -179,9 +179,9 @@ export function AuditLogs() {
                         ) : (
                             sortedLogs.map((log) => (
                                 <TableRow key={log.id}>
-                                    <TableCell className="font-mono text-xs">
-                                        {format(new Date(log.timestamp), "MMM dd, yyyy HH:mm:ss")}
-                                    </TableCell>
+                                     <TableCell className="font-mono text-xs">
+                                         {DateUtils.format(log.timestamp)}
+                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={getActionColor(log.action)}>
                                             {log.action}

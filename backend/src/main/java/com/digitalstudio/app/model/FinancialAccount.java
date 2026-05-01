@@ -24,4 +24,7 @@ public class FinancialAccount {
     private java.time.LocalDateTime lastRepaymentDate; // Used to calculate current unbilled
     
     private String color; // For UI differentiation
+    
+    @Transient
+    private Boolean hasTransactions;
 }

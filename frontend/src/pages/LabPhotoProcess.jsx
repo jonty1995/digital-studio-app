@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useEmail } from "@/contexts/EmailContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import * as labService from "@/services/labProcessService";
 import { configurationService } from "@/services/configurationService";
 
@@ -108,7 +108,7 @@ export default function LabPhotoProcess() {
         }
 
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const today = DateUtils.formatForInput(new Date());
             const data = await labService.checkFolderExists(today);
             if (data) {
                 setAlert(prev => ({ ...prev, folderExists: data.exists }));
@@ -497,7 +497,7 @@ export default function LabPhotoProcess() {
                                                 title={log.action === "Generated" ? "Click to open folder in explorer" : ""}
                                             >
                                                 <TableCell className="text-xs font-semibold">
-                                                    {format(new Date(log.timestamp), "dd MMM yyyy HH:mm")}
+                                                    {DateUtils.format(log.timestamp)}
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${log.action === 'Mailed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'

@@ -1,16 +1,18 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Trash2, Plus, ChevronDown } from "lucide-react"
+import { Trash2, Plus, ChevronDown, Search } from "lucide-react"
 import { configurationService } from "@/services/configurationService"
+import { Popover, PopoverTrigger, PopoverContent, PopoverContext } from "@/components/ui/popover"
 
 export function PhotoItemForm({ items, setItems }) {
     const [availableItems, setAvailableItems] = useState([]);
     const [availableAddons, setAvailableAddons] = useState([]);
     const [pricingRules, setPricingRules] = useState([]);
     const [expandedItem, setExpandedItem] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const [newItem, setNewItem] = useState({
         type: "",
@@ -37,7 +39,6 @@ export function PhotoItemForm({ items, setItems }) {
         loadData();
     }, []);
 
-    // Recalculate price when newItem changes
     // Recalculate price when newItem changes
     useEffect(() => {
         if (!newItem.type) return;
@@ -79,7 +80,44 @@ export function PhotoItemForm({ items, setItems }) {
             unitPrice: 0,
             basePrice: 0
         });
+        setSearchQuery("");
     };
+
+    const handleSelectType = (type, setIsOpen, e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const config = availableItems.find(i => i.name === type);
+        setNewItem(prev => {
+            const nextItem = { ...prev, type };
+            if (config) {
+                const reg = config.hasRegular !== false;
+                const inst = config.hasInstant !== false;
+                if (inst && !reg) {
+                    nextItem.isInstant = true;
+                } else if (reg && !inst) {
+                    nextItem.isInstant = false;
+                }
+            }
+            return nextItem;
+        });
+        
+        // Aggressive close: try both the passed function and a direct DOM event
+        setTimeout(() => {
+            if (typeof setIsOpen === 'function') {
+                setIsOpen(false);
+            }
+            // Fallback: Click the body to trigger handleClickOutside in popover.jsx
+            document.body.click();
+        }, 30);
+    };
+
+    // --- DRAG AND DROP GROUPING LOGIC ---
+
+
+
+
 
     const toggleNewItemAddon = (addonName) => {
         const currentAddons = newItem.addons;
@@ -203,9 +241,6 @@ export function PhotoItemForm({ items, setItems }) {
         setGroups(groups.filter(g => g !== groupId));
     };
 
-    // Clean up empty groups (optional, maybe on save?) 
-    // For now, let's keep them explicit so user can drag back and forth.
-
     // Group items for rendering
     const groupedItems = groups.map(gId => ({
         id: gId,
@@ -217,39 +252,77 @@ export function PhotoItemForm({ items, setItems }) {
             {/* ADD PHOTO ITEMS SECTION (Green) */}
             <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-4">
                 <h3 className="font-bold text-green-900 uppercase text-sm tracking-wide">Add Photo Items</h3>
-                <div className="space-y-1">
-                    <Label className="text-green-900 font-medium text-xs">Select Photo Item & Quantity</Label>
-                    <div className="flex gap-2 items-start">
-                        <select
-                            className="flex h-10 w-full items-center justify-between rounded-md border border-green-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                            value={newItem.type}
-                            onChange={(e) => setNewItem({ ...newItem, type: e.target.value })}
-                        >
-                            <option value="">Select Photo Item</option>
-                            {(availableItems || []).map(t => {
-                                const price = newItem.isInstant
-                                    ? (parseFloat(t.instantCustomerPrice) || 0)
-                                    : (parseFloat(t.regularCustomerPrice) || 0);
-                                return <option key={t.id} value={t.name}>{t.name} (₹{price})</option>
-                            })}
-                        </select>
-                        <Input
-                            type="number"
-                            min="1"
-                            onWheel={(e) => e.target.blur()}
-                            className="w-20 bg-white border-green-200 focus-visible:ring-green-500"
-                            value={newItem.quantity}
-                            onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
-                        />
-                        <label className={`flex items-center gap-2 px-3 h-10 border rounded-md cursor-pointer transition-colors ${newItem.isInstant ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-green-200 text-gray-700 hover:bg-gray-50'}`}>
-                            <input
-                                type="checkbox"
-                                checked={newItem.isInstant}
-                                onChange={(e) => setNewItem({ ...newItem, isInstant: e.target.checked })}
-                                className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                <div className="space-y-4">
+                    <div className="flex items-end gap-2 flex-nowrap">
+                        <div className="w-[160px] min-w-[160px] max-w-[160px] shrink-0">
+                            <Label className="text-[10px] text-green-700 font-bold uppercase ml-1 mb-1.5 block">Photo Item</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="flex h-11 w-full items-center justify-between rounded-lg border border-green-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm hover:bg-gray-50 transition-all border-l-4 border-l-green-500"
+                                    >
+                                        <span className={`truncate mr-2 ${newItem.type ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                                            {newItem.type || "Select Photo Item"}
+                                        </span>
+                                        <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0 shadow-2xl border-green-100 rounded-xl overflow-hidden" align="start">
+                                    <div className="p-3 border-b bg-green-50/30">
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-3 h-4 w-4 text-green-600/50" />
+                                            <Input
+                                                placeholder="Search items..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="pl-9 h-10 text-sm border-green-100 focus-visible:ring-green-500 rounded-lg bg-white"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    </div>
+                                    <PhotoItemSearchList 
+                                        availableItems={availableItems}
+                                        handleSelectType={handleSelectType}
+                                        searchQuery={searchQuery}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        <div className="w-[72px] shrink-0">
+                            <Label className="text-[10px] text-green-700 font-bold uppercase ml-1 mb-1.5 block text-center">Qty</Label>
+                            <Input
+                                type="number"
+                                min="1"
+                                max="99"
+                                onWheel={(e) => e.target.blur()}
+                                className="h-11 bg-white border-green-200 focus-visible:ring-green-500 shadow-sm rounded-lg text-center font-bold text-lg"
+                                value={newItem.quantity}
+                                onChange={(e) => setNewItem({ ...newItem, quantity: Math.min(99, parseInt(e.target.value) || 1) })}
                             />
-                            <span className="font-medium text-sm">Instant</span>
-                        </label>
+                        </div>
+
+                        <div className="w-[112px] shrink-0">
+                            <Label className="text-[10px] text-green-700 font-bold uppercase ml-1 mb-1.5 block text-center">Variant</Label>
+                            {(() => {
+                                const selectedConfig = availableItems.find(i => i.name === newItem.type);
+                                const canToggle = selectedConfig ? (selectedConfig.hasRegular !== false && selectedConfig.hasInstant !== false) : true;
+                                
+                                return (
+                                    <label className={`flex items-center justify-center gap-2 px-2 h-11 border rounded-lg cursor-pointer shadow-sm transition-all duration-200 ${newItem.isInstant ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-green-200 text-gray-700 hover:bg-gray-50'} ${!canToggle ? 'opacity-60 cursor-not-allowed bg-gray-50/50' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newItem.isInstant}
+                                            disabled={!canToggle}
+                                            onChange={(e) => setNewItem({ ...newItem, isInstant: e.target.checked })}
+                                            className="w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 transition-transform active:scale-110"
+                                        />
+                                        <span className="font-bold text-[11px] uppercase tracking-wider">Instant</span>
+                                    </label>
+                                );
+                            })()}
+                        </div>
                     </div>
                 </div>
 
@@ -265,8 +338,6 @@ export function PhotoItemForm({ items, setItems }) {
                                     return allowedAddons.has(addon.name);
                                 })
                                 .map(addon => {
-                                    // Calculate Price Impact (Option A: Standalone Cost)
-                                    // Use current isInstant setting
                                     const basePriceOnly = configurationService.calculatePrice(newItem.type, [], newItem.isInstant, true, availableItems, pricingRules, availableAddons);
                                     const withAddonPrice = configurationService.calculatePrice(newItem.type, [addon.name], newItem.isInstant, true, availableItems, pricingRules, availableAddons);
                                     const priceDiff = withAddonPrice - basePriceOnly;
@@ -288,19 +359,13 @@ export function PhotoItemForm({ items, setItems }) {
                                         </label>
                                     );
                                 })}
-                            {availableAddons.filter(addon => {
-                                const itemRules = pricingRules.filter(r => (r.photoItemName || r.item) === newItem.type);
-                                const allowedAddons = new Set(itemRules.flatMap(r => r.addonNames || r.addons || []));
-                                return allowedAddons.has(addon.name);
-                            }).length === 0 && (
-                                    <span className="text-xs text-green-600/70 italic">No addons options.</span>
-                                )}
                         </div>
                     </div>
                 )}
 
                 <div className="flex justify-end pt-2">
                     <Button
+                        type="button"
                         onClick={handleAddItem}
                         disabled={!newItem.type}
                         className="bg-green-600 hover:bg-green-700 text-white min-w-[100px]"
@@ -314,7 +379,7 @@ export function PhotoItemForm({ items, setItems }) {
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="font-bold text-purple-900 uppercase text-sm tracking-wide">Selected Photo Items</h3>
-                    <Button onClick={addGroup} size="sm" variant="outline" className="h-7 text-xs border-purple-200 text-purple-700 hover:bg-purple-100">
+                    <Button type="button" onClick={addGroup} size="sm" variant="outline" className="h-7 text-xs border-purple-200 text-purple-700 hover:bg-purple-100">
                         <Plus className="h-3 w-3 mr-1" /> New Order Group
                     </Button>
                 </div>
@@ -336,6 +401,7 @@ export function PhotoItemForm({ items, setItems }) {
                                 </span>
                                 {group.id !== 1 && (
                                     <button
+                                        type="button"
                                         onClick={() => deleteGroup(group.id)}
                                         className="text-gray-400 hover:text-red-500 transition-colors p-1"
                                         title="Delete Group"
@@ -354,8 +420,6 @@ export function PhotoItemForm({ items, setItems }) {
                             <div className="space-y-2">
                                 {group.items.map((item) => {
                                     const originalIndex = items.indexOf(item);
-
-                                    // Calculate base price for breakdown display
                                     const configItem = availableItems.find(i => i.name === item.type);
                                     let baseItemPrice = 0;
 
@@ -403,23 +467,16 @@ export function PhotoItemForm({ items, setItems }) {
 
                                                     {item.addons.length > 0 && (
                                                         <div className="flex gap-1 ml-2">
-                                                            {item.addons.map(a => {
-                                                                const base = configurationService.calculatePrice(item.type, [], item.isInstant, true, availableItems, pricingRules, availableAddons);
-                                                                const withAddon = configurationService.calculatePrice(item.type, [a], item.isInstant, true, availableItems, pricingRules, availableAddons);
-                                                                const diff = withAddon - base;
-
-                                                                return (
-                                                                    <span
-                                                                        key={a}
-                                                                        draggable
-                                                                        onDragStart={(e) => handleDragStart(e, originalIndex, a)}
-                                                                        className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 cursor-grab hover:bg-gray-200 hover:shadow-sm"
-                                                                        title="Drag to detach into separate order"
-                                                                    >
-                                                                        {a} {diff > 0 && <span className="text-gray-500 font-medium ml-0.5">(+₹{diff})</span>}
-                                                                    </span>
-                                                                );
-                                                            })}
+                                                            {item.addons.map(a => (
+                                                                <span
+                                                                    key={a}
+                                                                    draggable
+                                                                    onDragStart={(e) => handleDragStart(e, originalIndex, a)}
+                                                                    className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 cursor-grab hover:bg-gray-200 hover:shadow-sm"
+                                                                >
+                                                                    {a}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     )}
                                                 </div>
@@ -427,6 +484,7 @@ export function PhotoItemForm({ items, setItems }) {
                                                 <div className="flex items-center gap-4">
                                                     <span className="font-bold text-gray-900">₹{item.price.toFixed(2)}</span>
                                                     <button
+                                                        type="button"
                                                         onClick={(e) => { e.stopPropagation(); removeItem(originalIndex); }}
                                                         className="text-gray-300 hover:text-red-500 transition-colors p-1"
                                                     >
@@ -435,12 +493,8 @@ export function PhotoItemForm({ items, setItems }) {
                                                 </div>
                                             </div>
 
-                                            {/* Expanded Cost Breakup */}
                                             {isExpanded && (
                                                 <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 text-sm text-gray-700 space-y-1">
-                                                    <div className="flex justify-between items-center text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
-                                                        Cost Breakup (Per Unit)
-                                                    </div>
                                                     <div className="flex justify-between items-center">
                                                         <span>{item.sourceLabel ? "Addon Price" : `Base Price (${item.type})`}</span>
                                                         <span>₹{baseItemPrice.toFixed(2)}</span>
@@ -451,11 +505,7 @@ export function PhotoItemForm({ items, setItems }) {
                                                             <span>₹{addonsTotal.toFixed(2)}</span>
                                                         </div>
                                                     )}
-                                                    <div className="flex justify-between items-center border-t border-gray-200 pt-1 mt-1 font-medium">
-                                                        <span>Unit Price</span>
-                                                        <span>₹{item.unitPrice.toFixed(2)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center font-bold text-gray-900 pt-1">
+                                                    <div className="flex justify-between items-center border-t pt-1 mt-1 font-bold">
                                                         <span>Total ({item.quantity} qty)</span>
                                                         <span>₹{item.price.toFixed(2)}</span>
                                                     </div>
@@ -469,7 +519,61 @@ export function PhotoItemForm({ items, setItems }) {
                     </div>
                 ))}
             </div>
-
         </div>
     );
 }
+
+const PhotoItemSearchList = ({ availableItems, handleSelectType, searchQuery }) => {
+    const { setIsOpen } = useContext(PopoverContext);
+
+    // Grouping for search
+    const filteredItems = availableItems.filter(i => 
+        i.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const grouped = {
+        both: filteredItems.filter(i => i.hasRegular !== false && i.hasInstant !== false),
+        regular: filteredItems.filter(i => i.hasRegular !== false && i.hasInstant === false),
+        instant: filteredItems.filter(i => i.hasInstant !== false && i.hasRegular === false)
+    };
+
+    return (
+        <>
+            {renderItemGroup("Both Regular & Instant", grouped.both, setIsOpen, handleSelectType)}
+            {renderItemGroup("Regular Only", grouped.regular, setIsOpen, handleSelectType)}
+            {renderItemGroup("Instant Only", grouped.instant, setIsOpen, handleSelectType)}
+            {filteredItems.length === 0 && (
+                <div className="py-8 text-center text-xs text-muted-foreground italic">
+                    No items found matching "{searchQuery}"
+                </div>
+            )}
+        </>
+    );
+};
+
+const renderItemGroup = (label, itemsList, setIsOpen, handleSelectType) => {
+    if (itemsList.length === 0) return null;
+    return (
+        <div className="space-y-1 mt-2 first:mt-0 border-b pb-2 last:border-0 last:pb-0">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase px-2 py-1 bg-muted/30 rounded mb-1">{label}</div>
+            {itemsList.map(t => {
+                const regPrice = parseFloat(t.regularCustomerPrice) || 0;
+                const instPrice = parseFloat(t.instantCustomerPrice) || 0;
+                return (
+                    <button
+                        key={t.id}
+                        type="button"
+                        onClick={(e) => handleSelectType(t.name, setIsOpen, e)}
+                        className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded-md flex justify-between items-center group transition-colors"
+                    >
+                        <span className="font-medium group-hover:text-primary">{t.name}</span>
+                        <span className="text-xs font-semibold text-green-700">
+                            {t.hasRegular !== false && t.hasInstant !== false ? `Reg: ₹${regPrice} / Inst: ₹${instPrice}` : 
+                             t.hasInstant !== false ? `Inst: ₹${instPrice}` : `Reg: ₹${regPrice}`}
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+};

@@ -9,6 +9,41 @@ const getHeaders = (initialHeaders = {}) => {
     return initialHeaders;
 };
 
+const normalizeDates = (obj) => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    
+    // Don't recurse into Date objects
+    if (obj instanceof Date) return obj;
+
+    if (Array.isArray(obj)) {
+        return obj.map(normalizeDates);
+    }
+    
+    const newObj = {};
+    for (const key in obj) {
+        const val = obj[key];
+        if (typeof val === 'string') {
+            // ISO 8601 regex: 2023-10-27T10:00:00 or 2023-10-27T10:00:00.123 (with or without Z)
+            const isoDateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/;
+            if (isoDateTimeRegex.test(val)) {
+                let dateStr = val;
+                // If it looks like ISO but has no timezone indicator, treat as UTC (Z)
+                if (!val.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(val)) {
+                    dateStr += 'Z';
+                }
+                newObj[key] = new Date(dateStr);
+            } else {
+                newObj[key] = val;
+            }
+        } else if (typeof val === 'object') {
+            newObj[key] = normalizeDates(val);
+        } else {
+            newObj[key] = val;
+        }
+    }
+    return newObj;
+};
+
 export const api = {
     get: async (endpoint, options = {}) => {
         options.headers = getHeaders(options.headers);
@@ -16,7 +51,13 @@ export const api = {
         if (!response.ok) {
             throw new Error(`API Error: ${response.statusText}`);
         }
-        return response.json();
+        if (response.status === 204 || response.headers.get("content-length") === "0") return true;
+        try {
+            const resData = await response.json();
+            return normalizeDates(resData);
+        } catch (e) {
+            return true;
+        }
     },
     post: async (endpoint, data) => {
         const isFormData = data instanceof FormData;
@@ -37,7 +78,13 @@ export const api = {
             } catch (e) { }
             throw new Error(`API Error: ${errorMsg}`);
         }
-        return response.json();
+        if (response.status === 204 || response.headers.get("content-length") === "0") return true;
+        try {
+            const resData = await response.json();
+            return normalizeDates(resData);
+        } catch (e) {
+            return true;
+        }
     },
     put: async (endpoint, data) => {
         const isFormData = data instanceof FormData;
@@ -58,7 +105,8 @@ export const api = {
             } catch (e) { }
             throw new Error(`API Error: ${errorMsg}`);
         }
-        return response.json();
+        const resData = await response.json();
+        return normalizeDates(resData);
     },
     delete: async (endpoint) => {
         const headers = getHeaders();
@@ -76,7 +124,8 @@ export const api = {
         }
         if (response.status === 204) return true;
         try {
-            return await response.json();
+            const resData = await response.json();
+            return normalizeDates(resData);
         } catch (e) {
             return true;
         }
@@ -99,6 +148,12 @@ export const api = {
             } catch (e) { }
             throw new Error(`API Error: ${errorMsg}`);
         }
-        return response.json();
+        if (response.status === 204 || response.headers.get("content-length") === "0") return true;
+        try {
+            const resData = await response.json();
+            return normalizeDates(resData);
+        } catch (e) {
+            return true;
+        }
     }
 };

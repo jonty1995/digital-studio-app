@@ -10,4 +10,6 @@ import java.util.UUID;
 @Repository
 public interface FinancialTransactionRepository
         extends JpaRepository<FinancialTransaction, UUID>, JpaSpecificationExecutor<FinancialTransaction> {
+            
+    boolean existsByAccountId(UUID accountId);
 }

@@ -6,7 +6,7 @@ import { Plus, Trash2, Save, Edit2, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { configurationService } from "@/services/configurationService";
 
-export function AddonPricingConfig() {
+export function AddonPricingConfig({ canAdd, canEdit, canDelete }) {
     const [photoItems, setPhotoItems] = useState([]);
     const [addonsStart, setAddonsStart] = useState([]);
     const [pricingRules, setPricingRules] = useState([]);
@@ -223,7 +223,10 @@ export function AddonPricingConfig() {
                             </div>
 
                             <div className="pt-2 flex gap-2">
-                                <Button onClick={handleSave} className="flex-1">
+                                <Button 
+                                    onClick={handleSave} 
+                                    className={`flex-1 ${((editingRuleId && !canEdit) || (!editingRuleId && !canAdd)) ? 'opacity-50' : ''}`}
+                                >
                                     {editingRuleId ? <Save className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                                     {editingRuleId ? "Update Combination" : "Add Combination"}
                                 </Button>
@@ -281,10 +284,26 @@ export function AddonPricingConfig() {
                                     <TableCell className="text-right py-2">{rule.regularBasePrice !== undefined ? rule.regularBasePrice : rule.basePrice}</TableCell>
                                     <TableCell className="text-right py-2">{rule.regularCustomerPrice !== undefined ? rule.regularCustomerPrice : rule.customerPrice}</TableCell>
                                     <TableCell className="py-2 text-right">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 mr-1" onClick={() => handleEdit(rule)}>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className={`h-8 w-8 mr-1 ${!canEdit ? 'opacity-50' : ''}`} 
+                                            onClick={() => {
+                                                if (!canEdit) return;
+                                                handleEdit(rule);
+                                            }}
+                                        >
                                             <Edit2 className="w-4 h-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(rule.id)}>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className={`h-8 w-8 ${!canDelete ? 'opacity-50' : ''}`} 
+                                            onClick={() => {
+                                                if (!canDelete) return;
+                                                handleDelete(rule.id);
+                                            }}
+                                        >
                                             <Trash2 className="w-4 h-4 text-destructive" />
                                         </Button>
                                     </TableCell>

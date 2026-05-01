@@ -23,7 +23,6 @@ export default function ProtectedRoute({ children, path }) {
   // Check if they have permission, OR if they are an admin.
   // We actually seeded the permission table, so checking the permissions array is sufficient.
   if (path && !permissions.includes(path)) {
-     // They don't have access to this page. Redirect to their first available page.
      const firstAvailablePath = permissions.length > 0 ? permissions[0] : "/unauthorized";
      return <Navigate to={firstAvailablePath} replace />;
   }

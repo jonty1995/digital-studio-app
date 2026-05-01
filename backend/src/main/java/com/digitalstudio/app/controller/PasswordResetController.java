@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,7 +51,7 @@ public class PasswordResetController {
             PasswordResetToken token = PasswordResetToken.builder()
                     .token(tokenValue)
                     .user(user)
-                    .expiryDate(LocalDateTime.now().plusHours(24))
+                    .expiryDate(LocalDateTime.now().plus(24, ChronoUnit.HOURS))
                     .build();
             if (token != null) {
                 tokenRepository.save(token);

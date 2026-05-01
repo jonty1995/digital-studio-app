@@ -8,7 +8,7 @@ import { orderService } from "../services/orderService";
 import { configurationService } from "../services/configurationService";
 import { PhotoOrderModal } from "@/components/shared/PhotoOrderModal";
 import { useRef, useCallback } from "react";
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import { OrderStatus, getAvailableTransitions } from "@/components/shared/OrderStatus";
 import { StatusTimeline } from "@/components/shared/StatusTimeline";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
@@ -40,7 +40,7 @@ export default function PhotoOrders() {
     const [viewMode, setViewMode] = useViewMode("photo-orders-view-mode"); // 'compact' | 'cozy'
 
     // Initialize dateRange with Today (YYYY-MM-DD)
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const today = DateUtils.formatForInput(new Date());
     const [dateRange, setDateRange] = useState({ start: today, end: today });
 
     // AbortController Ref
@@ -512,8 +512,8 @@ export default function PhotoOrders() {
                                                         iconClass={`${viewMode === 'compact' ? 'h-4 w-4' : 'h-6 w-6'} text-red-500`}
                                                     />
                                                 </TableCell>
-                                                <TableCell className={`${pClass} align-middle font-medium`}>
-                                                    {new Date(order.timestamp || order.createdAt).toLocaleDateString()}
+                                                <TableCell className={`${pClass} align-middle font-medium text-xs whitespace-nowrap`}>
+                                                    {DateUtils.format(order.timestamp || order.createdAt)}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle font-medium`}>
                                                     {order.customer?.name || "Unknown"}

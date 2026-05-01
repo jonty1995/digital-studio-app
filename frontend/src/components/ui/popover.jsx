@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import { cn } from "@/lib/utils";
 
-const PopoverContext = createContext({});
+export const PopoverContext = createContext({});
 
 export const Popover = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -32,8 +32,8 @@ export const Popover = ({ children }) => {
     const toggle = () => setIsOpen(!isOpen);
 
     return (
-        <PopoverContext.Provider value={{ isOpen, toggle, triggerRef, contentRef }}>
-            <div className="relative inline-block">
+        <PopoverContext.Provider value={{ isOpen, toggle, triggerRef, contentRef, setIsOpen }}>
+            <div className="relative block w-full">
                 {children}
             </div>
         </PopoverContext.Provider>

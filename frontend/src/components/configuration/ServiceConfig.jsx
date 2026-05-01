@@ -7,7 +7,7 @@ import { Plus, Trash2, Edit2, X, Check, Loader2 } from "lucide-react";
 import { configurationService } from "@/services/configurationService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
-export function ServiceConfig() {
+export function ServiceConfig({ canAdd, canEdit, canDelete }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -35,6 +35,10 @@ export function ServiceConfig() {
     };
 
     const handleAdd = () => {
+        if (!canAdd) {
+            showAlert("Permission Denied", "You do not have permission to add services.");
+            return;
+        }
         const newId = Date.now();
         const newItem = {
             id: newId,
@@ -124,6 +128,10 @@ export function ServiceConfig() {
     };
 
     const handleDelete = async (id) => {
+        if (!canDelete) {
+            showAlert("Permission Denied", "You do not have permission to delete services.");
+            return;
+        }
         const newItems = items.filter(i => i.id !== id);
         setItems(newItems);
         setSaving(true);
@@ -143,7 +151,7 @@ export function ServiceConfig() {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center">
-                <Button onClick={handleAdd} size="sm" className="gap-2">
+                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
                     <Plus className="w-4 h-4" /> Add Service
                 </Button>
             </div>
@@ -237,7 +245,14 @@ export function ServiceConfig() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => setEditingId(item.id)}
+                                                            onClick={() => {
+                                                                if (!canEdit) {
+                                                                    showAlert("Permission Denied", "You do not have permission to edit services.");
+                                                                    return;
+                                                                }
+                                                                setEditingId(item.id);
+                                                            }}
+                                                            className={!canEdit ? 'opacity-50' : ''}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </Button>
@@ -245,7 +260,7 @@ export function ServiceConfig() {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => handleDelete(item.id)}
-                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            className={`text-destructive hover:text-destructive hover:bg-destructive/10 ${!canDelete ? 'opacity-50' : ''}`}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>

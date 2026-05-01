@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { PageHeader } from "../components/shared/PageHeader";
 import { PhotoItemConfig } from "../components/configuration/PhotoItemConfig";
 import { AddonConfig } from "../components/configuration/AddonConfig";
@@ -8,29 +9,40 @@ import { AccountConfig } from "../components/configuration/AccountConfig";
 import { ValueConfig } from "../components/configuration/ValueConfig";
 import { AuditLogs } from "../components/configuration/AuditLogs";
 import { configurationService } from "../services/configurationService";
+import { DateUtils } from "../utils/DateUtils";
 import { Download, Upload } from "lucide-react";
 
 import { Button } from "../components/ui/button";
 import { SimpleAlert } from "../components/shared/SimpleAlert";
 
 export default function Configuration() {
-    const [activeTab, setActiveTab] = useState("items");
+    const { hasPermission } = useAuth();
 
     // Alert State
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
     const showAlert = (title, message) => {
         setAlertConfig({ isOpen: true, title, message });
     };
-
     const tabs = [
-        { id: "items", label: "Photo Items" },
-        { id: "addons", label: "Addons" },
-        { id: "pricing", label: "Addon Pricing" },
-        { id: "services", label: "Services" },
-        { id: "accounts", label: "Account Management" },
-        { id: "values", label: "Values" },
-        { id: "audit", label: "Audit Trail" },
-    ];
+        { id: "items", label: "Photo Items", path: "/configuration/items" },
+        { id: "addons", label: "Addons", path: "/configuration/addons" },
+        { id: "pricing", label: "Addon Pricing", path: "/configuration/pricing" },
+        { id: "services", label: "Services", path: "/configuration/services" },
+        { id: "accounts", label: "Account Management", path: "/configuration/accounts" },
+        { id: "values", label: "Values", path: "/configuration/values" },
+        { id: "audit", label: "Audit Trail", path: "/configuration/audit" },
+    ].filter(tab => hasPermission(tab.path, "access"));
+
+    const [activeTab, setActiveTab] = useState(() => {
+        return tabs.length > 0 ? tabs[0].id : "items";
+    });
+
+    // If active tab becomes unauthorized, switch to the first available one
+    useEffect(() => {
+        if (tabs.length > 0 && !tabs.find(t => t.id === activeTab)) {
+            setActiveTab(tabs[0].id);
+        }
+    }, [tabs, activeTab]);
 
     const handleExport = async () => {
         try {
@@ -39,7 +51,7 @@ export default function Configuration() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `config_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `config_backup_${DateUtils.formatForInput(new Date())}.json`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -126,7 +138,12 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Photo Items Management</h2>
                                 <p className="text-sm text-muted-foreground">Configure base items and their standard rates.</p>
                             </div>
-                            <PhotoItemConfig showAlert={showAlert} />
+                            <PhotoItemConfig 
+                                showAlert={showAlert} 
+                                canAdd={hasPermission('/configuration/items', 'add')}
+                                canEdit={hasPermission('/configuration/items', 'edit')}
+                                canDelete={hasPermission('/configuration/items', 'delete')}
+                            />
                         </div>
                     )}
 
@@ -136,7 +153,12 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Addons Management</h2>
                                 <p className="text-sm text-muted-foreground">Define available addons like frames, lamination, etc.</p>
                             </div>
-                            <AddonConfig showAlert={showAlert} />
+                            <AddonConfig 
+                                showAlert={showAlert} 
+                                canAdd={hasPermission('/configuration/addons', 'add')}
+                                canEdit={hasPermission('/configuration/addons', 'edit')}
+                                canDelete={hasPermission('/configuration/addons', 'delete')}
+                            />
                         </div>
                     )}
 
@@ -146,7 +168,12 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Addon Pricing Configuration</h2>
                                 <p className="text-sm text-muted-foreground">Set prices for specific combinations of Photo Items and Addons.</p>
                             </div>
-                            <AddonPricingConfig showAlert={showAlert} />
+                            <AddonPricingConfig 
+                                showAlert={showAlert} 
+                                canAdd={hasPermission('/configuration/pricing', 'add')}
+                                canEdit={hasPermission('/configuration/pricing', 'edit')}
+                                canDelete={hasPermission('/configuration/pricing', 'delete')}
+                            />
                         </div>
                     )}
 
@@ -156,7 +183,12 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Services Management</h2>
                                 <p className="text-sm text-muted-foreground">Define available services and their default costs.</p>
                             </div>
-                            <ServiceConfig showAlert={showAlert} />
+                            <ServiceConfig 
+                                showAlert={showAlert} 
+                                canAdd={hasPermission('/configuration/services', 'add')}
+                                canEdit={hasPermission('/configuration/services', 'edit')}
+                                canDelete={hasPermission('/configuration/services', 'delete')}
+                            />
                         </div>
                     )}
 
@@ -166,7 +198,12 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Account Management</h2>
                                 <p className="text-sm text-muted-foreground">Manage your bank accounts, cash in hand, and credit cards.</p>
                             </div>
-                            <AccountConfig showAlert={showAlert} />
+                            <AccountConfig 
+                                showAlert={showAlert} 
+                                canAdd={hasPermission('/configuration/accounts', 'add')}
+                                canEdit={hasPermission('/configuration/accounts', 'edit')}
+                                canDelete={hasPermission('/configuration/accounts', 'delete')}
+                            />
                         </div>
                     )}
 
@@ -176,7 +213,12 @@ export default function Configuration() {
                                 <h2 className="text-lg font-semibold">Value Configuration</h2>
                                 <p className="text-sm text-muted-foreground">Manage generic key-value settings.</p>
                             </div>
-                            <ValueConfig showAlert={showAlert} />
+                            <ValueConfig 
+                                showAlert={showAlert} 
+                                canAdd={hasPermission('/configuration/values', 'add')}
+                                canEdit={hasPermission('/configuration/values', 'edit')}
+                                canDelete={hasPermission('/configuration/values', 'delete')}
+                            />
                         </div>
                     )}
 

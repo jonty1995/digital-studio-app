@@ -42,8 +42,8 @@ public class AuthController {
             CustomUserDetails userDetails = (CustomUserDetails) authenticate.getPrincipal();
             String token = jwtUtil.generateToken(userDetails);
 
-            List<String> permissions = permissionRepository.findByUserId(userDetails.getId())
-                    .stream()
+            List<UserPagePermission> allPerms = permissionRepository.findByUserId(userDetails.getId());
+            List<String> permissions = allPerms.stream()
                     .filter(UserPagePermission::isHasAccess)
                     .map(UserPagePermission::getPagePath)
                     .collect(Collectors.toList());
@@ -55,9 +55,11 @@ public class AuthController {
             // The original line for setting the token is retained.
             return ResponseEntity.ok(AuthResponse.builder()
                     .token(token) 
+                    .id(userDetails.getId())
                     .username(userDetails.getUsername())
                     .role(userDetails.getUser().getRole().name())
                     .permissions(permissions)
+                    .pagePermissions(allPerms)
                     .build());
         } catch (Exception e) {
             log.error("LOGIN_DEBUG: Authentication failed for user '{}': {}", request.getUsername(), e.getMessage());
@@ -71,17 +73,19 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
 
-        List<String> permissions = permissionRepository.findByUserId(userDetails.getId())
-                .stream()
+        List<UserPagePermission> allPerms = permissionRepository.findByUserId(userDetails.getId());
+        List<String> permissions = allPerms.stream()
                 .filter(UserPagePermission::isHasAccess)
                 .map(UserPagePermission::getPagePath)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(AuthResponse.builder()
                 .token(null) // Token is already held by client, no need to resend
+                .id(userDetails.getId())
                 .username(userDetails.getUsername())
                 .role(userDetails.getUser().getRole().name())
                 .permissions(permissions)
+                .pagePermissions(allPerms)
                 .build());
     }
 }

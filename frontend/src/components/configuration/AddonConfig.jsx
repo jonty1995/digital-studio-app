@@ -7,7 +7,7 @@ import { Plus, Trash2, Edit2, X, Check, Loader2 } from "lucide-react";
 import { configurationService } from "@/services/configurationService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 
-export function AddonConfig() {
+export function AddonConfig({ canAdd, canEdit, canDelete }) {
     const [addons, setAddons] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -35,6 +35,10 @@ export function AddonConfig() {
     };
 
     const handleAdd = () => {
+        if (!canAdd) {
+            showAlert("Permission Denied", "You do not have permission to add addons.");
+            return;
+        }
         const newId = Date.now();
         const newAddon = { id: newId, name: "" };
         setAddons([...addons, newAddon]);
@@ -93,6 +97,10 @@ export function AddonConfig() {
     };
 
     const handleDelete = async (id) => {
+        if (!canDelete) {
+            showAlert("Permission Denied", "You do not have permission to delete addons.");
+            return;
+        }
         // Optimistic update
         const newAddons = addons.filter(i => i.id !== id);
         setAddons(newAddons);
@@ -121,7 +129,7 @@ export function AddonConfig() {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center max-w-lg">
-                <Button onClick={handleAdd} size="sm" className="gap-2">
+                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
                     <Plus className="w-4 h-4" /> Add Addon
                 </Button>
             </div>
@@ -185,7 +193,14 @@ export function AddonConfig() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => setEditingId(item.id)}
+                                                            onClick={() => {
+                                                                if (!canEdit) {
+                                                                    showAlert("Permission Denied", "You do not have permission to edit addons.");
+                                                                    return;
+                                                                }
+                                                                setEditingId(item.id);
+                                                            }}
+                                                            className={!canEdit ? 'opacity-50' : ''}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </Button>
@@ -193,7 +208,7 @@ export function AddonConfig() {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => handleDelete(item.id)}
-                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            className={`text-destructive hover:text-destructive hover:bg-destructive/10 ${!canDelete ? 'opacity-50' : ''}`}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>

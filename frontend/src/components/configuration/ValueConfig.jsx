@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { configurationService } from "@/services/configurationService";
 
-export function ValueConfig() {
+export function ValueConfig({ canAdd, canEdit, canDelete }) {
     const [values, setValues] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -37,12 +37,20 @@ export function ValueConfig() {
     };
 
     const handleAdd = () => {
+        if (!canAdd) {
+            showAlert("Permission Denied", "You do not have permission to add configuration.");
+            return;
+        }
         const newIndex = values.length;
         setValues([...values, { name: "", value: "", description: "" }]);
         setEditingIndex(newIndex);
     };
 
     const handleDelete = (index) => {
+        if (!canDelete) {
+            showAlert("Permission Denied", "You do not have permission to delete configuration.");
+            return;
+        }
         const newValues = values.filter((_, i) => i !== index);
         setValues(newValues);
     };
@@ -87,7 +95,7 @@ export function ValueConfig() {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center">
-                <Button onClick={handleAdd} size="sm" className="gap-2">
+                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
                     <Plus className="w-4 h-4" /> Add Configuration
                 </Button>
             </div>
@@ -178,7 +186,14 @@ export function ValueConfig() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => handleEdit(index)}
+                                                            onClick={() => {
+                                                                if (!canEdit) {
+                                                                    showAlert("Permission Denied", "You do not have permission to edit configuration.");
+                                                                    return;
+                                                                }
+                                                                handleEdit(index);
+                                                            }}
+                                                            className={!canEdit ? 'opacity-50' : ''}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </Button>
@@ -186,7 +201,7 @@ export function ValueConfig() {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => handleDelete(index)}
-                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            className={`text-destructive hover:text-destructive hover:bg-destructive/10 ${!canDelete ? 'opacity-50' : ''}`}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </Button>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { DateUtils } from "@/utils/DateUtils";
 import { ClipboardList, Package, Truck, Home, Trash2, CheckCircle2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -154,10 +154,10 @@ export function StatusTimeline(props) {
                                             {step.label}
                                         </span>
                                         {timestamp && (
-                                            <span className="text-[10px] font-mono text-muted-foreground mt-1">
-                                                {format(new Date(timestamp), "dd MMM yy")}
+                                            <span className="text-[10px] font-mono text-muted-foreground mt-1 text-center">
+                                                {DateUtils.format(timestamp, { day: '2-digit', month: 'short', year: '2-digit' })}
                                                 <br />
-                                                {format(new Date(timestamp), "hh:mm a")}
+                                                {DateUtils.format(timestamp, { hour: '2-digit', minute: '2-digit', hour12: true })}
                                             </span>
                                         )}
                                         {!timestamp && isActive && (

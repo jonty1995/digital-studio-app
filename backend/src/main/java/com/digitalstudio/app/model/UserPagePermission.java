@@ -26,4 +26,13 @@ public class UserPagePermission {
 
     @Column(name = "has_access", nullable = false)
     private boolean hasAccess;
+
+    @Column(name = "can_add", nullable = false)
+    private boolean canAdd;
+
+    @Column(name = "can_edit", nullable = false)
+    private boolean canEdit;
+
+    @Column(name = "can_delete", nullable = false)
+    private boolean canDelete;
 }

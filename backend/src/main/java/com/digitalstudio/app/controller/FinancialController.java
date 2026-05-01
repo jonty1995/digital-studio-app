@@ -45,9 +45,9 @@ public class FinancialController {
         return org.springframework.http.ResponseEntity.ok().build();
     }
 
-    @GetMapping("/accounts/{id}/unbilled")
-    public Double getUnbilledAmount(@PathVariable UUID id) {
-        return financialService.getUnbilledAmount(id);
+    @GetMapping("/accounts/{id}/balance")
+    public Double getAccountBalance(@PathVariable UUID id) {
+        return financialService.getAccountBalance(id);
     }
 
     // Transactions
@@ -130,5 +130,19 @@ public class FinancialController {
     @PutMapping("/transactions/{id}/link-account")
     public FinancialTransaction linkToAccount(@PathVariable UUID id, @RequestParam(required = false) UUID accountId) {
         return financialService.linkTransactionToAccount(id, accountId);
+    }
+
+    @lombok.Data
+    public static class TransferRequest {
+        private UUID fromAccountId;
+        private UUID toAccountId;
+        private Double amount;
+        private String description;
+    }
+
+    @PostMapping("/transactions/transfer")
+    public org.springframework.http.ResponseEntity<Void> recordTransfer(@RequestBody TransferRequest request) {
+        financialService.recordTransfer(request.getFromAccountId(), request.getToAccountId(), request.getAmount(), request.getDescription());
+        return org.springframework.http.ResponseEntity.ok().build();
     }
 }

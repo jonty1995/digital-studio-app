@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @RestController
@@ -24,7 +25,7 @@ public class AuditController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(required = false) List<String> entityTypes) {
 
-        if (startDate == null) startDate = LocalDateTime.now().minusDays(30);
+        if (startDate == null) startDate = LocalDateTime.now().minus(30, ChronoUnit.DAYS);
         if (endDate == null) endDate = LocalDateTime.now();
 
         List<AuditLog> logs;

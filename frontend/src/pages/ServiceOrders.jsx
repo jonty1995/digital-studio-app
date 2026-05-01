@@ -12,6 +12,7 @@ import { OrderStatus } from "@/components/shared/OrderStatus";
 import { StatusTimeline } from "@/components/shared/StatusTimeline";
 import { FileThumbnail } from "@/components/shared/FileThumbnail";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { DateUtils } from "@/utils/DateUtils";
 
 export default function ServiceOrders() {
     const [orders, setOrders] = useState([]);
@@ -25,7 +26,7 @@ export default function ServiceOrders() {
     // Filters
     // Initialize dateRange with Today (YYYY-MM-DD)
     const [dateRange, setDateRange] = useState(() => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = DateUtils.formatForInput(new Date());
         return { start: today, end: today };
     });
     const [searchQuery, setSearchQuery] = useState("");
@@ -224,7 +225,9 @@ export default function ServiceOrders() {
                                                 className={`group transition-colors ${isExpanded ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-muted/30 border-l-4 border-l-transparent'}`}
                                             >
                                                 {/* Cells content remains same */}
-                                                <TableCell className={`${pClass} align-top font-medium`} onClick={() => setSelectedId(isExpanded ? null : o.id)}>{new Date(o.createdAt).toLocaleDateString()}</TableCell>
+                                                <TableCell className={`${pClass} align-top font-medium text-xs whitespace-nowrap`} onClick={() => setSelectedId(isExpanded ? null : o.id)}>
+                                                    {DateUtils.format(o.createdAt)}
+                                                </TableCell>
                                                 <TableCell className={`${pClass} align-top font-semibold text-foreground`} onClick={() => setSelectedId(isExpanded ? null : o.id)}>
                                                     {o.customer?.mobile}
                                                 </TableCell>

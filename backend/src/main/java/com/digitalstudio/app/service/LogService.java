@@ -7,7 +7,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,7 +40,7 @@ public class LogService {
     }
 
     public void addLog(String level, String message, String thread) {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+        String timestamp = LocalDateTime.now().toString();
         LogEntry entry = new LogEntry(timestamp, level, message, thread);
 
         logBuffer.offerLast(entry);

@@ -54,7 +54,8 @@ public class FileCleanupService {
         // Remove from Queue
         fileDeleteQueueRepository.deleteByUploadId(upload.getUploadId());
 
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yy HH:mm"));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm");
+        String timestamp = formatter.format(LocalDateTime.now());
         String userRemark = (remarks != null && !remarks.trim().isEmpty()) ? "\nRemark : " + remarks : "";
 
         // Replaced logic as per requirement
@@ -115,7 +116,7 @@ public class FileCleanupService {
             if (days < 0)
                 return;
 
-            LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+            LocalDateTime cutoff = LocalDateTime.now().minus(days, java.time.temporal.ChronoUnit.DAYS);
 
             // Find bill payments older than cutoff and NOT deleted
             List<Upload> toSoftDelete = uploadRepository.findAll().stream()
@@ -145,7 +146,8 @@ public class FileCleanupService {
             fileDeleteQueueRepository.save(queueEntry);
         }
 
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yy HH:mm"));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm");
+        String timestamp = formatter.format(LocalDateTime.now());
         String remarkContent = (userRemarks != null && !userRemarks.trim().isEmpty()) ? "\nRemark : " + userRemarks
                 : "";
 
@@ -162,7 +164,7 @@ public class FileCleanupService {
 
         try {
             int days = Integer.parseInt(durationStr.trim());
-            LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+            LocalDateTime cutoff = LocalDateTime.now().minus(days, java.time.temporal.ChronoUnit.DAYS);
 
             logger.info("DEBUG: Hard Delete Check Running");
             logger.info("DEBUG: Configured Days: " + days);
@@ -216,7 +218,8 @@ public class FileCleanupService {
         upload.setIsAvailable(false); // Flag as removed/unavailable
         // upload.setUploadPath(null); // Retain path as per user request
 
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yy HH:mm"));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm");
+        String timestamp = formatter.format(LocalDateTime.now());
         String appendRemark = String.format("\nFile removed on %s", timestamp);
 
         // Append instead of replace for Hard Delete

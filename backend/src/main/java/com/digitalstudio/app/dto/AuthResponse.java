@@ -13,7 +13,9 @@ import java.util.List;
 @NoArgsConstructor
 public class AuthResponse {
     private String token;
+    private Long id;
     private String username;
     private String role;
-    private List<String> permissions; // list of pagePaths they have access to
+    private List<String> permissions;
+    private List<com.digitalstudio.app.model.UserPagePermission> pagePermissions;
 }

@@ -332,8 +332,8 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
                 <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} />
 
                 <div className="flex justify-end gap-3 mt-4">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSave}>Save Transfer</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" onClick={handleSave}>Save Transfer</Button>
                 </div>
 
                 <SimpleAlert

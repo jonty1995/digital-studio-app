@@ -43,4 +43,10 @@ public class PhotoItem {
 
     @Column(name = "instant_customer_price")
     private Double instantCustomerPrice;
+
+    @Column(name = "has_regular")
+    private Boolean hasRegular = true;
+
+    @Column(name = "has_instant")
+    private Boolean hasInstant = true;
 }

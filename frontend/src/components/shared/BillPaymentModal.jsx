@@ -489,8 +489,8 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                 />
 
                 <div className="flex justify-end gap-3 mt-4">
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={handleSaveTransaction}>Save Transaction</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" onClick={handleSaveTransaction}>Save Transaction</Button>
                 </div>
 
                 <SimpleAlert

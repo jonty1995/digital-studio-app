@@ -55,6 +55,9 @@ public class UserController {
             UserPagePermission existingPerm = existingMap.get(newPerm.getPagePath());
             if (existingPerm != null) {
                 existingPerm.setHasAccess(newPerm.isHasAccess());
+                existingPerm.setCanAdd(newPerm.isCanAdd());
+                existingPerm.setCanEdit(newPerm.isCanEdit());
+                existingPerm.setCanDelete(newPerm.isCanDelete());
                 permissionRepository.save(existingPerm);
             } else {
                 permissionRepository.save(newPerm);

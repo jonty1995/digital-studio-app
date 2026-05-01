@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export default function MoneyTransfer() {
 
     // Initialize dateRange with Today (YYYY-MM-DD)
     const [dateRange, setDateRange] = useState(() => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = DateUtils.formatForInput(new Date());
         return { start: today, end: today };
     });
     const [searchQuery, setSearchQuery] = useState("");
@@ -337,7 +337,9 @@ export default function MoneyTransfer() {
                                             onDragOver={(e) => e.preventDefault()}
                                             onDrop={(e) => handleRowDrop(e, t)}
                                         >
-                                            <TableCell className={`${pClass} align-middle font-medium`}>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                                            <TableCell className={`${pClass} align-middle font-medium text-xs whitespace-nowrap`}>
+                                                {DateUtils.format(t.createdAt)}
+                                            </TableCell>
                                             <TableCell className={`${pClass} align-middle`}><Badge variant="outline">{t.transferType}</Badge></TableCell>
                                             <TableCell className={`${pClass} align-middle`}>
                                                 <div className="flex items-center gap-1 group/cid">

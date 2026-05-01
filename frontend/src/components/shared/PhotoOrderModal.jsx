@@ -210,35 +210,47 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
         }
 
         // --- BUCKETING LOGIC ---
-        // 1. Group by Manual Group ID (if user used Drag & Drop)
-        const groups = {};
+        const manualGroups = {};
         items.forEach(item => {
             const gId = item.groupId || 1;
-            if (!groups[gId]) groups[gId] = [];
-            groups[gId].push(item);
+            if (!manualGroups[gId]) manualGroups[gId] = [];
+            manualGroups[gId].push(item);
         });
 
-        const manualGroupIds = Object.keys(groups);
-
         const buckets = [];
+        Object.keys(manualGroups).sort().forEach(gId => {
+            const groupItems = manualGroups[gId];
+            const instantItems = groupItems.filter(i => i.isInstant);
+            const regularItems = groupItems.filter(i => !i.isInstant);
 
-        if (manualGroupIds.length > 1) {
-            // User manually grouped items -> Honor that structure exactly
-            manualGroupIds.sort().forEach(gId => {
+            const groupLabel = gId === '1' ? "Main Order" : `Split Order #${gId}`;
+
+            if (instantItems.length > 0 && regularItems.length > 0) {
+                // Mixed Group -> Auto-Split within manual group
                 buckets.push({
-                    label: gId === '1' ? "Main Order" : `Split Order #${gId}`,
-                    items: groups[gId],
-                    type: "manual"
+                    label: `${groupLabel} (Instant)`,
+                    items: instantItems,
+                    type: "instant"
                 });
-            });
-        } else {
-            // No manual groups -> Apply Default Auto-Split (Instant vs Regular)
-            const instantItems = items.filter(i => i.isInstant);
-            const regularItems = items.filter(i => !i.isInstant);
-
-            if (instantItems.length > 0) buckets.push({ label: "Instant", items: instantItems, type: "instant" });
-            if (regularItems.length > 0) buckets.push({ label: "Regular", items: regularItems, type: "regular" });
-        }
+                buckets.push({
+                    label: `${groupLabel} (Regular)`,
+                    items: regularItems,
+                    type: "regular"
+                });
+            } else if (instantItems.length > 0) {
+                buckets.push({
+                    label: groupLabel,
+                    items: instantItems,
+                    type: "instant"
+                });
+            } else {
+                buckets.push({
+                    label: groupLabel,
+                    items: regularItems,
+                    type: "regular"
+                });
+            }
+        });
 
         // --- SPLIT LOGIC ---
         // Allow splitting even in Edit Mode (editOrder is present)
@@ -308,7 +320,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 };
             });
 
-            onSave(splitOrders);
+            await onSave(splitOrders);
 
         } else {
             // --- NORMAL LOGIC (Single Order) ---
@@ -321,7 +333,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                 image: (finalUploadId && finalUploadId instanceof File) ? finalUploadId.name : finalUploadId,
                 status: editOrder ? editOrder.status : 'Pending'
             };
-            onSave(newOrder);
+            await onSave(newOrder);
         }
         onClose();
     };
@@ -376,8 +388,8 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
             </div>
 
             <div className="border-t p-4 flex justify-end gap-2 bg-muted/50 rounded-b-lg">
-                <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button onClick={handleSave}>Save Order</Button>
+                <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                <Button type="button" onClick={handleSave}>Save Order</Button>
             </div>
             <SimpleAlert
                 open={alertState.open}

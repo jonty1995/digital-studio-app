@@ -34,7 +34,11 @@ public class FinancialService {
     }
 
     public List<FinancialAccount> getAllAccounts() {
-        return accountRepository.findAll();
+        List<FinancialAccount> accounts = accountRepository.findAll();
+        for (FinancialAccount acc : accounts) {
+            acc.setHasTransactions(transactionRepository.existsByAccountId(acc.getId()));
+        }
+        return accounts;
     }
 
     public FinancialAccount saveAccount(FinancialAccount account) {
@@ -58,18 +62,18 @@ public class FinancialService {
         return transactionRepository.findAll(effectiveSpec, pageable);
     }
 
-    public Double getUnbilledAmount(UUID accountId) {
+    public Double getAccountBalance(UUID accountId) {
         FinancialAccount account = accountRepository.findById(accountId).orElse(null);
-        if (account == null || account.getAccountType() != AccountType.CREDIT_CARD)
-            return 0.0;
+        if (account == null) return 0.0;
 
-        LocalDateTime since = account.getLastRepaymentDate();
-        // If never repaid, we sum all debits.
-        // If repaid, we sum all debits AFTER the last repayment date.
+        // Balance = Total CREDIT - Total DEBIT for ALL accounts
         return transactionRepository.findAll().stream()
                 .filter(t -> accountId.equals(t.getAccountId()))
-                .filter(t -> since == null || t.getTimestamp().isAfter(since))
-                .mapToDouble(FinancialTransaction::getAmount)
+                .mapToDouble(t -> {
+                    if ("CREDIT".equalsIgnoreCase(t.getType())) return t.getAmount();
+                    if ("DEBIT".equalsIgnoreCase(t.getType())) return -t.getAmount();
+                    return 0.0;
+                })
                 .sum();
     }
 
@@ -84,7 +88,7 @@ public class FinancialService {
         FinancialAccount account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new RuntimeException("Account not found"));
 
-        Double unbilled = getUnbilledAmount(accountId);
+        Double unbilled = getAccountBalance(accountId);
 
         if (unbilled > 0) {
             FinancialTransaction repaymentTxn = new FinancialTransaction();
@@ -148,5 +152,43 @@ public class FinancialService {
         summary.put("totalBankTransfer", bankTotal);
         summary.put("totalCard", cardTotal);
         return summary;
+    }
+
+    public void recordTransfer(UUID fromAccountId, UUID toAccountId, Double amount, String description) {
+        FinancialAccount fromAccount = accountRepository.findById(fromAccountId)
+                .orElseThrow(() -> new IllegalArgumentException("From account not found"));
+        FinancialAccount toAccount = accountRepository.findById(toAccountId)
+                .orElseThrow(() -> new IllegalArgumentException("To account not found"));
+
+        if (amount == null || amount <= 0) {
+            throw new IllegalArgumentException("Transfer amount must be greater than zero");
+        }
+
+        if (fromAccount.getAccountType() != AccountType.CREDIT_CARD) {
+            Double balance = getAccountBalance(fromAccountId);
+            if (balance < amount) {
+                throw new IllegalArgumentException("Insufficient balance in source account. Available: " + balance);
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        FinancialTransaction credit = new FinancialTransaction();
+        credit.setAccountId(toAccountId);
+        credit.setAmount(amount);
+        credit.setType("CREDIT");
+        credit.setCategory("TRANSFER");
+        credit.setDescription("Transfer to " + toAccount.getName() + (description != null && !description.isEmpty() ? " - " + description : ""));
+        credit.setTimestamp(now);
+        transactionRepository.save(credit);
+
+        FinancialTransaction debit = new FinancialTransaction();
+        debit.setAccountId(fromAccountId);
+        debit.setAmount(amount);
+        debit.setType("DEBIT");
+        debit.setCategory("TRANSFER");
+        debit.setDescription("Transfer from " + fromAccount.getName() + (description != null && !description.isEmpty() ? " - " + description : ""));
+        debit.setTimestamp(now.plusNanos(1000)); // ensure debit appears first if sorted by timestamp desc
+        transactionRepository.save(debit);
     }
 }

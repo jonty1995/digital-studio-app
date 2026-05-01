@@ -3,7 +3,7 @@ import { financialService } from "../../services/financialService";
 import { Plus, Trash2, CreditCard as CardIcon, RotateCcw } from "lucide-react";
 import { Button } from "../ui/button";
 
-export function AccountConfig({ showAlert }) {
+export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingAccount, setEditingAccount] = useState(null);
@@ -26,6 +26,10 @@ export function AccountConfig({ showAlert }) {
     };
 
     const handleSave = async () => {
+        if (!canAdd) {
+            showAlert("Permission Denied", "You do not have permission to add accounts.");
+            return;
+        }
         if (!newAccount.name) return showAlert("Validation", "Account name is required.");
 
         try {
@@ -39,6 +43,10 @@ export function AccountConfig({ showAlert }) {
     };
 
     const handleDelete = async (id) => {
+        if (!canDelete) {
+            showAlert("Permission Denied", "You do not have permission to delete accounts.");
+            return;
+        }
         if (!window.confirm("Are you sure you want to delete this account?")) return;
         try {
             await financialService.deleteAccount(id);
@@ -49,6 +57,10 @@ export function AccountConfig({ showAlert }) {
     };
 
     const handleReset = async (id) => {
+        if (!canEdit) {
+            showAlert("Permission Denied", "You do not have permission to reset statements.");
+            return;
+        }
         if (!window.confirm("This will reset the unbilled amount and mark the current cycle as paid. Proceed?")) return;
         try {
             await financialService.markAccountAsPaid(id);
@@ -61,7 +73,7 @@ export function AccountConfig({ showAlert }) {
 
     return (
         <div className="space-y-6">
-            <div className="bg-card border rounded-lg p-4 space-y-4">
+            <div className={`bg-card border rounded-lg p-4 space-y-4 ${!canAdd ? 'opacity-50' : ''}`}>
                 <h3 className="text-sm font-medium flex items-center gap-2">
                     <Plus className="w-4 h-4" />
                     Add New Account
@@ -125,7 +137,7 @@ export function AccountConfig({ showAlert }) {
                                     {account.accountType === "CREDIT_CARD" && (
                                         <button
                                             onClick={() => handleReset(account.id)}
-                                            className="p-1.5 hover:bg-muted rounded text-blue-500"
+                                            className={`p-1.5 hover:bg-muted rounded text-blue-500 ${!canEdit ? 'opacity-50' : ''}`}
                                             title="Mark as Paid / Reset Statement"
                                         >
                                             <RotateCcw className="w-4 h-4" />
@@ -133,7 +145,7 @@ export function AccountConfig({ showAlert }) {
                                     )}
                                     <button
                                         onClick={() => handleDelete(account.id)}
-                                        className="p-1.5 hover:bg-destructive/10 rounded text-destructive"
+                                        className={`p-1.5 hover:bg-destructive/10 rounded text-destructive ${!canDelete ? 'opacity-50' : ''}`}
                                         title="Delete Account"
                                     >
                                         <Trash2 className="w-4 h-4" />

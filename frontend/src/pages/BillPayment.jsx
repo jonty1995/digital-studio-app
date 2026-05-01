@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import {
     Table,
     TableBody,
@@ -60,7 +60,10 @@ export default function BillPayment() {
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     // Initialize date range with Today (YYYY-MM-DD)
-    const [dateRange, setDateRange] = useState({ start: "", end: "" });
+    const [dateRange, setDateRange] = useState(() => {
+        const today = DateUtils.formatForInput(new Date());
+        return { start: today, end: today };
+    });
     const [searchQuery, setSearchQuery] = useState("");
     const abortControllerRef = useRef(null);
 
@@ -468,8 +471,8 @@ export default function BillPayment() {
                                                 onDragOver={(e) => e.preventDefault()}
                                                 onDrop={(e) => handleRowDrop(e, txn)}
                                             >
-                                                <TableCell className={`${pClass} align-middle font-medium`}>
-                                                    {new Date(txn.createdAt).toLocaleDateString()}
+                                                <TableCell className={`${pClass} align-middle font-medium text-xs whitespace-nowrap`}>
+                                                    {DateUtils.format(txn.createdAt)}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>
                                                     <Badge variant="outline">{txn.transactionType}</Badge>

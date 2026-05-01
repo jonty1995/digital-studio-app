@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Pause, Play, Download, Search, Clock, BarChart3, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { configurationService } from "@/services/configurationService";
-import { format, subMinutes, isAfter } from "date-fns";
+import { subMinutes, isAfter } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 
 export default function SystemLogs() {
     const [logs, setLogs] = useState([]);
@@ -57,13 +58,20 @@ export default function SystemLogs() {
 
         sse.onopen = () => setIsConnected(true);
 
+        const normalizeLog = (log) => {
+            if (log.timestamp) {
+                log.timestamp = DateUtils.toDate(log.timestamp);
+            }
+            return log;
+        };
+
         sse.addEventListener("history", (e) => {
-            const history = JSON.parse(e.data);
+            const history = JSON.parse(e.data).map(normalizeLog);
             setLogs(history);
         });
 
         sse.addEventListener("log", (e) => {
-            const log = JSON.parse(e.data);
+            const log = normalizeLog(JSON.parse(e.data));
             setLogs((prev) => [...prev, log].slice(-maxLogs)); // Dynamic limit
         });
 
@@ -92,7 +100,7 @@ export default function SystemLogs() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `logs_${format(new Date(), "yyyyMMdd_HHmmss")}.txt`;
+        a.download = `logs_${DateUtils.formatForInput(new Date())}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -116,7 +124,8 @@ export default function SystemLogs() {
 
             // Time Filter
             if (timeFilter !== "all") {
-                const logTime = new Date(log.timestamp.replace(" ", "T")); // Handle non-ISO format if needed
+                const logTime = DateUtils.toDate(log.timestamp);
+                if (!logTime) return true;
                 let threshold;
                 if (timeFilter === "5m") threshold = subMinutes(new Date(), 5);
                 if (timeFilter === "15m") threshold = subMinutes(new Date(), 15);
@@ -260,7 +269,7 @@ export default function SystemLogs() {
                 {filteredLogs.map((log, index) => (
                     <div key={index} className="mb-0.5 hover:bg-white/5 p-1 rounded-sm group flex items-start gap-3 transition-colors">
                         <span className="text-gray-600 shrink-0 select-none opacity-60 group-hover:opacity-100 transition-opacity">
-                            {log.timestamp.split(" ")[1] || log.timestamp}
+                            {DateUtils.formatTime(log.timestamp)}
                         </span>
                         <div className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase border shrink-0 min-w-[55px] text-center ${getLevelColor(log.level)}`}>
                             {log.level}

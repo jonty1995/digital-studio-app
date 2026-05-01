@@ -43,6 +43,7 @@ export function Modal({ isOpen, onClose, title, children, className, noBodyPaddi
                 <div className="flex items-center justify-between px-6 pt-6 pb-4">
                     <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
                     <button
+                        type="button"
                         onClick={onClose}
                         className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     >

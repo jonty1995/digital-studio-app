@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Loader2, Calendar, FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
-import { format } from "date-fns";
+import { DateUtils } from "@/utils/DateUtils";
 import * as labService from "@/services/labProcessService";
 
 export default function LabProcessLog() {
@@ -113,7 +113,7 @@ export default function LabProcessLog() {
                                     filteredLogs.map((log) => (
                                         <TableRow key={log.id} className="hover:bg-muted/30 transition-colors">
                                             <TableCell className="text-sm font-medium">
-                                                {format(new LocalDateTime(log.timestamp), "dd MMM yyyy HH:mm")}
+                                                {DateUtils.format(log.timestamp)}
                                             </TableCell>
                                             <TableCell>
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${log.action === 'Mailed' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
@@ -172,9 +172,4 @@ export default function LabProcessLog() {
     );
 }
 
-// Helper to handle both JS Date and Java LocalDateTime strings
-function LocalDateTime(dateTimeStr) {
-    if (!dateTimeStr) return new Date();
-    // Java LocalDateTime comes as "2023-10-27T10:30:00" or with nanoseconds
-    return new Date(dateTimeStr);
-}
+
