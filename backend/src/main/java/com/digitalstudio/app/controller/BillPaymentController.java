@@ -33,10 +33,13 @@ public class BillPaymentController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<BillPaymentTransaction> updateStatus(@PathVariable UUID id, @RequestBody String status) {
+    public ResponseEntity<BillPaymentTransaction> updateStatus(@PathVariable UUID id, @RequestBody String status,
+            @RequestParam(required = false) Double profit,
+            @RequestParam(required = false) String profitType,
+            @RequestParam(required = false) Double finalAmount) {
         // Status may be sent as plain string or JSON string, ensure it's clean
         String cleanStatus = status.replaceAll("^\"|\"$", "");
-        return ResponseEntity.ok(billPaymentService.updateStatus(id, cleanStatus));
+        return ResponseEntity.ok(billPaymentService.updateStatus(id, cleanStatus, profit, profitType, finalAmount));
     }
 
     @PutMapping("/{id}")

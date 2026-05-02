@@ -62,6 +62,7 @@ public class DatabaseAdminController {
                 case "service_orders": dbTable = "service_orders"; break;
                 case "bill_payments": dbTable = "bill_payment_transactions"; break;
                 case "money_transfers": dbTable = "money_transfers"; break;
+                case "train_bookings": dbTable = "train_bookings"; break;
                 case "financial_transactions": dbTable = "financial_transactions"; break;
                 case "uploads": dbTable = "uploads"; break;
                 case "customers": dbTable = "customers"; break;

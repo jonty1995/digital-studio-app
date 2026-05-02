@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send, Briefcase, Beaker, ShieldCheck, LogOut } from "lucide-react"
+import { LayoutDashboard, Receipt, Users, Settings, Image as ImageIcon, Folder, FileText, Send, Briefcase, Beaker, ShieldCheck, LogOut, Train } from "lucide-react"
 import { useAuth } from "../contexts/AuthContext"
 import { useState } from "react"
 import { SimpleAlert } from "./shared/SimpleAlert"
@@ -20,6 +20,7 @@ export function Sidebar() {
         { name: "Bill Payment", path: "/bill-payment", icon: Receipt },
         { name: "Money Transfer", path: "/money-transfer", icon: Send },
         { name: "Service", path: "/service-orders", icon: Briefcase },
+        { name: "Train", path: "/travel/train", icon: Train },
         { name: "Customers", path: "/customers", icon: Users },
         { name: "Financial Overview", path: "/transactions", icon: LayoutDashboard },
         { name: "Uploads", path: "/uploads", icon: Folder },

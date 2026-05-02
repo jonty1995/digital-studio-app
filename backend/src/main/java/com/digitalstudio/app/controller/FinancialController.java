@@ -94,6 +94,11 @@ public class FinancialController {
         return financialService.recordTransaction(txn);
     }
 
+    @GetMapping("/transactions/{id}")
+    public FinancialTransaction getTransaction(@PathVariable UUID id) {
+        return financialService.getTransaction(id);
+    }
+
     @GetMapping("/summary")
     public java.util.Map<String, Double> getSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

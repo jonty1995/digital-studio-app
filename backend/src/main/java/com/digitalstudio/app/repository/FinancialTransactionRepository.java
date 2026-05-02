@@ -12,4 +12,6 @@ public interface FinancialTransactionRepository
         extends JpaRepository<FinancialTransaction, UUID>, JpaSpecificationExecutor<FinancialTransaction> {
             
     boolean existsByAccountId(UUID accountId);
+    long countByAccountId(UUID accountId);
+    java.util.Optional<FinancialTransaction> findFirstByAccountIdAndDescription(UUID accountId, String description);
 }

@@ -41,9 +41,13 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
             showAlert("Permission Denied", "You do not have permission to add configuration.");
             return;
         }
-        const newIndex = values.length;
-        setValues([...values, { name: "", value: "", description: "" }]);
-        setEditingIndex(newIndex);
+        setValues([{ name: "", value: "", description: "" }, ...values]);
+        setEditingIndex(0);
+        // Scroll to top of the scrollable container
+        const scrollContainer = document.querySelector('.overflow-y-auto.max-h-\\[calc\\(100vh-260px\\)\\]');
+        if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handleDelete = (index) => {
@@ -95,14 +99,20 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center">
-                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
+                <Button 
+                    onClick={handleAdd} 
+                    size="sm" 
+                    className={`gap-2 ${(!canAdd || editingIndex !== null) ? 'opacity-50' : ''}`}
+                    disabled={!canAdd || editingIndex !== null}
+                >
                     <Plus className="w-4 h-4" /> Add Configuration
                 </Button>
             </div>
 
             <div className="rounded-md border">
+                <div className="overflow-y-auto max-h-[calc(100vh-260px)]">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                         <TableRow>
                             <TableHead className="w-[30%]">Config Name (Key)</TableHead>
                             <TableHead className="w-[30%]">Value</TableHead>
@@ -215,6 +225,7 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
                         )}
                     </TableBody>
                 </Table>
+                </div>
             </div>
 
             {/* Alert Dialog */}

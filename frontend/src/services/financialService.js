@@ -18,6 +18,7 @@ export const financialService = {
         return api.get(`/financial/summary?${query}`);
     },
     recordTransaction: (txn) => api.post("/financial/transactions", txn),
+    getTransaction: (id) => api.get(`/financial/transactions/${id}`),
     linkTransactionToAccount: (txnId, accountId) => {
         const url = accountId
             ? `/financial/transactions/${txnId}/link-account?accountId=${accountId}`

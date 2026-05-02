@@ -30,13 +30,44 @@ public class FinancialService {
         if (txn.getTimestamp() == null) {
             txn.setTimestamp(LocalDateTime.now());
         }
+
+        // Auto-link account based on payment mode if not already linked
+        if (txn.getAccountId() == null && txn.getPaymentMode() != null) {
+            String mode = txn.getPaymentMode();
+            if ("Cash".equalsIgnoreCase(mode)) {
+                accountRepository.findByAccountType(AccountType.IN_HAND).stream().findFirst()
+                        .ifPresent(acc -> txn.setAccountId(acc.getId()));
+            } else if ("UPI".equalsIgnoreCase(mode) || "Bank Transfer".equalsIgnoreCase(mode)
+                    || "BANK".equalsIgnoreCase(mode) || "Card".equalsIgnoreCase(mode)
+                    || "Customer Card".equalsIgnoreCase(mode)) {
+                accountRepository.findByAccountType(AccountType.BANK_ACCOUNT).stream().findFirst()
+                        .ifPresent(acc -> txn.setAccountId(acc.getId()));
+            }
+        }
+
         return transactionRepository.save(txn);
+    }
+
+    public FinancialTransaction getTransaction(UUID id) {
+        return transactionRepository.findById(id).orElse(null);
     }
 
     public List<FinancialAccount> getAllAccounts() {
         List<FinancialAccount> accounts = accountRepository.findAll();
         for (FinancialAccount acc : accounts) {
-            acc.setHasTransactions(transactionRepository.existsByAccountId(acc.getId()));
+            long count = transactionRepository.countByAccountId(acc.getId());
+            acc.setHasTransactions(count > 0);
+            
+            // Initial Amount logic
+            var initialTxn = transactionRepository.findFirstByAccountIdAndDescription(acc.getId(), "INITIAL_AMOUNT");
+            if (initialTxn.isPresent()) {
+                acc.setInitialTransactionId(initialTxn.get().getId());
+                // Can edit if it's the ONLY transaction
+                acc.setCanEditInitialAmount(count == 1);
+            } else {
+                // If no initial amount yet, can only add if NO transactions at all
+                acc.setCanEditInitialAmount(count == 0);
+            }
         }
         return accounts;
     }
@@ -44,6 +75,18 @@ public class FinancialService {
     public FinancialAccount saveAccount(FinancialAccount account) {
         if (account == null)
             throw new IllegalArgumentException("Account cannot be null");
+
+        // Enforce single account rule for specific types
+        if (account.getId() == null) { // Only for new accounts
+            if (account.getAccountType() == AccountType.IN_HAND
+                    || account.getAccountType() == AccountType.BANK_ACCOUNT) {
+                List<FinancialAccount> existing = accountRepository.findByAccountType(account.getAccountType());
+                if (!existing.isEmpty()) {
+                    throw new RuntimeException("Only one account of type " + account.getAccountType() + " is allowed.");
+                }
+            }
+        }
+
         return accountRepository.save(account);
     }
 

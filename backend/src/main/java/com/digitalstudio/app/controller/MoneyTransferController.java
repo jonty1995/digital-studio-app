@@ -37,9 +37,12 @@ public class MoneyTransferController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<MoneyTransfer> updateStatus(@PathVariable UUID id, @RequestBody String status) {
+    public ResponseEntity<MoneyTransfer> updateStatus(@PathVariable UUID id, @RequestBody String status,
+            @RequestParam(required = false) Double profit,
+            @RequestParam(required = false) String profitType,
+            @RequestParam(required = false) Double finalAmount) {
         String cleanStatus = status.replaceAll("^\"|\"$", "");
-        return ResponseEntity.ok(moneyTransferService.updateStatus(id, cleanStatus));
+        return ResponseEntity.ok(moneyTransferService.updateStatus(id, cleanStatus, profit, profitType, finalAmount));
     }
 
     @PutMapping("/{id}")

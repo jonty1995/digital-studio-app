@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -36,11 +37,12 @@ public class ServiceOrderController {
     }
 
     @PatchMapping("/{id}/status")
-    public ServiceOrder updateStatus(@PathVariable UUID id, @RequestBody String status) {
-        // Status might be sent as a raw string or JSON. If raw string, it might have
-        // quotes.
-        String cleanStatus = status.replace("\"", "");
-        return serviceOrderService.updateStatus(id, cleanStatus);
+    public ResponseEntity<ServiceOrder> updateStatus(@PathVariable UUID id, @RequestBody String status,
+            @RequestParam(required = false) Double profit,
+            @RequestParam(required = false) String profitType,
+            @RequestParam(required = false) Double finalAmount) {
+        String cleanStatus = status.replaceAll("^\"|\"$", "");
+        return ResponseEntity.ok(serviceOrderService.updateStatus(id, cleanStatus, profit, profitType, finalAmount));
     }
 
     @PutMapping("/{id}")

@@ -8,4 +8,5 @@ import java.util.UUID;
 
 @Repository
 public interface FinancialAccountRepository extends JpaRepository<FinancialAccount, UUID> {
+    java.util.List<FinancialAccount> findByAccountType(com.digitalstudio.app.model.AccountType accountType);
 }

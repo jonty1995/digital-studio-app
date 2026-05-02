@@ -10,6 +10,7 @@ import {
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { api } from "@/services/api";
 import { Loader2 } from "lucide-react";
+import { DoneStatusModal } from "./DoneStatusModal";
 
 // --- Static Helpers (Exported for Reuse) ---
 
@@ -24,7 +25,9 @@ export const getStatusColor = (status) => {
         case "Failed": return "bg-red-200 text-red-900 hover:bg-red-300 border-red-300";
         case "Refunded": return "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200";
         case "Discard":
-        case "Discarded": return "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200 decoration-slice line-through";
+        case "Discarded":
+        case "Cancelled": return "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200 decoration-slice line-through";
+        case "In Progress": return "bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200";
         default: return "";
     }
 };
@@ -34,10 +37,11 @@ export const getStatusColor = (status) => {
  * Returns null if manual choice is needed (e.g. Pending) or terminal state.
  */
 export const getNextAutoStatus = (status, isInstant, type = 'photo-order') => {
-    if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order') {
-        // Bill Payment usually requires choice (Done/Failed), no auto-advance on single click from Pending?
-        // Maybe Pending -> Done on single click? User asked for Left Click = Done.
-        if (status === 'Pending') return 'Done';
+    if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order' || type === 'train-booking') {
+        if (status === 'Pending') {
+            return (type === 'service-order' || type === 'train-booking') ? 'In Progress' : 'Done';
+        }
+        if ((type === 'service-order' || type === 'train-booking') && status === 'In Progress') return 'Done';
         return null;
     }
 
@@ -57,10 +61,16 @@ export const getNextAutoStatus = (status, isInstant, type = 'photo-order') => {
 export const getAvailableTransitions = (status, isInstant, type = 'photo-order') => {
     const transitions = [];
 
-    if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order') {
-        if (status === 'Pending') return ['Done', 'Failed', 'Discard'];
-        if (status === 'Failed') return ['Refunded', 'Pending'];
-        if (['Done', 'Discard', 'Discarded', 'Refunded'].includes(status)) return ['Pending'];
+    if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order' || type === 'train-booking') {
+        if (type === 'service-order' || type === 'train-booking') {
+            if (status === 'Pending') return ['In Progress', 'Cancelled'];
+            if (status === 'In Progress') return ['Done', 'Cancelled', 'Pending'];
+            if (['Done', 'Cancelled'].includes(status)) return ['Pending'];
+        } else {
+            if (status === 'Pending') return ['Done', 'Failed', 'Discard'];
+            if (status === 'Failed') return ['Refunded', 'Pending'];
+            if (['Done', 'Discard', 'Discarded', 'Refunded'].includes(status)) return ['Pending'];
+        }
     } else {
         // Photo Order
         if (status === "Pending") {
@@ -96,10 +106,18 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
     const currentStatus = order.status;
 
     const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
+    const [showDonePrompt, setShowDonePrompt] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState("");
     const [pendingStatus, setPendingStatus] = useState(null);
 
-    const handleStatusUpdate = async (newStatus, amount = null) => {
+    const handleStatusUpdate = async (newStatus, amount = null, profit = null, profitType = null, finalAmount = null) => {
+        // If transitioning to Done for financial types, prompt for profit
+        if (newStatus === 'Done' && (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order' || type === 'train-booking') && profit === null && !showDonePrompt) {
+            setPendingStatus(newStatus);
+            setShowDonePrompt(true);
+            return;
+        }
+
         // If transitioning to Delivered and there's a due amount, prompt for payment if not already provided
         if (newStatus === 'Delivered' && order.payment?.dueAmount > 0 && amount === null && !showPaymentPrompt) {
             setPendingStatus(newStatus);
@@ -122,8 +140,9 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
         try {
             let updatedOrder;
             if (updateFn) {
-                // Use provided update function (Bill Payment)
-                updatedOrder = await updateFn(order.id || order.paymentId, newStatus);
+                // Use provided update function (Bill Payment / Money Transfer)
+                // We pass profit if available
+                updatedOrder = await updateFn(order.id || order.paymentId, newStatus, profit, profitType, finalAmount);
             } else {
                 // Default API call (Photo Order)
                 // Backend expects @RequestParam, so we pass it in the URL query string
@@ -138,6 +157,7 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
             setIsDropdownOpen(false);
             setShowRollbackAlert(false);
             setShowPaymentPrompt(false);
+            setShowDonePrompt(false);
             setPendingStatus(null);
         } catch (error) {
             console.error("Failed to update status", error);
@@ -159,7 +179,7 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
 
         // Pending -> Specific Next State logic
         if (currentStatus === "Pending") {
-            if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order') {
+            if (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order' || type === 'train-booking') {
                 handleStatusUpdate("Done");
             } else {
                 // Photo Order
@@ -210,7 +230,7 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
                                     handleStatusUpdate(status);
                                 }
                             }}
-                            className={status === 'Discard' || status === 'Failed' ? 'text-destructive focus:text-destructive' : ''}
+                            className={['Discard', 'Failed', 'Cancelled'].includes(status) ? 'text-destructive focus:text-destructive' : ''}
                         >
                             Mark as {status}
                         </DropdownMenuItem>
@@ -252,6 +272,16 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
                     } else {
                         handleStatusUpdate(pendingStatus, amount);
                     }
+                }}
+            />
+
+            <DoneStatusModal
+                isOpen={showDonePrompt}
+                onClose={() => setShowDonePrompt(false)}
+                totalAmount={order.payment?.totalAmount || order.amount || 0}
+                defaultProfitType={type === 'money-transfer' ? 'Additional' : 'Included'}
+                onConfirm={(profit, profitType, finalAmount) => {
+                    handleStatusUpdate(pendingStatus, null, profit, profitType, finalAmount);
                 }}
             />
         </>

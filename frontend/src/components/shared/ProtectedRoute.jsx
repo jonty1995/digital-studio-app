@@ -20,10 +20,10 @@ export default function ProtectedRoute({ children, path }) {
   }
 
   // If a specific path is being requested (like /photo-orders)
-  // Check if they have permission, OR if they are an admin.
-  // We actually seeded the permission table, so checking the permissions array is sufficient.
-  if (path && !permissions.includes(path)) {
-     const firstAvailablePath = permissions.length > 0 ? permissions[0] : "/unauthorized";
+  // Check if they have permission via the context (handles ADMIN bypass and pagePermissions logic)
+  const { hasPermission } = useAuth();
+  if (path && !hasPermission(path)) {
+     const firstAvailablePath = permissions.length > 0 ? permissions[0] : "/photo-orders";
      return <Navigate to={firstAvailablePath} replace />;
   }
 

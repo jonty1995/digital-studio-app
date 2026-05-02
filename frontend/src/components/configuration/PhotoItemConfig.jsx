@@ -48,13 +48,16 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
             regularCustomerPrice: 0,
             instantBasePrice: 0,
             instantCustomerPrice: 0,
-            hasRegular: true,
-            hasInstant: true
+            hasRegular: false,
+            hasInstant: false
         };
-        setItems([...items, newItem]);
+        setItems([newItem, ...items]);
         setEditingId(newId);
-        // Scroll to bottom
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+        // Scroll to top of the scrollable container
+        const scrollContainer = document.querySelector('.overflow-y-auto.max-h-\\[calc\\(100vh-260px\\)\\]');
+        if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handleChange = (id, field, value) => {
@@ -153,22 +156,28 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center">
-                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
+                <Button 
+                    onClick={handleAdd} 
+                    size="sm" 
+                    className={`gap-2 ${(!canAdd || editingId !== null) ? 'opacity-50' : ''}`}
+                    disabled={!canAdd || editingId !== null}
+                >
                     <Plus className="w-4 h-4" /> Add Item
                 </Button>
             </div>
 
             <div className="rounded-md border">
+                <div className="overflow-y-auto max-h-[calc(100vh-260px)]">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                         <TableRow>
                             <TableHead className="w-[180px]">Item Name</TableHead>
-                            <TableHead className="text-center w-[80px]">Regular</TableHead>
-                            <TableHead className="text-right">Reg. Base</TableHead>
-                            <TableHead className="text-right">Reg. Cust.</TableHead>
-                            <TableHead className="text-center w-[80px]">Instant</TableHead>
-                            <TableHead className="text-right">Inst. Base</TableHead>
-                            <TableHead className="text-right">Inst. Cust.</TableHead>
+                            <TableHead className="text-center w-[80px] bg-blue-50 text-blue-700 border-x border-blue-100">Regular</TableHead>
+                            <TableHead className="text-right bg-blue-50 text-blue-700">Base Price</TableHead>
+                            <TableHead className="text-right bg-blue-50 text-blue-700 border-r border-blue-100">Customer Price</TableHead>
+                            <TableHead className="text-center w-[80px] bg-amber-50 text-amber-700 border-x border-amber-100">Instant</TableHead>
+                            <TableHead className="text-right bg-amber-50 text-amber-700">Base Price</TableHead>
+                            <TableHead className="text-right bg-amber-50 text-amber-700 border-r border-amber-100">Customer Price</TableHead>
                             <TableHead className="text-right w-[100px]">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -200,7 +209,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                                             )}
                                         </TableCell>
                                         {/* Regular Checkbox */}
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center bg-blue-50/60 border-x border-blue-100">
                                             <div className="flex justify-center">
                                                 <Checkbox
                                                     checked={hasRegular}
@@ -209,7 +218,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                                                 />
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="bg-blue-50/60">
                                             {isEditing ? (
                                                 <Input
                                                     type="number"
@@ -224,7 +233,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                                                 <div className={`text-right ${!hasRegular ? 'opacity-20' : ''}`}>{item.regularBasePrice}</div>
                                             )}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="bg-blue-50/60 border-r border-blue-100">
                                             {isEditing ? (
                                                 <Input
                                                     type="number"
@@ -240,7 +249,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                                             )}
                                         </TableCell>
                                         {/* Instant Checkbox */}
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center bg-amber-50/60 border-x border-amber-100">
                                             <div className="flex justify-center">
                                                 <Checkbox
                                                     checked={hasInstant}
@@ -249,7 +258,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                                                 />
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="bg-amber-50/60">
                                             {isEditing ? (
                                                 <Input
                                                     type="number"
@@ -264,7 +273,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                                                 <div className={`text-right ${!hasInstant ? 'opacity-20' : ''}`}>{item.instantBasePrice}</div>
                                             )}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="bg-amber-50/60 border-r border-amber-100">
                                             {isEditing ? (
                                                 <Input
                                                     type="number"
@@ -336,6 +345,7 @@ export function PhotoItemConfig({ canAdd, canEdit, canDelete }) {
                         )}
                     </TableBody>
                 </Table>
+                </div>
             </div>
 
             <SimpleAlert

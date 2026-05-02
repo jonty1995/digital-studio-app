@@ -486,6 +486,7 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                     setPayment={setPayment}
                     minAdvance={payment.total}
                     allowCommission={true}
+                    hideModes={["Card"]}
                 />
 
                 <div className="flex justify-end gap-3 mt-4">

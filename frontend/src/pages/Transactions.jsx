@@ -35,7 +35,7 @@ export default function Transactions() {
 
     const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
 
-    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "MISC"];
+    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "Other"];
 
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
@@ -154,58 +154,60 @@ export default function Transactions() {
                 </div>
 
                 {/* Filters (Active in both tabs) */}
-                <div className="bg-card border rounded-xl p-4 flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border">
-                        <Filter className="w-4 h-4 text-muted-foreground" />
-                        <select
-                            className="bg-transparent text-sm font-medium focus:outline-none"
-                            value={filters.type}
-                            onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                        >
-                            <option value="">All Types</option>
-                            <option value="CREDIT">Collections (Credit)</option>
-                            <option value="DEBIT">Expenses (Debit)</option>
-                        </select>
-                    </div>
+                <div className="bg-card border rounded-xl p-4 flex flex-col lg:flex-row lg:items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg border">
+                            <Filter className="w-4 h-4 text-muted-foreground" />
+                            <select
+                                className="bg-transparent text-sm font-medium focus:outline-none"
+                                value={filters.type}
+                                onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                            >
+                                <option value="">All Types</option>
+                                <option value="CREDIT">Collections (Credit)</option>
+                                <option value="DEBIT">Expenses (Debit)</option>
+                            </select>
+                        </div>
 
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="h-9 gap-2 bg-muted border font-normal text-muted-foreground">
-                                <LayoutDashboard className="h-4 w-4" />
-                                {filters.categories.length === 0 ? "All Categories" : "Categories"}
-                                {filters.categories.length > 0 && (
-                                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                                        {filters.categories.length} Active
-                                    </Badge>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-4">
-                            <div className="space-y-3">
-                                <h4 className="font-medium text-sm text-muted-foreground pb-2 border-b">Filter by Category</h4>
-                                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                                    {CATEGORIES.map(category => (
-                                        <label key={category} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
-                                            <input
-                                                type="checkbox"
-                                                checked={filters.categories.includes(category)}
-                                                onChange={() => {
-                                                    setFilters(prev => ({
-                                                        ...prev,
-                                                        categories: prev.categories.includes(category)
-                                                            ? prev.categories.filter(c => c !== category)
-                                                            : [...prev.categories, category]
-                                                    }));
-                                                }}
-                                                className="w-4 h-4 rounded border-input"
-                                            />
-                                            <span className="truncate" title={category}>{category}</span>
-                                        </label>
-                                    ))}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="h-9 gap-2 bg-muted border font-normal text-muted-foreground">
+                                    <LayoutDashboard className="h-4 w-4" />
+                                    {filters.categories.length === 0 ? "All Categories" : "Categories"}
+                                    {filters.categories.length > 0 && (
+                                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                                            {filters.categories.length} Active
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-4">
+                                <div className="space-y-3">
+                                    <h4 className="font-medium text-sm text-muted-foreground pb-2 border-b">Filter by Category</h4>
+                                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                        {CATEGORIES.map(category => (
+                                            <label key={category} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={filters.categories.includes(category)}
+                                                    onChange={() => {
+                                                        setFilters(prev => ({
+                                                            ...prev,
+                                                            categories: prev.categories.includes(category)
+                                                                ? prev.categories.filter(c => c !== category)
+                                                                : [...prev.categories, category]
+                                                        }));
+                                                    }}
+                                                    className="w-4 h-4 rounded border-input"
+                                                />
+                                                <span className="truncate" title={category}>{category}</span>
+                                            </label>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
 
                     <div className="flex-1"></div>
 

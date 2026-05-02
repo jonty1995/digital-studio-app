@@ -41,10 +41,13 @@ export function AddonConfig({ canAdd, canEdit, canDelete }) {
         }
         const newId = Date.now();
         const newAddon = { id: newId, name: "" };
-        setAddons([...addons, newAddon]);
+        setAddons([newAddon, ...addons]);
         setEditingId(newId);
-        // Scroll to bottom
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+        // Scroll to top of the scrollable container
+        const scrollContainer = document.querySelector('.overflow-y-auto.max-h-\\[calc\\(100vh-260px\\)\\]');
+        if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handleChange = (id, value) => {
@@ -129,14 +132,20 @@ export function AddonConfig({ canAdd, canEdit, canDelete }) {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center max-w-lg">
-                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
+                <Button 
+                    onClick={handleAdd} 
+                    size="sm" 
+                    className={`gap-2 ${(!canAdd || editingId !== null) ? 'opacity-50' : ''}`}
+                    disabled={!canAdd || editingId !== null}
+                >
                     <Plus className="w-4 h-4" /> Add Addon
                 </Button>
             </div>
 
             <div className="rounded-md border max-w-lg">
+                <div className="overflow-y-auto max-h-[calc(100vh-260px)]">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                         <TableRow>
                             <TableHead>Addon Name</TableHead>
                             <TableHead className="text-right w-[100px]">Action</TableHead>
@@ -222,6 +231,7 @@ export function AddonConfig({ canAdd, canEdit, canDelete }) {
                         )}
                     </TableBody>
                 </Table>
+                </div>
             </div>
 
             <SimpleAlert

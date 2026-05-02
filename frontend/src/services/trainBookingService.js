@@ -1,6 +1,6 @@
 import { api } from "./api";
 
-export const serviceOrderService = {
+export const trainBookingService = {
     getAll: async (params, signal) => {
         const query = new URLSearchParams();
         if (params.page !== undefined) query.append("page", params.page);
@@ -8,28 +8,30 @@ export const serviceOrderService = {
         if (params.startDate) query.append("startDate", params.startDate);
         if (params.endDate) query.append("endDate", params.endDate);
         if (params.search) query.append("search", params.search);
-        if (params.services && params.services.length > 0) {
-            params.services.forEach(service => query.append("services", service));
-        }
 
-        return await api.get(`/service-orders?${query.toString()}`, { signal });
+        return await api.get(`/train-bookings?${query.toString()}`, { signal });
     },
 
-    create: async (order) => {
-        return await api.post(`/service-orders`, order);
+    create: async (booking) => {
+        return await api.post(`/train-bookings`, booking);
     },
 
     updateStatus: async (id, status, profit, profitType, finalAmount) => {
         const query = new URLSearchParams();
+        query.append("status", status);
         if (profit !== undefined && profit !== null) query.append("profit", profit);
         if (profitType !== undefined && profitType !== null) query.append("profitType", profitType);
         if (finalAmount !== undefined && finalAmount !== null) query.append("finalAmount", finalAmount);
         
-        const url = `/service-orders/${id}/status${query.toString() ? `?${query.toString()}` : ""}`;
-        return await api.patch(url, status);
+        const url = `/train-bookings/${id}/status?${query.toString()}`;
+        return await api.patch(url);
     },
 
     update: async (id, data) => {
-        return await api.put(`/service-orders/${id}`, data);
+        return await api.patch(`/train-bookings/${id}`, data);
+    },
+    
+    getSuggestions: async (mobile) => {
+        return await api.get(`/train-bookings/suggestions?mobile=${mobile}`);
     }
 };

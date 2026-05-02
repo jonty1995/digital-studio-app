@@ -19,8 +19,17 @@ export const billPaymentService = {
         return await api.post(`/bill-payments`, transaction);
     },
 
-    updateStatus: async (id, status) => {
-        return await api.patch(`/bill-payments/${id}/status`, status);
+    updateStatus: async (id, status, profit = null, profitType = null, finalAmount = null) => {
+        let url = `/bill-payments/${id}/status`;
+        const params = new URLSearchParams();
+        if (profit !== null) params.append("profit", profit);
+        if (profitType !== null) params.append("profitType", profitType);
+        if (finalAmount !== null) params.append("finalAmount", finalAmount);
+        
+        const queryString = params.toString();
+        if (queryString) url += `?${queryString}`;
+        
+        return await api.patch(url, status);
     },
 
     update: async (id, data) => {

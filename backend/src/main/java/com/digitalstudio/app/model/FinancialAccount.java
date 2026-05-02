@@ -27,4 +27,10 @@ public class FinancialAccount {
     
     @Transient
     private Boolean hasTransactions;
+
+    @Transient
+    private UUID initialTransactionId;
+
+    @Transient
+    private Boolean canEditInitialAmount;
 }

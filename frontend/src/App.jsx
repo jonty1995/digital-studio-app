@@ -10,6 +10,7 @@ import Configuration from "./pages/Configuration"
 import BillPayment from "./pages/BillPayment"
 import MoneyTransfer from "./pages/MoneyTransfer"
 import ServiceOrders from "./pages/ServiceOrders"
+import TrainBookings from "./pages/TrainBookings"
 import SystemLogs from "./pages/SystemLogs"
 
 import Customers from "./pages/Customers"
@@ -38,6 +39,7 @@ function App() {
               <Route path="bill-payment" element={<ProtectedRoute path="/bill-payment"><BillPayment /></ProtectedRoute>} />
               <Route path="money-transfer" element={<ProtectedRoute path="/money-transfer"><MoneyTransfer /></ProtectedRoute>} />
               <Route path="service-orders" element={<ProtectedRoute path="/service-orders"><ServiceOrders /></ProtectedRoute>} />
+              <Route path="travel/train" element={<ProtectedRoute path="/travel/train"><TrainBookings /></ProtectedRoute>} />
               <Route path="lab-photo-process" element={<ProtectedRoute path="/lab-photo-process"><LabPhotoProcess /></ProtectedRoute>} />
               <Route path="customers" element={<ProtectedRoute path="/customers"><Customers /></ProtectedRoute>} />
               <Route path="uploads" element={<ProtectedRoute path="/uploads"><Uploads /></ProtectedRoute>} />

@@ -36,6 +36,9 @@ public class MoneyTransferService {
     @Autowired
     private FinancialService financialService;
 
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     public Page<MoneyTransfer> getAllTransfers(LocalDate startDate, LocalDate endDate,
             String search, List<String> types, int page, int size) {
         Specification<MoneyTransfer> spec = (root, query, cb) -> {
@@ -104,6 +107,22 @@ public class MoneyTransferService {
             }
         }
 
+        if (transfer.getStatus() == null) {
+            transfer.setStatus("Pending");
+        }
+
+        // Initialize Status History
+        try {
+            java.util.List<java.util.Map<String, Object>> history = new java.util.ArrayList<>();
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("status", transfer.getStatus());
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+            history.add(entry);
+            transfer.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error initializing status history: " + e.getMessage());
+        }
+
         MoneyTransfer saved = moneyTransferRepository.save(transfer);
 
         // Record Financial Transaction
@@ -128,12 +147,60 @@ public class MoneyTransferService {
         return moneyTransferRepository.findById(id);
     }
 
-    public MoneyTransfer updateStatus(UUID id, String status) {
+    public MoneyTransfer updateStatus(UUID id, String status, Double profit, String profitType, Double finalAmount) {
         MoneyTransfer transfer = moneyTransferRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transfer not found with id: " + id));
 
+        String oldStatus = transfer.getStatus();
+
+        // Update History
+        try {
+            java.util.List<java.util.Map<String, Object>> history;
+            if (transfer.getStatusHistoryJson() != null && !transfer.getStatusHistoryJson().isEmpty()) {
+                history = objectMapper.readValue(transfer.getStatusHistoryJson(),
+                        new com.fasterxml.jackson.core.type.TypeReference<java.util.List<java.util.Map<String, Object>>>() {
+                        });
+            } else {
+                history = new java.util.ArrayList<>();
+            }
+
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("status", status);
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+            history.add(entry);
+            transfer.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error updating status history: " + e.getMessage());
+        }
+
         transfer.setStatus(status);
-        return moneyTransferRepository.save(transfer);
+        MoneyTransfer saved = moneyTransferRepository.save(transfer);
+
+        if ("Done".equalsIgnoreCase(status) && profit != null) {
+            FinancialTransaction txn = new FinancialTransaction();
+            // User requested storing profit in financial transaction table.
+            // We record a DEBIT for the cost and set the profit field.
+            Double total = saved.getPayment() != null ? saved.getPayment().getTotalAmount() : 0.0;
+            Double amount;
+            if (finalAmount != null) {
+                amount = finalAmount;
+            } else if ("Additional".equalsIgnoreCase(profitType)) {
+                amount = total;
+            } else {
+                amount = total - profit;
+            }
+            txn.setAmount(amount);
+            txn.setProfit(profit);
+            txn.setType("DEBIT");
+            txn.setCategory("Money Transfer");
+            txn.setPaymentMode("Cash");
+            txn.setDescription("Money Transfer Completed: " + saved.getRecipientName() + " ("
+                    + (saved.getTransferType().equals("UPI") ? saved.getUpiId() : saved.getAccountNumber()) + ")");
+            txn.setRelatedId(saved.getId().toString());
+            financialService.recordTransaction(txn);
+        }
+
+        return saved;
     }
 
     public MoneyTransfer updateTransfer(UUID id, Map<String, Object> updates) {

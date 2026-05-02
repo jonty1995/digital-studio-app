@@ -31,6 +31,9 @@ public class BillPaymentService {
     @Autowired
     private FinancialService financialService;
 
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     public Page<BillPaymentTransaction> getAllTransactions(java.time.LocalDate startDate, java.time.LocalDate endDate,
             String search, java.util.List<String> transactionTypes, int page, int size) {
         org.springframework.data.jpa.domain.Specification<BillPaymentTransaction> spec = (root, query, cb) -> {
@@ -110,6 +113,22 @@ public class BillPaymentService {
             }
         }
 
+        if (transaction.getStatus() == null) {
+            transaction.setStatus("Pending");
+        }
+
+        // Initialize Status History
+        try {
+            java.util.List<java.util.Map<String, Object>> history = new java.util.ArrayList<>();
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("status", transaction.getStatus());
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+            history.add(entry);
+            transaction.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error initializing status history: " + e.getMessage());
+        }
+
         BillPaymentTransaction saved = billPaymentRepository.save(transaction);
 
         // Record Financial Transaction
@@ -141,11 +160,63 @@ public class BillPaymentService {
         return billPaymentRepository.findById(id).orElse(null);
     }
 
-    public BillPaymentTransaction updateStatus(UUID id, String status) {
+    public BillPaymentTransaction updateStatus(UUID id, String status, Double profit, String profitType, Double finalAmount) {
         BillPaymentTransaction transaction = billPaymentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        String oldStatus = transaction.getStatus();
+
+        // Update History
+        try {
+            java.util.List<java.util.Map<String, Object>> history;
+            if (transaction.getStatusHistoryJson() != null && !transaction.getStatusHistoryJson().isEmpty()) {
+                history = objectMapper.readValue(transaction.getStatusHistoryJson(),
+                        new com.fasterxml.jackson.core.type.TypeReference<java.util.List<java.util.Map<String, Object>>>() {
+                        });
+            } else {
+                history = new java.util.ArrayList<>();
+            }
+
+            // Remove existing entry for this status if present (Upsert logic for terminal states or rollbacks)
+            // But usually history should be chronological. 
+            // In BillPayment, we might move back to Pending.
+            // Simplified logic: Append new status with timestamp
+            java.util.Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("status", status);
+            entry.put("timestamp", java.time.LocalDateTime.now().toString());
+            history.add(entry);
+            transaction.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {
+            System.err.println("Error updating status history: " + e.getMessage());
+        }
+
         transaction.setStatus(status);
-        return billPaymentRepository.save(transaction);
+        BillPaymentTransaction saved = billPaymentRepository.save(transaction);
+
+        if ("Done".equalsIgnoreCase(status) && profit != null) {
+            FinancialTransaction txn = new FinancialTransaction();
+            // User requested storing profit in financial transaction table.
+            // We record a DEBIT for the cost and set the profit field.
+            Double total = saved.getPayment() != null ? saved.getPayment().getTotalAmount() : 0.0;
+            Double amount;
+            if (finalAmount != null) {
+                amount = finalAmount;
+            } else if ("Additional".equalsIgnoreCase(profitType)) {
+                amount = total;
+            } else {
+                amount = total - profit;
+            }
+            txn.setAmount(amount);
+            txn.setProfit(profit);
+            txn.setType("DEBIT");
+            txn.setCategory("Bill Payment");
+            txn.setPaymentMode("Cash"); // Default for studio payments or use account default
+            txn.setDescription("Bill Payment Completed: " + saved.getOperator() + " (" + saved.getBillId() + ")");
+            txn.setRelatedId(saved.getId().toString());
+            financialService.recordTransaction(txn);
+        }
+
+        return saved;
     }
 
     public BillPaymentTransaction updateTransaction(UUID id, java.util.Map<String, Object> updates) {

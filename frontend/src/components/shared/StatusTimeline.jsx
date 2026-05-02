@@ -14,21 +14,37 @@ export function StatusTimeline(props) {
     // Construct the Ideal Flow
     let steps = [];
 
-    if (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order') {
-        steps = [
-            { id: 'Pending', label: 'Pending', icon: ClipboardList },
-            { id: 'Done', label: 'Done', icon: CheckCircle2 },
-        ];
-        if (currentStatus === 'Failed') {
+    if (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order' || props.type === 'train-booking') {
+        if (props.type === 'service-order' || props.type === 'train-booking') {
             steps = [
                 { id: 'Pending', label: 'Pending', icon: ClipboardList },
-                { id: 'Failed', label: 'Failed', icon: Trash2, isDestructive: true }, // Reusing Trash icon or X?
+                { id: 'In Progress', label: 'In Progress', icon: Package },
+                { id: 'Done', label: 'Done', icon: CheckCircle2 },
             ];
-        } else if (currentStatus === 'Discard' || currentStatus === 'Discarded') {
+            if (currentStatus === 'Cancelled') {
+                // If cancelled, show a simplified flow or include it in sequence?
+                // Following existing pattern of simplified flow for terminal "bad" states
+                steps = [
+                    { id: 'Pending', label: 'Pending', icon: ClipboardList },
+                    { id: 'Cancelled', label: 'Cancelled', icon: Trash2, isDestructive: true },
+                ];
+            }
+        } else {
             steps = [
                 { id: 'Pending', label: 'Pending', icon: ClipboardList },
-                { id: 'Discard', label: 'Discard', icon: Trash2, isDestructive: true },
+                { id: 'Done', label: 'Done', icon: CheckCircle2 },
             ];
+            if (currentStatus === 'Failed') {
+                steps = [
+                    { id: 'Pending', label: 'Pending', icon: ClipboardList },
+                    { id: 'Failed', label: 'Failed', icon: Trash2, isDestructive: true },
+                ];
+            } else if (currentStatus === 'Discard' || currentStatus === 'Discarded') {
+                steps = [
+                    { id: 'Pending', label: 'Pending', icon: ClipboardList },
+                    { id: 'Discard', label: 'Discard', icon: Trash2, isDestructive: true },
+                ];
+            }
         }
     } else {
         // Photo Orders
@@ -102,7 +118,7 @@ export function StatusTimeline(props) {
     };
 
     const OrderIdDisplay = order.orderId || order.id; // PhotoOrder uses orderId, BillPayment uses id
-    const uploadLabel = (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order') ? 'Receipt ID' : 'Upload ID';
+    const uploadLabel = (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order' || props.type === 'train-booking') ? 'Receipt/Ticket ID' : 'Upload ID';
 
     return (
         <div className="flex flex-col gap-6">
@@ -205,7 +221,7 @@ export function StatusTimeline(props) {
                 </div>
 
                 {/* Upload/Receipt ID */}
-                {props.type !== 'service-order' && (
+                {!(props.type === 'service-order' || props.type === 'train-booking') && (
                     <div className="flex flex-col gap-1">
                         <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">{uploadLabel}</span>
                         <div className="flex items-center gap-2">
@@ -222,7 +238,7 @@ export function StatusTimeline(props) {
                 )}
 
                 {/* Photo Order Specifics */}
-                {!(props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order') && (
+                {!(props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order' || props.type === 'train-booking') && (
                     <>
                         {/* Original File Name */}
                         <div className="flex flex-col gap-1">

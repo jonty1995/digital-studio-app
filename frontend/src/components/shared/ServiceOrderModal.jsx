@@ -322,7 +322,13 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                 </div>
             </div>
 
-            <PaymentMode payment={payment} setPayment={setPayment} minAdvance={payment.total} allowCommission={true} />
+            <PaymentMode
+                payment={payment}
+                setPayment={setPayment}
+                minAdvance={payment.total}
+                allowCommission={true}
+                hideModes={["Card"]}
+            />
 
             <div className="flex justify-end gap-3 mt-4">
                 <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>

@@ -3,11 +3,15 @@ import { FilterHeader, useViewMode } from "@/components/shared/FilterHeader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Download, Plus, Folder, FileText, AlertTriangle, Edit2, Filter, Loader2 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { serviceOrderService } from "@/services/serviceOrderService";
+import { stationService } from "@/services/stationService";
+import { trainListService } from "@/services/trainListService";
+import { clearStationCache } from "@/components/shared/StationSearch";
+import { clearTrainCache } from "@/components/shared/TrainSearch";
+import { RefreshCw, Eye, Download, Plus, Folder, FileText, AlertTriangle, Edit2, Loader2, Train } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { trainBookingService } from "@/services/trainBookingService";
 import { configurationService } from "@/services/configurationService";
-import { ServiceOrderModal } from "@/components/shared/ServiceOrderModal";
+import { TrainBookingModal } from "@/components/shared/TrainBookingModal";
 import { OrderStatus } from "@/components/shared/OrderStatus";
 import { StatusTimeline } from "@/components/shared/StatusTimeline";
 import { FileThumbnail } from "@/components/shared/FileThumbnail";
@@ -16,9 +20,11 @@ import { DateUtils } from "@/utils/DateUtils";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { cn } from "@/lib/utils";
 
-export default function ServiceOrders() {
+export default function TrainBookings() {
+    const { user } = useAuth();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const [totalItems, setTotalItems] = useState(0);
@@ -26,37 +32,22 @@ export default function ServiceOrders() {
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [expandedOrderId, setExpandedOrderId] = useState(null);
 
-    // View Mode from Hook
-    const [viewMode, setViewMode] = useViewMode("service-order-view-mode");
+    const [viewMode, setViewMode] = useViewMode("train-booking-view-mode");
 
-    // Filters
     const [dateRange, setDateRange] = useState(() => {
         const today = DateUtils.formatForInput(new Date());
         return { start: today, end: today };
     });
     const [searchQuery, setSearchQuery] = useState("");
-    const [filters, setFilters] = useState([]); // Selected Services
-    const [availableFilters, setAvailableFilters] = useState([]);
 
-    // AbortController Ref
     const abortControllerRef = useRef(null);
     const observer = useRef();
 
-    // Modals
     const [editingOrder, setEditingOrder] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
 
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
-
-    // Fetch configured services
-    useEffect(() => {
-        const loadFilters = async () => {
-            const configuredItems = await configurationService.getServiceItems();
-            setAvailableFilters(configuredItems.map(i => i.name));
-        };
-        loadFilters();
-    }, []);
 
     useEffect(() => {
         const fetchBlockSize = async () => {
@@ -82,10 +73,9 @@ export default function ServiceOrders() {
                 size: scrollBlockSize,
                 startDate: searchQuery ? "" : dateRange.start,
                 endDate: searchQuery ? "" : dateRange.end,
-                search: searchQuery,
-                services: searchQuery ? [] : filters
+                search: searchQuery
             };
-            const data = await serviceOrderService.getAll(params, controller.signal);
+            const data = await trainBookingService.getAll(params, controller.signal);
             const nextOrders = data.content || [];
 
             setOrders(prev => {
@@ -99,30 +89,30 @@ export default function ServiceOrders() {
         } catch (error) {
             if (error.name === 'AbortError') return;
             console.error(error);
-            if (!isBackground) showAlert("Error", "Failed to load service orders.");
+            if (!isBackground) showAlert("Error", "Failed to load train bookings.");
         } finally {
             if (!isBackground && abortControllerRef.current === controller) setLoading(false);
         }
     };
 
-    useEffect(() => { setPage(0); }, [dateRange, searchQuery, filters]);
-    useEffect(() => { fetchOrders(); }, [page, dateRange, searchQuery, filters, scrollBlockSize]);
+    useEffect(() => { setPage(0); }, [dateRange, searchQuery]);
+    useEffect(() => { fetchOrders(); }, [page, dateRange, searchQuery, scrollBlockSize]);
 
     const handleSaved = async (payload, id = null) => {
         try {
             if (id) {
-                await serviceOrderService.update(id, payload);
-                showAlert("Success", "Service request updated successfully.");
+                await trainBookingService.update(id, payload);
+                showAlert("Success", "Booking updated successfully.");
             } else {
-                await serviceOrderService.create(payload);
-                showAlert("Success", "Service request created successfully.");
+                await trainBookingService.create(payload);
+                showAlert("Success", "Booking created successfully.");
             }
             await fetchOrders(0, true);
             setIsModalOpen(false);
             setEditingOrder(null);
         } catch (error) {
             console.error(error);
-            showAlert("Error", "Failed to save service request.");
+            showAlert("Error", "Failed to save booking.");
         }
     };
 
@@ -149,7 +139,7 @@ export default function ServiceOrders() {
     return (
         <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
             <FilterHeader
-                title="Service Requests"
+                title="Train Bookings"
                 dateRange={dateRange}
                 onDateChange={handleDateChange}
                 searchQuery={searchQuery}
@@ -157,55 +147,53 @@ export default function ServiceOrders() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 action={
-                    <Button size="sm" className="h-9 shadow-sm" onClick={() => { setEditingOrder(null); setIsModalOpen(true); }}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Service
-                    </Button>
-                }
-            >
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-primary">
-                            <Filter className="h-4 w-4" />
-                            {filters.length > 0 ? `${filters.length} Selected` : 'All Services'}
-                            {filters.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{filters.length}</Badge>}
+                    <div className="flex items-center gap-2">
+                        {user?.role === 'ADMIN' && (
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-9 shadow-sm gap-2" 
+                                onClick={async () => {
+                                    setRefreshing(true);
+                                    try {
+                                        await Promise.all([
+                                            stationService.refresh(),
+                                            trainListService.refresh()
+                                        ]);
+                                        clearStationCache();
+                                        clearTrainCache();
+                                        showAlert("Success", "Station and Train data refreshed successfully.");
+                                    } catch (e) {
+                                        console.error(e);
+                                        showAlert("Error", "Failed to refresh data: " + (e.response?.data?.error || e.message));
+                                    } finally {
+                                        setRefreshing(false);
+                                    }
+                                }}
+                                disabled={refreshing}
+                            >
+                                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+                                {refreshing ? "Refreshing..." : "Refresh Data"}
+                            </Button>
+                        )}
+                        <Button size="sm" className="h-9 shadow-sm" onClick={() => { setEditingOrder(null); setIsModalOpen(true); }}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            New Booking
                         </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-4" align="start">
-                        <div className="space-y-3">
-                            <h4 className="font-medium text-sm text-muted-foreground pb-2 border-b">Filter by Service</h4>
-                            <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
-                                {availableFilters.map(s => (
-                                    <label key={s} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            checked={filters.includes(s)}
-                                            onChange={() => setFilters(prev => prev.includes(s) ? prev.filter(f => f !== s) : [...prev, s])}
-                                            className="w-4 h-4 rounded border-input text-primary focus:ring-primary accent-primary"
-                                        />
-                                        <span className="truncate" title={s}>{s}</span>
-                                    </label>
-                                ))}
-                                {availableFilters.length === 0 && <p className="text-xs text-muted-foreground italic">No services configured.</p>}
-                            </div>
-                            {filters.length > 0 && (
-                                <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setFilters([])}>Clear all</Button>
-                            )}
-                        </div>
-                    </PopoverContent>
-                </Popover>
-            </FilterHeader>
+                    </div>
+                }
+            />
 
             <div className="flex-1 p-6 pt-0 flex flex-col min-h-0">
                 <div className="rounded-md border bg-card flex-1 flex flex-col min-h-0">
                     <Table containerClassName="flex-1 overflow-auto h-full">
                         <TableHeader className="sticky top-0 z-10 bg-card shadow-sm">
                             <TableRow>
-                                <TableHead className={`w-[130px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Date</TableHead>
-                                <TableHead className={`w-[140px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Customer ID</TableHead>
-                                <TableHead className={`w-[150px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Service</TableHead>
-                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Description</TableHead>
-                                <TableHead className={`w-[140px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Files</TableHead>
+                                <TableHead className={`w-[130px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Journey Date</TableHead>
+                                <TableHead className={`w-[140px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Customer</TableHead>
+                                <TableHead className={`w-[120px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>PNR</TableHead>
+                                <TableHead className={`font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Train</TableHead>
+                                <TableHead className={`w-[180px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Route</TableHead>
                                 <TableHead className={`w-[90px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Total</TableHead>
                                 <TableHead className={`w-[90px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Adv</TableHead>
                                 <TableHead className={`w-[90px] font-medium text-muted-foreground ${viewMode === 'compact' ? 'p-2' : 'p-4'}`}>Due</TableHead>
@@ -217,7 +205,7 @@ export default function ServiceOrders() {
                             {loading && page === 0 ? (
                                 <TableRow><TableCell colSpan={10} className="h-24 text-center text-muted-foreground">Loading...</TableCell></TableRow>
                             ) : orders.length === 0 && !loading ? (
-                                <TableRow><TableCell colSpan={10} className="h-24 text-center text-muted-foreground">No service requests found.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={10} className="h-24 text-center text-muted-foreground">No train bookings found.</TableCell></TableRow>
                             ) : (
                                 orders.map((o, index) => {
                                     const pClass = viewMode === 'compact' ? 'p-2' : 'p-4';
@@ -236,40 +224,51 @@ export default function ServiceOrders() {
                                                 )}
                                                 onClick={() => setExpandedOrderId(isExpanded ? null : o.id)}
                                             >
-                                                <TableCell className={`${pClass} align-middle text-xs whitespace-nowrap`}>{DateUtils.format(o.createdAt)}</TableCell>
-                                                <TableCell className={`${pClass} align-middle`}>
-                                                    <div className="flex items-center gap-1 group/cid">
-                                                        <span className="font-medium">{o.customer?.mobile || "-"}</span>
-                                                        {o.customer?.mobile && <CopyButton text={o.customer.mobile} className="h-4 w-4 opacity-0 group-hover/cid:opacity-100 transition-opacity" />}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className={`${pClass} align-middle`}><Badge variant="outline">{o.serviceName}</Badge></TableCell>
-                                                <TableCell className={`${pClass} align-middle`}>
-                                                    <div className="max-w-[200px] truncate text-xs text-muted-foreground" title={o.description}>
-                                                        {o.description || "No description"}
-                                                    </div>
+                                                <TableCell className={`${pClass} align-middle text-xs whitespace-nowrap font-medium`}>
+                                                    {o.journeyDate ? DateUtils.format(o.journeyDate) : "TBD"}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>
-                                                    <div className="flex -space-x-2 overflow-hidden">
-                                                        {o.uploadIdsJson && JSON.parse(o.uploadIdsJson).slice(0, 3).map((id, idx) => (
-                                                            <div key={idx} className="inline-block h-6 w-6 rounded-full ring-2 ring-background bg-muted">
-                                                                <FileThumbnail fileId={id} isPdf={id.toLowerCase().endsWith('.pdf')} containerClass="w-full h-full rounded-full" iconClass="w-3 h-3" hideLabel />
+                                                    <div className="flex flex-col gap-0.5 group/cid">
+                                                        <span className="font-medium text-xs">{o.customer?.name || "Unknown"}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[10px] text-muted-foreground">{o.customer?.mobile || "-"}</span>
+                                                            {o.customer?.mobile && <CopyButton text={o.customer.mobile} className="h-3 w-3 opacity-0 group-hover/cid:opacity-100 transition-opacity" />}
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <div className="flex items-center gap-1 group/pnr">
+                                                        <code className="text-xs font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded">{o.pnr || "N/A"}</code>
+                                                        {o.pnr && <CopyButton text={o.pnr} className="h-3.5 w-3.5 opacity-0 group-hover/pnr:opacity-100 transition-opacity" />}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-semibold truncate max-w-[120px]" title={o.trainName}>{o.trainName || "N/A"}</span>
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            #{o.trainNumber || "N/A"} • {o.travelClass} 
+                                                            {o.quota && <Badge variant="secondary" className="ml-1 px-1 h-3.5 text-[8px] leading-none">{o.quota}</Badge>}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={`${pClass} align-middle`}>
+                                                    <div className="flex items-center gap-1.5 text-[10px]">
+                                                        <span className="font-bold truncate max-w-[70px]" title={o.fromStation}>{o.fromStation || "???"}</span>
+                                                        <div className="flex-1 h-[1px] bg-muted relative">
+                                                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                                                                <Train className="w-2.5 h-2.5 text-muted-foreground" />
                                                             </div>
-                                                        ))}
-                                                        {o.uploadIdsJson && JSON.parse(o.uploadIdsJson).length > 3 && (
-                                                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[8px] font-bold ring-2 ring-background">
-                                                                +{JSON.parse(o.uploadIdsJson).length - 3}
-                                                            </div>
-                                                        )}
+                                                        </div>
+                                                        <span className="font-bold truncate max-w-[70px]" title={o.toStation}>{o.toStation || "???"}</span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle font-medium`}>₹{(o.payment?.totalAmount || o.amount || 0).toFixed(2)}</TableCell>
                                                 <TableCell className={`${pClass} align-middle text-emerald-600`}>₹{(o.payment?.advanceAmount || 0).toFixed(2)}</TableCell>
                                                 <TableCell className={`${pClass} align-middle font-semibold text-red-600`}>
-                                                    ₹{(o.payment?.dueAmount || Math.max(0, (o.payment?.totalAmount || o.amount || 0) - (o.payment?.advanceAmount || 0))).toFixed(2)}
+                                                    ₹{(o.payment?.dueAmount || 0).toFixed(2)}
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>
-                                                    <OrderStatus order={o} type="service-order" updateFn={serviceOrderService.updateStatus} onUpdate={() => fetchOrders(page, true, true)} />
+                                                    <OrderStatus order={o} type="train-booking" updateFn={trainBookingService.updateStatus} onUpdate={() => fetchOrders(page, true, true)} />
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>
                                                     {(o.status === 'Pending' || o.status === 'Discarded' || o.status === 'Cancelled') && (
@@ -285,15 +284,55 @@ export default function ServiceOrders() {
                                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                                             <div className="space-y-4">
                                                                 <div className="flex items-center justify-between">
-                                                                    <h3 className="text-sm font-semibold flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> Service Details</h3>
+                                                                    <h3 className="text-sm font-semibold flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> Booking Details</h3>
                                                                     <Badge variant="outline" className="text-[10px] uppercase">{o.status}</Badge>
                                                                 </div>
-                                                                <div className="bg-background rounded-lg p-3 border shadow-sm">
-                                                                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{o.description || "No description provided."}</p>
+                                                                <div className="bg-background rounded-lg p-3 border shadow-sm space-y-3">
+                                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                                        <div className="col-span-2">
+                                                                            <span className="text-muted-foreground block mb-1">Passengers:</span>
+                                                                            <div className="space-y-1">
+                                                                                {(() => {
+                                                                                    try {
+                                                                                        const ps = o.passengersJson ? JSON.parse(o.passengersJson) : [];
+                                                                                        return ps.map((p, i) => (
+                                                                                            <div key={i} className="flex justify-between items-center bg-muted/30 p-1.5 rounded border border-muted text-[11px]">
+                                                                                                <span className="font-medium">{p.name} ({p.age}, {p.gender[0]})</span>
+                                                                                                <span className="text-muted-foreground text-[10px] italic">{p.berth} | {p.food}</span>
+                                                                                            </div>
+                                                                                        ));
+                                                                                    } catch (e) { return <span>{o.passengerNames || "N/A"}</span>; }
+                                                                                })()}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-4 text-[10px]">
+                                                                            <div>
+                                                                                <span className="text-muted-foreground block font-bold mb-1">Contact Details:</span>
+                                                                                <div className="flex flex-col gap-0.5">
+                                                                                    <span><span className="text-muted-foreground">Mobile:</span> {o.contactMobile || o.customer?.mobile || "N/A"}</span>
+                                                                                    <span><span className="text-muted-foreground">Email:</span> {o.contactEmail || "N/A"}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-muted-foreground block font-bold mb-1">IRCTC Info:</span>
+                                                                                <div className="flex flex-col gap-0.5">
+                                                                                    <span><span className="text-muted-foreground">User:</span> {o.irctcUser || "N/A"}</span>
+                                                                                    <span><span className="text-muted-foreground">Pass:</span> {o.irctcPass ? "********" : "N/A"}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="mt-2 pt-2 border-t flex justify-between col-span-2">
+                                                                            <span className="text-muted-foreground">Base Price:</span> 
+                                                                            <span className="font-bold">₹{o.basePrice?.toFixed(2) || "0.00"}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    {o.description && (
+                                                                        <p className="text-[10px] text-muted-foreground leading-relaxed pt-2 border-t">{o.description}</p>
+                                                                    )}
                                                                 </div>
                                                                 <div className="space-y-2">
                                                                     <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1">
-                                                                        <Folder className="w-3 h-3" /> Attached Files ({o.uploadIdsJson ? JSON.parse(o.uploadIdsJson).length : 0})
+                                                                        <Folder className="w-3 h-3" /> Attached Tickets ({o.uploadIdsJson ? JSON.parse(o.uploadIdsJson).length : 0})
                                                                     </h4>
                                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                                                         {o.uploadIdsJson && JSON.parse(o.uploadIdsJson).map((id, idx) => (
@@ -317,7 +356,7 @@ export default function ServiceOrders() {
                                                             <div className="space-y-4">
                                                                 <h3 className="text-sm font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> Activity History</h3>
                                                                 <div className="bg-background rounded-lg p-3 border shadow-sm max-h-[300px] overflow-auto custom-scrollbar">
-                                                                    <StatusTimeline order={o} type="service-order" />
+                                                                    <StatusTimeline order={o} type="train-booking" />
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -342,7 +381,7 @@ export default function ServiceOrders() {
                 </div>
             </div>
 
-            <ServiceOrderModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingOrder(null); }} onSave={handleSaved} order={editingOrder} />
+            <TrainBookingModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingOrder(null); }} onSave={handleSaved} booking={editingOrder} />
             <SimpleAlert open={alertConfig.isOpen} onOpenChange={(open) => setAlertConfig(prev => ({ ...prev, isOpen: open }))} title={alertConfig.title} description={alertConfig.message} />
         </div>
     );

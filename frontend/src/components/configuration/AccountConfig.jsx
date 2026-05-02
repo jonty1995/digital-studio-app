@@ -31,6 +31,20 @@ export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
             return;
         }
         if (!newAccount.name) return showAlert("Validation", "Account name is required.");
+        
+        if (newAccount.accountType === "IN_HAND") {
+            const hasInHand = accounts.some(acc => acc.accountType === "IN_HAND");
+            if (hasInHand) {
+                return showAlert("Validation", "An 'In Hand' account already exists. Only one 'In Hand' account is permitted.");
+            }
+        }
+
+        if (newAccount.accountType === "BANK_ACCOUNT") {
+            const hasBank = accounts.some(acc => acc.accountType === "BANK_ACCOUNT");
+            if (hasBank) {
+                return showAlert("Validation", "A 'Bank Account' already exists. Only one 'Bank Account' is permitted.");
+            }
+        }
 
         try {
             await financialService.saveAccount(newAccount);

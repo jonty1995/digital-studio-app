@@ -53,13 +53,12 @@ export const AuthProvider = ({ children }) => {
   }
 
   const hasPermission = (path, action = "access") => {
-    // We remove the ADMIN bypass to allow admins to test their own permissions.
-    // Standard pages will be restricted by their toggles.
+    // Admin bypass: Admins have access to everything by default.
+    // This ensures new routes work immediately for admins.
+    if (user?.role === "ADMIN") return true;
+
     const perm = pagePermissions.find(p => p.pagePath === path);
     if (!perm) {
-      // If it's a page NOT managed by permissions (like Admin UI itself), 
-      // check if they are an admin or if it's a public page.
-      if (user?.role === "ADMIN") return true; 
       return false;
     }
     if (action === "access") return perm.hasAccess;

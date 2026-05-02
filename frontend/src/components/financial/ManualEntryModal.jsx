@@ -9,6 +9,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
 
     // Initial Amount State
     const [initialAmountData, setInitialAmountData] = useState({
+        id: null,
         accountId: "",
         type: "CREDIT",
         amount: ""
@@ -22,15 +23,42 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
         description: ""
     });
 
-    const eligibleInitialAccounts = accounts.filter(acc => !acc.hasTransactions);
+    const eligibleInitialAccounts = accounts.filter(acc => acc.canEditInitialAmount);
 
     useEffect(() => {
         if (!isOpen) {
             setActiveTab("initial");
-            setInitialAmountData({ accountId: "", type: "CREDIT", amount: "" });
+            setInitialAmountData({ id: null, accountId: "", type: "CREDIT", amount: "" });
             setTransferData({ fromAccountId: "", toAccountId: "", amount: "", description: "" });
         }
     }, [isOpen]);
+
+    const handleAccountChange = async (accountId) => {
+        setInitialAmountData(prev => ({ ...prev, accountId, id: null, amount: "", type: "CREDIT" }));
+        
+        if (!accountId) return;
+
+        const account = accounts.find(acc => acc.id === accountId);
+        if (account?.initialTransactionId) {
+            setLoading(true);
+            try {
+                const txn = await financialService.getTransaction(account.initialTransactionId);
+                if (txn) {
+                    setInitialAmountData({
+                        id: txn.id,
+                        accountId: accountId,
+                        type: txn.type,
+                        amount: txn.amount.toString()
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to load initial amount", e);
+                showAlert("Error", "Failed to load existing initial amount.");
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
 
     const handleInitialAmountSubmit = async (e) => {
         e.preventDefault();
@@ -48,10 +76,11 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
         setLoading(true);
         try {
             await financialService.recordTransaction({
+                id: initialAmountData.id,
                 accountId: initialAmountData.accountId,
                 amount: amountNum,
                 type: initialAmountData.type,
-                category: "MANUAL",
+                category: "Other",
                 paymentMode: "BANK", // Defaulting to BANK
                 description: "INITIAL_AMOUNT"
             });
@@ -130,7 +159,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                             <select
                                 className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
                                 value={initialAmountData.accountId}
-                                onChange={(e) => setInitialAmountData(prev => ({ ...prev, accountId: e.target.value }))}
+                                onChange={(e) => handleAccountChange(e.target.value)}
                             >
                                 <option value="">Select Account</option>
                                 {eligibleInitialAccounts.map(acc => (
@@ -167,7 +196,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                         <div className="pt-2 flex justify-end gap-2">
                             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
                             <Button type="submit" disabled={loading || !initialAmountData.accountId || !initialAmountData.amount}>
-                                Save Initial Amount
+                                {initialAmountData.id ? "Update Initial Amount" : "Save Initial Amount"}
                             </Button>
                         </div>
                     </form>

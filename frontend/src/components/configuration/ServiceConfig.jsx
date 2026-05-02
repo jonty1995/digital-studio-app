@@ -46,9 +46,13 @@ export function ServiceConfig({ canAdd, canEdit, canDelete }) {
             basePrice: 0,
             customerPrice: 0
         };
-        setItems([...items, newItem]);
+        setItems([newItem, ...items]);
         setEditingId(newId);
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+        // Scroll to top of the scrollable container
+        const scrollContainer = document.querySelector('.overflow-y-auto.max-h-\\[calc\\(100vh-260px\\)\\]');
+        if (scrollContainer) {
+            scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handleChange = (id, field, value) => {
@@ -151,14 +155,20 @@ export function ServiceConfig({ canAdd, canEdit, canDelete }) {
     return (
         <div className="space-y-4">
             <div className="flex justify-end items-center">
-                <Button onClick={handleAdd} size="sm" className={`gap-2 ${!canAdd ? 'opacity-50' : ''}`}>
+                <Button 
+                    onClick={handleAdd} 
+                    size="sm" 
+                    className={`gap-2 ${(!canAdd || editingId !== null) ? 'opacity-50' : ''}`}
+                    disabled={!canAdd || editingId !== null}
+                >
                     <Plus className="w-4 h-4" /> Add Service
                 </Button>
             </div>
 
             <div className="rounded-md border">
+                <div className="overflow-y-auto max-h-[calc(100vh-260px)]">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                         <TableRow>
                             <TableHead>Service Name</TableHead>
                             <TableHead className="text-right w-[150px]">Customer Price</TableHead>
@@ -274,6 +284,7 @@ export function ServiceConfig({ canAdd, canEdit, canDelete }) {
                         )}
                     </TableBody>
                 </Table>
+                </div>
             </div>
 
             <SimpleAlert
