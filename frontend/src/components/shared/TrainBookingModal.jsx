@@ -77,7 +77,8 @@ export function TrainBookingModal({ isOpen, onClose, onSave, booking = null }) {
                 trainNumber: "", trainName: "", pnr: "", fromStation: "", toStation: "",
                 journeyDate: new Date().toISOString().split('T')[0],
                 travelClass: "SL", quota: "GN", amount: "", basePrice: "",
-                description: "", irctcUser: "", irctcPass: "", contactMobile: "", contactEmail: ""
+                description: "", irctcUser: "", irctcPass: "", contactMobile: "", contactEmail: "",
+                bookedBy: "Self"
             });
             setPassengers([{ name: "", age: "", gender: "Male", food: "No Choice", berth: "No Choice", aadhaar: "" }]);
             setPayment({ mode: 'Cash', total: 0, discount: 0, advance: 0, commission: 0 });
@@ -107,7 +108,8 @@ export function TrainBookingModal({ isOpen, onClose, onSave, booking = null }) {
                 irctcUser: booking.irctcUser || '',
                 irctcPass: booking.irctcPass || '',
                 contactMobile: booking.contactMobile || booking.customer?.mobile || '',
-                contactEmail: booking.contactEmail || ''
+                contactEmail: booking.contactEmail || '',
+                bookedBy: booking.bookedBy || 'Self'
             });
 
             if (booking.passengersJson) {
@@ -238,6 +240,7 @@ export function TrainBookingModal({ isOpen, onClose, onSave, booking = null }) {
                 description: details.description, status: booking?.status || "Pending",
                 irctcUser: details.irctcUser, irctcPass: details.irctcPass,
                 contactMobile: details.contactMobile, contactEmail: details.contactEmail,
+                bookedBy: details.bookedBy,
                 payment: {
                     paymentMode: payment.mode, totalAmount: parseFloat(payment.total) || 0,
                     advanceAmount: parseFloat(payment.advance) || 0, discountAmount: parseFloat(payment.discount) || 0,
@@ -310,14 +313,13 @@ export function TrainBookingModal({ isOpen, onClose, onSave, booking = null }) {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="relative">
-                                <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30" />
-                                <Input type="date" value={details.journeyDate} onChange={e => setDetails(p => ({ ...p, journeyDate: e.target.value }))} className="h-11 pl-10 rounded-xl" />
+                        <div className="flex gap-4">
+                            <div className="w-40">
+                                <Input type="date" value={details.journeyDate} onChange={e => setDetails(p => ({ ...p, journeyDate: e.target.value }))} className="h-11 rounded-xl font-semibold" />
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex-1 flex gap-2">
                                 <Select value={details.travelClass} onValueChange={v => setDetails(p => ({ ...p, travelClass: v }))}>
-                                    <SelectTrigger className="h-11 rounded-xl flex-1"><SelectValue /></SelectTrigger>
+                                    <SelectTrigger className="h-11 rounded-xl flex-1 font-semibold"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="SL">SL</SelectItem><SelectItem value="3A">3A</SelectItem>
                                         <SelectItem value="2A">2A</SelectItem><SelectItem value="1A">1A</SelectItem>
@@ -449,6 +451,25 @@ export function TrainBookingModal({ isOpen, onClose, onSave, booking = null }) {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+
+                {/* Booked By Section */}
+                <div className="bg-card rounded-2xl border p-6 shadow-sm space-y-4">
+                    <h3 className="text-base font-bold flex items-center gap-2 border-b pb-4">
+                        <Fingerprint className="w-5 h-5 text-amber-500" /> Booking Source
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase opacity-50">Booked By</Label>
+                            <Select value={details.bookedBy} onValueChange={v => setDetails(p => ({ ...p, bookedBy: v }))}>
+                                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Self">Self</SelectItem>
+                                    <SelectItem value="Agent">Agent</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
 

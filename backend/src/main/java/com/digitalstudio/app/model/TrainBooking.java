@@ -42,6 +42,8 @@ public class TrainBooking {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    private String bookedBy; // Self, Agent
+
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "payment_id")
     private Payment payment;

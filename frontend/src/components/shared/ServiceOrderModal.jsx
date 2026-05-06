@@ -13,6 +13,7 @@ import { configurationService } from "@/services/configurationService";
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { FileUpload } from "./FileUpload";
+import { RichTextEditor } from "./RichTextEditor";
 
 export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
     // Customer State
@@ -294,11 +295,10 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                         </div>
                         <div className="col-span-2 space-y-2">
                             <Label>Description</Label>
-                            <Textarea
+                            <RichTextEditor
                                 value={details.description}
-                                onChange={e => setDetails({ ...details, description: e.target.value })}
+                                onChange={val => setDetails({ ...details, description: val })}
                                 placeholder="Additional details about the service..."
-                                className="min-h-[100px]"
                             />
                         </div>
                         <div className="col-span-2 space-y-2 pt-2 border-t">

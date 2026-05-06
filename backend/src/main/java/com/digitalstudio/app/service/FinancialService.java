@@ -220,7 +220,7 @@ public class FinancialService {
         credit.setAccountId(toAccountId);
         credit.setAmount(amount);
         credit.setType("CREDIT");
-        credit.setCategory("TRANSFER");
+        credit.setCategory("Other(Transfer)");
         credit.setDescription("Transfer to " + toAccount.getName() + (description != null && !description.isEmpty() ? " - " + description : ""));
         credit.setTimestamp(now);
         transactionRepository.save(credit);
@@ -229,7 +229,7 @@ public class FinancialService {
         debit.setAccountId(fromAccountId);
         debit.setAmount(amount);
         debit.setType("DEBIT");
-        debit.setCategory("TRANSFER");
+        debit.setCategory("Other(Transfer)");
         debit.setDescription("Transfer from " + fromAccount.getName() + (description != null && !description.isEmpty() ? " - " + description : ""));
         debit.setTimestamp(now.plusNanos(1000)); // ensure debit appears first if sorted by timestamp desc
         transactionRepository.save(debit);

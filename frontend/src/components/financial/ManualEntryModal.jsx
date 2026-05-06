@@ -31,6 +31,14 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
         amount: ""
     });
 
+    // Credit State
+    const [creditData, setCreditData] = useState({
+        accountId: "",
+        purpose: "Credit",
+        description: "",
+        amount: ""
+    });
+
     const eligibleInitialAccounts = accounts.filter(acc => acc.canEditInitialAmount);
 
     useEffect(() => {
@@ -39,6 +47,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
             setInitialAmountData({ id: null, accountId: "", type: "CREDIT", amount: "" });
             setTransferData({ fromAccountId: "", toAccountId: "", amount: "", description: "" });
             setDebitData({ accountId: "", purpose: "Personal Use", description: "", amount: "" });
+            setCreditData({ accountId: "", purpose: "Credit", description: "", amount: "" });
         }
     }, [isOpen]);
 
@@ -89,7 +98,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                 accountId: initialAmountData.accountId,
                 amount: amountNum,
                 type: initialAmountData.type,
-                category: "Other",
+                category: "Other(Initial Amount)",
                 paymentMode: "BANK", // Defaulting to BANK
                 description: "INITIAL_AMOUNT"
             });
@@ -169,7 +178,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                 accountId: debitData.accountId,
                 amount: amountNum,
                 type: "DEBIT",
-                category: debitData.purpose,
+                category: "Other(Debit)",
                 paymentMode: "OTHER",
                 description: debitData.description || debitData.purpose
             });
@@ -178,6 +187,39 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
         } catch (e) {
             console.error("Failed to record debit", e);
             showAlert("Error", "Failed to record debit.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreditSubmit = async (e) => {
+        e.preventDefault();
+        if (!creditData.accountId || !creditData.amount) {
+            showAlert("Validation Error", "Please select an account and enter an amount.");
+            return;
+        }
+
+        const amountNum = parseFloat(creditData.amount);
+        if (isNaN(amountNum) || amountNum <= 0) {
+            showAlert("Validation Error", "Amount must be greater than zero.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await financialService.recordTransaction({
+                accountId: creditData.accountId,
+                amount: amountNum,
+                type: "CREDIT",
+                category: "Other(Credit)",
+                paymentMode: "OTHER",
+                description: creditData.description || creditData.purpose
+            });
+            onSuccess();
+            onClose();
+        } catch (e) {
+            console.error("Failed to record credit", e);
+            showAlert("Error", "Failed to record credit.");
         } finally {
             setLoading(false);
         }
@@ -208,6 +250,12 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                         className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'debit' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         Debit
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("credit")}
+                        className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'credit' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        Credit
                     </button>
                 </div>
 
@@ -374,7 +422,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                             >
                                 <option value="Personal Use">Personal Use</option>
                                 <option value="Payment">Payment</option>
-                                <option value="Other">Other</option>
+                                <option value="Debit">Debit</option>
                             </select>
                         </div>
                         <div className="space-y-1.5">
@@ -402,6 +450,69 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
                             <Button type="submit" disabled={loading || !debitData.accountId || !debitData.amount}>
                                 Save Debit
+                            </Button>
+                        </div>
+                    </form>
+                )}
+
+                {activeTab === "credit" && (
+                    <form onSubmit={handleCreditSubmit} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Account</label>
+                            <select
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
+                                value={creditData.accountId}
+                                onChange={(e) => setCreditData(prev => ({ ...prev, accountId: e.target.value }))}
+                            >
+                                <option value="">Select Account</option>
+                                {accounts.map(acc => (
+                                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.accountType.replace('_', ' ')})</option>
+                                ))}
+                            </select>
+                            {creditData.accountId && (
+                                <p className="text-xs font-bold text-muted-foreground mt-1">
+                                    Current Balance: <span className={(accounts.find(a => a.id === creditData.accountId)?.balance || 0) < 0 ? 'text-red-500' : 'text-emerald-600'}>
+                                        ₹{(accounts.find(a => a.id === creditData.accountId)?.balance || 0).toLocaleString()}
+                                    </span>
+                                </p>
+                            )}
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Purpose</label>
+                            <select
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
+                                value={creditData.purpose}
+                                onChange={(e) => setCreditData(prev => ({ ...prev, purpose: e.target.value }))}
+                            >
+                                <option value="Credit">Credit</option>
+                                <option value="Take Back Refund">Take Back Refund</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Amount</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="0.00"
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
+                                value={creditData.amount}
+                                onChange={(e) => setCreditData(prev => ({ ...prev, amount: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Description (Optional)</label>
+                            <textarea
+                                placeholder="Add a note..."
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-20 resize-none"
+                                value={creditData.description}
+                                onChange={(e) => setCreditData(prev => ({ ...prev, description: e.target.value }))}
+                            />
+                        </div>
+                        <div className="pt-2 flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+                            <Button type="submit" disabled={loading || !creditData.accountId || !creditData.amount}>
+                                Save Credit
                             </Button>
                         </div>
                     </form>

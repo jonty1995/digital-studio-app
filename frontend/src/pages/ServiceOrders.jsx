@@ -16,6 +16,13 @@ import { DateUtils } from "@/utils/DateUtils";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { cn } from "@/lib/utils";
 
+const stripHtml = (html) => {
+    if (!html) return "";
+    const tmp = document.createElement("DIV");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
+};
+
 export default function ServiceOrders() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -245,8 +252,8 @@ export default function ServiceOrders() {
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}><Badge variant="outline">{o.serviceName}</Badge></TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>
-                                                    <div className="max-w-[200px] truncate text-xs text-muted-foreground" title={o.description}>
-                                                        {o.description || "No description"}
+                                                    <div className="max-w-[200px] truncate text-xs text-muted-foreground" title={stripHtml(o.description)}>
+                                                        {stripHtml(o.description) || "No description"}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className={`${pClass} align-middle`}>
@@ -288,9 +295,13 @@ export default function ServiceOrders() {
                                                                     <h3 className="text-sm font-semibold flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> Service Details</h3>
                                                                     <Badge variant="outline" className="text-[10px] uppercase">{o.status}</Badge>
                                                                 </div>
-                                                                <div className="bg-background rounded-lg p-3 border shadow-sm">
-                                                                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{o.description || "No description provided."}</p>
-                                                                </div>
+                                                                 <div className="bg-background rounded-lg p-3 border shadow-sm prose prose-sm max-w-none min-h-[60px]">
+                                                                     {o.description ? (
+                                                                         <div className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: o.description }} />
+                                                                     ) : (
+                                                                         <p className="text-xs text-muted-foreground italic">No description provided.</p>
+                                                                     )}
+                                                                 </div>
                                                                 <div className="space-y-2">
                                                                     <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1">
                                                                         <Folder className="w-3 h-3" /> Attached Files ({o.uploadIdsJson ? JSON.parse(o.uploadIdsJson).length : 0})

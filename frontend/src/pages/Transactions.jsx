@@ -35,7 +35,7 @@ export default function Transactions() {
 
     const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
 
-    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "Other"];
+    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "Other", "Other(Initial Amount)", "Other(Transfer)", "Other(Debit)", "Other(Credit)"];
 
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
