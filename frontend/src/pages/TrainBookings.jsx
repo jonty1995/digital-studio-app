@@ -317,7 +317,7 @@ export default function TrainBookings() {
                                                                                 <span className="text-muted-foreground block font-bold mb-1">IRCTC Info:</span>
                                                                                 <div className="flex flex-col gap-0.5">
                                                                                     <span><span className="text-muted-foreground">User:</span> {o.irctcUser || "N/A"}</span>
-                                                                                    <span><span className="text-muted-foreground">Pass:</span> {o.irctcPass ? "********" : "N/A"}</span>
+                                                                                    <span><span className="text-muted-foreground">Pass:</span> {o.irctcPass || "N/A"}</span>
                                                                                 </div>
                                                                             </div>
                                                                         </div>

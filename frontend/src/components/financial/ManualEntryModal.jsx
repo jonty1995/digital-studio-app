@@ -22,6 +22,14 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
         amount: "",
         description: ""
     });
+    
+    // Debit State
+    const [debitData, setDebitData] = useState({
+        accountId: "",
+        purpose: "Personal Use",
+        description: "",
+        amount: ""
+    });
 
     const eligibleInitialAccounts = accounts.filter(acc => acc.canEditInitialAmount);
 
@@ -30,6 +38,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
             setActiveTab("initial");
             setInitialAmountData({ id: null, accountId: "", type: "CREDIT", amount: "" });
             setTransferData({ fromAccountId: "", toAccountId: "", amount: "", description: "" });
+            setDebitData({ accountId: "", purpose: "Personal Use", description: "", amount: "" });
         }
     }, [isOpen]);
 
@@ -112,6 +121,12 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
             return;
         }
 
+        const fromAccount = accounts.find(a => a.id === transferData.fromAccountId);
+        if (fromAccount && amountNum > (fromAccount.balance || 0)) {
+            showAlert("Insufficient Funds", `Transfer amount (₹${amountNum.toLocaleString()}) exceeds available balance (₹${(fromAccount.balance || 0).toLocaleString()}) in ${fromAccount.name}.`);
+            return;
+        }
+
         setLoading(true);
         try {
             await financialService.recordTransfer({
@@ -125,6 +140,44 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
         } catch (e) {
             console.error("Failed to record transfer", e);
             showAlert("Error", "Failed to record transfer.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    const handleDebitSubmit = async (e) => {
+        e.preventDefault();
+        if (!debitData.accountId || !debitData.amount) {
+            showAlert("Validation Error", "Please select an account and enter an amount.");
+            return;
+        }
+
+        const amountNum = parseFloat(debitData.amount);
+        if (isNaN(amountNum) || amountNum <= 0) {
+            showAlert("Validation Error", "Amount must be greater than zero.");
+            return;
+        }
+
+        const account = accounts.find(a => a.id === debitData.accountId);
+        if (account && amountNum > (account.balance || 0)) {
+            showAlert("Insufficient Funds", `Debit amount (₹${amountNum.toLocaleString()}) exceeds available balance (₹${(account.balance || 0).toLocaleString()}) in ${account.name}.`);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await financialService.recordTransaction({
+                accountId: debitData.accountId,
+                amount: amountNum,
+                type: "DEBIT",
+                category: debitData.purpose,
+                paymentMode: "OTHER",
+                description: debitData.description || debitData.purpose
+            });
+            onSuccess();
+            onClose();
+        } catch (e) {
+            console.error("Failed to record debit", e);
+            showAlert("Error", "Failed to record debit.");
         } finally {
             setLoading(false);
         }
@@ -150,6 +203,12 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                     >
                         Transfer
                     </button>
+                    <button
+                        onClick={() => setActiveTab("debit")}
+                        className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'debit' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                        Debit
+                    </button>
                 </div>
 
                 {activeTab === "initial" && (
@@ -166,6 +225,13 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                                     <option key={acc.id} value={acc.id}>{acc.name} ({acc.accountType.replace('_', ' ')})</option>
                                 ))}
                             </select>
+                            {initialAmountData.accountId && (
+                                <p className="text-xs font-bold text-muted-foreground mt-1">
+                                    Current Balance: <span className={(eligibleInitialAccounts.find(a => a.id === initialAmountData.accountId)?.balance || 0) < 0 ? 'text-red-500' : 'text-emerald-600'}>
+                                        ₹{(eligibleInitialAccounts.find(a => a.id === initialAmountData.accountId)?.balance || 0).toLocaleString()}
+                                    </span>
+                                </p>
+                            )}
                             {eligibleInitialAccounts.length === 0 && (
                                 <p className="text-xs text-muted-foreground">No accounts available (all have existing transactions).</p>
                             )}
@@ -217,6 +283,13 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                                         <option key={acc.id} value={acc.id}>{acc.name}</option>
                                     ))}
                                 </select>
+                                {transferData.fromAccountId && (
+                                    <p className="text-xs font-bold text-muted-foreground mt-1">
+                                        Current Balance: <span className={(accounts.find(a => a.id === transferData.fromAccountId)?.balance || 0) < 0 ? 'text-red-500' : 'text-emerald-600'}>
+                                            ₹{(accounts.find(a => a.id === transferData.fromAccountId)?.balance || 0).toLocaleString()}
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-muted-foreground">To Account</label>
@@ -231,6 +304,13 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                                         <option key={acc.id} value={acc.id}>{acc.name}</option>
                                     ))}
                                 </select>
+                                {transferData.toAccountId && (
+                                    <p className="text-xs font-bold text-muted-foreground mt-1">
+                                        Current Balance: <span className={(accounts.find(a => a.id === transferData.toAccountId)?.balance || 0) < 0 ? 'text-red-500' : 'text-emerald-600'}>
+                                            ₹{(accounts.find(a => a.id === transferData.toAccountId)?.balance || 0).toLocaleString()}
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="space-y-1.5">
@@ -258,6 +338,70 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
                             <Button type="submit" disabled={loading || !transferData.fromAccountId || !transferData.toAccountId || !transferData.amount}>
                                 Save Transfer
+                            </Button>
+                        </div>
+                    </form>
+                )}
+
+                {activeTab === "debit" && (
+                    <form onSubmit={handleDebitSubmit} className="space-y-4">
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Account</label>
+                            <select
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
+                                value={debitData.accountId}
+                                onChange={(e) => setDebitData(prev => ({ ...prev, accountId: e.target.value }))}
+                            >
+                                <option value="">Select Account</option>
+                                {accounts.map(acc => (
+                                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.accountType.replace('_', ' ')})</option>
+                                ))}
+                            </select>
+                            {debitData.accountId && (
+                                <p className="text-xs font-bold text-muted-foreground mt-1">
+                                    Current Balance: <span className={(accounts.find(a => a.id === debitData.accountId)?.balance || 0) < 0 ? 'text-red-500' : 'text-emerald-600'}>
+                                        ₹{(accounts.find(a => a.id === debitData.accountId)?.balance || 0).toLocaleString()}
+                                    </span>
+                                </p>
+                            )}
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Purpose</label>
+                            <select
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
+                                value={debitData.purpose}
+                                onChange={(e) => setDebitData(prev => ({ ...prev, purpose: e.target.value }))}
+                            >
+                                <option value="Personal Use">Personal Use</option>
+                                <option value="Payment">Payment</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Amount</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="0.00"
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm"
+                                value={debitData.amount}
+                                onChange={(e) => setDebitData(prev => ({ ...prev, amount: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-sm font-medium text-muted-foreground">Description (Optional)</label>
+                            <textarea
+                                placeholder="Add a note..."
+                                className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-20 resize-none"
+                                value={debitData.description}
+                                onChange={(e) => setDebitData(prev => ({ ...prev, description: e.target.value }))}
+                            />
+                        </div>
+                        <div className="pt-2 flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+                            <Button type="submit" disabled={loading || !debitData.accountId || !debitData.amount}>
+                                Save Debit
                             </Button>
                         </div>
                     </form>

@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom"
 export function Sidebar() {
     const location = useLocation()
     const navigate = useNavigate()
-    const { user, permissions, logout } = useAuth()
+    const { user, permissions, logout, hasPermission } = useAuth()
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
     
     console.log("Sidebar rendering, permissions:", permissions);
@@ -29,9 +29,6 @@ export function Sidebar() {
         { name: "System Logs", path: "/logs", icon: FileText },
     ]
 
-    // Filter links based on user permissions
-    const visibleLinks = allLinks.filter(link => permissions.includes(link.path))
-
     return (
         <div className="pb-12 w-64 border-r min-h-screen bg-background flex flex-col justify-between">
             <div className="space-y-4 py-4 flex-grow overflow-y-auto scrollbar-thin">
@@ -41,19 +38,19 @@ export function Sidebar() {
                     </h2>
                     <div className="space-y-1">
                         {allLinks.map((link) => {
-                            const hasPermission = useAuth().hasPermission(link.path);
+                            const permitted = hasPermission(link.path);
                             return (
                                 <Button
                                     key={link.path}
                                     variant={location.pathname.startsWith(link.path) ? "secondary" : "ghost"}
                                     className={cn(
                                         "w-full justify-start relative group",
-                                        !hasPermission && "opacity-50 cursor-not-allowed grayscale"
+                                        !permitted && "opacity-50 cursor-not-allowed grayscale"
                                     )}
-                                    disabled={!hasPermission}
-                                    asChild={hasPermission}
+                                    disabled={!permitted}
+                                    asChild={permitted}
                                 >
-                                    {hasPermission ? (
+                                    {permitted ? (
                                         <Link to={link.path}>
                                             <link.icon className="mr-2 h-4 w-4" />
                                             {link.name}

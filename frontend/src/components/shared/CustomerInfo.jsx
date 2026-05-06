@@ -37,31 +37,36 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
 
     // Auto-Populate Generated ID when Mobile is Empty (Default "New Customer" State)
     useEffect(() => {
+        if (disabled) return;
         if (!customer.mobile && fetchedSequence) {
             const newId = generateNewId();
             if (newId && customer.id !== newId) {
                 setCustomer(prev => ({ ...prev, id: newId }));
             }
         }
-    }, [customer.mobile, fetchedSequence, setCustomer, customer.id]);
+    }, [customer.mobile, fetchedSequence, customer.id, disabled]);
+
+    // Track last searched to avoid loops
+    const lastSearchedMobileRef = useRef("");
+    const isSelectionRef = useRef(false);
 
     // Auto-Search on 9 or 10 digits
     useEffect(() => {
         if (disabled) return;
-        const len = customer.mobile?.length;
-        if (len === 9 || len === 10) {
+        const val = customer.mobile;
+        const len = val?.length;
+        if ((len === 9 || len === 10) && val !== lastSearchedMobileRef.current) {
             const timer = setTimeout(() => {
+                lastSearchedMobileRef.current = val;
                 handleSearch(false);
             }, 500);
             return () => clearTimeout(timer);
         }
-    }, [customer.mobile]);
-
-    // Track if the update was from a selection
-    const isSelectionRef = useRef(false);
+    }, [customer.mobile, disabled]);
 
     // Suggestions Logic (Debounced)
     useEffect(() => {
+        if (disabled) return;
         const query = customer.mobile;
 
         // If this update was due to a selection, reset flag and DO NOT search
@@ -71,8 +76,8 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
             return;
         }
 
-        // Don't search if disabled, empty, or look like specific ID (9 digits)
-        if (disabled || !query || query.length < 3 || /^[0-9]{9}$/.test(query)) {
+        // Don't search if empty, or look like specific ID (9 digits)
+        if (!query || query.length < 3 || /^[0-9]{9}$/.test(query)) {
             setSuggestions([]);
             return;
         }
@@ -91,9 +96,14 @@ export function CustomerInfo({ customer, setCustomer, onSearch, instanceId, disa
     }, [customer.mobile, disabled]);
 
     const handleSearch = async (interactive = true) => {
+        if (disabled) return;
         const isInteractive = typeof interactive === 'boolean' ? interactive : true;
         const value = customer.mobile;
         if (!value) return;
+
+        // Skip if same as last search and not interactive
+        if (!isInteractive && value === lastSearchedMobileRef.current) return;
+        lastSearchedMobileRef.current = value;
 
         console.log("Searching for:", value);
 
