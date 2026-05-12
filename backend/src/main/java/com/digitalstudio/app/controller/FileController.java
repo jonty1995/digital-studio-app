@@ -40,15 +40,18 @@ public class FileController {
     @Autowired
     private CustomerRepository customerRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.storage.path:}")
+    private String propStoragePath;
+
     private String getUploadDir() {
-        String path = configurationService.getValue("STORAGE_PATH");
-        if (path == null || path.trim().isEmpty()) {
-            throw new RuntimeException("STORAGE_PATH_NOT_CONFIGURED");
+        if (propStoragePath != null && !propStoragePath.trim().isEmpty()) {
+            String path = propStoragePath;
+            if (!path.endsWith("/") && !path.endsWith("\\")) {
+                path += "/";
+            }
+            return path;
         }
-        if (!path.endsWith("/") && !path.endsWith("\\")) {
-            path += "/";
-        }
-        return path;
+        throw new RuntimeException("STORAGE_PATH_NOT_CONFIGURED_IN_PROPERTIES");
     }
 
     @PostMapping("/upload")
@@ -171,24 +174,25 @@ public class FileController {
             // Strict lookup by ID
             Optional<Upload> upload = uploadRepository.findById(uploadId);
             if (upload.isPresent()) {
-                String dbPath = upload.get().getUploadPath();
-                if (dbPath != null && !dbPath.isEmpty()) {
-                    Path path = Paths.get(dbPath);
-                    org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(
-                            path.toUri());
-                    if (resource.exists() || resource.isReadable()) {
-                        String contentType = "application/octet-stream";
-                        try {
-                            contentType = Files.probeContentType(path);
-                        } catch (IOException ex) {
-                        }
-
-                        return ResponseEntity.ok()
-                                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
-                                        "inline; filename=\"" + resource.getFilename() + "\"")
-                                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
-                                .body(resource);
+                // Proper Fix: Resolve the file relative to the CURRENT environment's upload directory
+                String currentUploadDir = getUploadDir();
+                String fileName = upload.get().getUploadId() + upload.get().getExtension();
+                Path path = Paths.get(currentUploadDir).resolve(fileName);
+                
+                org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(
+                        path.toUri());
+                if (resource.exists() || resource.isReadable()) {
+                    String contentType = "application/octet-stream";
+                    try {
+                        contentType = Files.probeContentType(path);
+                    } catch (IOException ex) {
                     }
+
+                    return ResponseEntity.ok()
+                            .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                                    "inline; filename=\"" + resource.getFilename() + "\"")
+                            .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
+                            .body(resource);
                 }
             }
 
@@ -219,6 +223,7 @@ public class FileController {
         int missingCount = 0;
         List<Upload> uploads = uploadRepository.findAll();
 
+        String currentUploadDir = getUploadDir();
         for (Upload u : uploads) {
             // Optimization: If previously checked and missing, skip unless forced
             if (!force && Boolean.FALSE.equals(u.getIsAvailable())) {
@@ -227,7 +232,10 @@ public class FileController {
             }
 
             try {
-                Path path = Paths.get(u.getUploadPath());
+                // Dynamic Check: Use current environment path
+                String fileName = u.getUploadId() + u.getExtension();
+                Path path = Paths.get(currentUploadDir).resolve(fileName);
+                
                 boolean exists = Files.exists(path);
                 u.setIsAvailable(exists); // true = available, false = missing/removed
                 if (exists) {

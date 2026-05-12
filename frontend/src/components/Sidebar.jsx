@@ -39,6 +39,12 @@ export function Sidebar() {
                     <div className="space-y-1">
                         {allLinks.map((link) => {
                             const permitted = hasPermission(link.path);
+                            const Icon = link.icon;
+                            
+                            if (!Icon) {
+                                console.warn(`Icon missing for link: ${link.name}`);
+                            }
+
                             return (
                                 <Button
                                     key={link.path}
@@ -52,12 +58,12 @@ export function Sidebar() {
                                 >
                                     {permitted ? (
                                         <Link to={link.path}>
-                                            <link.icon className="mr-2 h-4 w-4" />
+                                            {Icon && <Icon className="mr-2 h-4 w-4" />}
                                             {link.name}
                                         </Link>
                                     ) : (
                                         <div className="flex items-center w-full">
-                                            <link.icon className="mr-2 h-4 w-4" />
+                                            {Icon && <Icon className="mr-2 h-4 w-4" />}
                                             <span>{link.name}</span>
                                             <span className="ml-auto text-[8px] font-bold uppercase text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                                                 Denied

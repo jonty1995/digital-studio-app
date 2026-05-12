@@ -11,4 +11,6 @@ Write-Host "(Connecting to $PI_HOST...)" -ForegroundColor Gray
 ssh $PI_USER@$PI_HOST "cd $PI_DIR && ./scripts/check_status.sh"
 
 Write-Host "`nCheck Complete!" -ForegroundColor Cyan
+Write-Host "For detailed live metrics, visit: " -NoNewline -ForegroundColor Gray
+Write-Host "http://$PI_HOST:8081/actuator" -ForegroundColor Yellow
 Read-Host "Press Enter to exit..."

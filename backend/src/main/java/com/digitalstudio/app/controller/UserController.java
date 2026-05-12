@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasRole('ADMIN')")
 public class UserController {
 
     private final UserRepository userRepository;
@@ -122,8 +123,10 @@ public class UserController {
         String email = request.get("email");
         String roleStr = request.getOrDefault("role", "USER");
 
-        if (username == null || username.trim().isEmpty() || password == null || password.trim().length() < 5) {
-            log.warn("Invalid user creation request: username={}, (password hidden)", username);
+        if (username == null || username.trim().isEmpty() || 
+            password == null || password.trim().length() < 5 ||
+            email == null || email.trim().isEmpty()) {
+            log.warn("Invalid user creation request: username={}, email={}, (password hidden)", username, email);
             return ResponseEntity.badRequest().build();
         }
 
@@ -136,6 +139,7 @@ public class UserController {
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
         user.setEmail(email);
+
         
         try {
             user.setRole(com.digitalstudio.app.model.Role.valueOf(roleStr));

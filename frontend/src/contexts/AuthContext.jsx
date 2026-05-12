@@ -53,9 +53,15 @@ export const AuthProvider = ({ children }) => {
   }
 
   const hasPermission = (path, action = "access") => {
+    // console.log(`Checking permission for ${path} (${action}). User:`, user);
+    
     // Admin bypass: Admins have access to everything by default.
-    // This ensures new routes work immediately for admins.
-    if (user?.role === "ADMIN") return true;
+    if (user?.role === "ADMIN" || user?.role === "admin") return true;
+
+    if (!pagePermissions || pagePermissions.length === 0) {
+      // If no permissions loaded yet, and not admin, deny access.
+      return false;
+    }
 
     const perm = pagePermissions.find(p => p.pagePath === path);
     if (!perm) {
@@ -82,7 +88,7 @@ export const AuthProvider = ({ children }) => {
   const authValue = useMemo(() => ({
     user, token, permissions, setPermissions, pagePermissions, setPagePermissions,
     hasPermission, login, logout, refreshPermissions, isLoading: loading
-  }), [user, token, permissions, pagePermissions, loading]);
+  }), [user, token, permissions, pagePermissions, loading, hasPermission]);
 
   return (
     <AuthContext.Provider value={authValue}>

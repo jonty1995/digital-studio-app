@@ -16,8 +16,18 @@ public class LabProcessService {
     @Autowired
     private ConfigurationService configurationService;
 
+    @org.springframework.beans.factory.annotation.Value("${app.lab.path:}")
+    private String propLabPath;
+
+    private String getBasePath() {
+        if (propLabPath != null && !propLabPath.trim().isEmpty()) {
+            return propLabPath;
+        }
+        throw new RuntimeException("LAB_PROCESS_PATH_NOT_CONFIGURED_IN_PROPERTIES");
+    }
+
     public boolean checkFolderExists(String processDate) {
-        String basePath = configurationService.getValue("LAB_PROCESS_PATH");
+        String basePath = getBasePath();
         if (basePath == null || basePath.trim().isEmpty()) {
             return false;
         }
@@ -28,7 +38,7 @@ public class LabProcessService {
     }
 
     public void clearFolder(String processDate) throws IOException {
-        String basePath = configurationService.getValue("LAB_PROCESS_PATH");
+        String basePath = getBasePath();
         if (basePath == null || basePath.trim().isEmpty()) {
             return;
         }
@@ -53,7 +63,7 @@ public class LabProcessService {
 
     public void processGroup(String groupName, List<MultipartFile> files, String processDate)
             throws IOException {
-        String basePath = configurationService.getValue("LAB_PROCESS_PATH");
+        String basePath = getBasePath();
         if (basePath == null || basePath.trim().isEmpty()) {
             throw new RuntimeException("LAB_PROCESS_PATH_NOT_CONFIGURED");
         }
@@ -84,7 +94,7 @@ public class LabProcessService {
     }
 
     public void openFolder(String processDate) throws IOException {
-        String basePath = configurationService.getValue("LAB_PROCESS_PATH");
+        String basePath = getBasePath();
         if (basePath == null || basePath.trim().isEmpty()) {
             throw new RuntimeException("LAB_PROCESS_PATH_NOT_CONFIGURED");
         }
@@ -95,6 +105,15 @@ public class LabProcessService {
         if (Files.exists(datePath)) {
             // Use explorer.exe to open the folder on Windows
             new ProcessBuilder("explorer.exe", datePath.toString()).start();
+        } else {
+            throw new RuntimeException("FOLDER_NOT_FOUND");
+        }
+    }
+
+    public void openPath(String absolutePath) throws IOException {
+        Path path = Paths.get(absolutePath);
+        if (Files.exists(path)) {
+            new ProcessBuilder("explorer.exe", path.toString()).start();
         } else {
             throw new RuntimeException("FOLDER_NOT_FOUND");
         }

@@ -7,7 +7,7 @@ export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingAccount, setEditingAccount] = useState(null);
-    const [newAccount, setNewAccount] = useState({ name: "", accountType: "BANK_ACCOUNT", totalLimit: 0, color: "#3b82f6" });
+    const [newAccount, setNewAccount] = useState({ name: "", accountType: "BANK_ACCOUNT", color: "#3b82f6" });
 
     useEffect(() => {
         fetchAccounts();
@@ -49,7 +49,7 @@ export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
         try {
             await financialService.saveAccount(newAccount);
             fetchAccounts();
-            setNewAccount({ name: "", accountType: "BANK_ACCOUNT", totalLimit: 0, color: "#3b82f6" });
+            setNewAccount({ name: "", accountType: "BANK_ACCOUNT", color: "#3b82f6" });
             showAlert("Success", "Account saved successfully.");
         } catch (e) {
             showAlert("Error", "Failed to save card.");
@@ -70,20 +70,7 @@ export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
         }
     };
 
-    const handleReset = async (id) => {
-        if (!canEdit) {
-            showAlert("Permission Denied", "You do not have permission to reset statements.");
-            return;
-        }
-        if (!window.confirm("This will reset the unbilled amount and mark the current cycle as paid. Proceed?")) return;
-        try {
-            await financialService.markAccountAsPaid(id);
-            fetchAccounts();
-            showAlert("Success", "Statement reset successfully.");
-        } catch (e) {
-            showAlert("Error", "Failed to reset statement.");
-        }
-    };
+
 
     return (
         <div className="space-y-6">
@@ -148,15 +135,7 @@ export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
                                     </div>
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {account.accountType === "CREDIT_CARD" && (
-                                        <button
-                                            onClick={() => handleReset(account.id)}
-                                            className={`p-1.5 hover:bg-muted rounded text-blue-500 ${!canEdit ? 'opacity-50' : ''}`}
-                                            title="Mark as Paid / Reset Statement"
-                                        >
-                                            <RotateCcw className="w-4 h-4" />
-                                        </button>
-                                    )}
+
                                     <button
                                         onClick={() => handleDelete(account.id)}
                                         className={`p-1.5 hover:bg-destructive/10 rounded text-destructive ${!canDelete ? 'opacity-50' : ''}`}
@@ -166,14 +145,7 @@ export function AccountConfig({ showAlert, canAdd, canEdit, canDelete }) {
                                     </button>
                                 </div>
                             </div>
-                            {account.accountType === "CREDIT_CARD" && (
-                                <div className="pt-2 border-t flex justify-between items-center text-xs">
-                                    <span className="text-muted-foreground">Last Reset:</span>
-                                    <span className="font-medium">
-                                        {account.lastRepaymentDate ? new Date(account.lastRepaymentDate).toLocaleDateString() : "Never"}
-                                    </span>
-                                </div>
-                            )}
+
                         </div>
                     </div>
                 ))}

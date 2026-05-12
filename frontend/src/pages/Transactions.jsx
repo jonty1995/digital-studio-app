@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../components/shared/PageHeader";
 import { financialService } from "../services/financialService";
 import {
@@ -22,6 +23,8 @@ export default function Transactions() {
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
 
+    const navigate = useNavigate();
+
     // UI Local State
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, txnId: null });
     const [dragOverAccountId, setDragOverAccountId] = useState(null);
@@ -35,68 +38,105 @@ export default function Transactions() {
 
     const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
 
-    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "Other", "Other(Initial Amount)", "Other(Transfer)", "Other(Debit)", "Other(Credit)"];
+    const CATEGORIES = ["Photo Orders", "Bill Payment", "Service Orders", "Money Transfer", "Other"];
+    const MANUAL_OTHER_CATEGORIES = ["Other", "Other(Initial Amount)", "Other(Transfer)", "Other(Debit)", "Other(Credit)"];
 
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
     const showAlert = (title, message) => setAlertConfig({ isOpen: true, title, message });
 
     useEffect(() => {
-        fetchData();
+        fetchAccountsData();
+    }, []);
+
+    useEffect(() => {
+        fetchTransactionsData();
     }, [page, filters]);
 
-    const fetchData = async () => {
+    const handleRefreshAll = () => {
+        fetchAccountsData();
+        fetchTransactionsData();
+    };
+
+    const fetchAccountsData = async () => {
         try {
-            setLoading(true);
-
-            const activeFilters = { ...filters };
-            if (activeFilters.categories && activeFilters.categories.length === 0) {
-                delete activeFilters.categories;
-            }
-
-            const [txnData, accountData, summaryData] = await Promise.all([
-                financialService.getTransactions({ ...activeFilters, page, size: 20 }),
-                financialService.getAccounts(),
-                financialService.getSummary(activeFilters)
-            ]);
-
-            setTransactions(txnData?.content || []);
-            setTotalPages(txnData?.totalPages || 0);
-            setAccounts(accountData || []);
-            setSummary(summaryData || { totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
-
-            // Fetch balances for all accounts
+            const accountData = await financialService.getAccounts();
             const updatedAccounts = await Promise.all(accountData.map(async account => {
                 const balance = await financialService.getAccountBalance(account.id);
                 return { ...account, balance };
             }));
             setAccounts(updatedAccounts);
         } catch (e) {
+            console.error("Failed to load accounts", e);
+        }
+    };
+
+    const fetchTransactionsData = async () => {
+        try {
+            setLoading(true);
+
+            const activeFilters = { ...filters };
+            if (activeFilters.categories && activeFilters.categories.length > 0) {
+                if (activeFilters.categories.includes("Other")) {
+                    const expanded = new Set([...activeFilters.categories.filter(c => c !== "Other"), ...MANUAL_OTHER_CATEGORIES]);
+                    activeFilters.categories = Array.from(expanded);
+                }
+            } else {
+                delete activeFilters.categories;
+            }
+
+            const [txnData, summaryData] = await Promise.all([
+                financialService.getTransactions({ ...activeFilters, page, size: 20 }),
+                financialService.getSummary(activeFilters)
+            ]);
+
+            setTransactions(txnData?.content || []);
+            setTotalPages(txnData?.totalPages || 0);
+            setSummary(summaryData || { totalInflow: 0, totalOutflow: 0, totalProfit: 0, totalUPI: 0, totalCash: 0, totalBankTransfer: 0, totalCard: 0 });
+        } catch (e) {
             console.error(e);
-            showAlert("Error", "Failed to load financial data.");
+            showAlert("Error", "Failed to load transactions data.");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleResetAccount = async (id) => {
-        if (!window.confirm("Mark this account as paid and create a DEBIT entry in the ledger for the statement amount?")) return;
-        try {
-            await financialService.markAccountAsPaid(id);
-            fetchData();
-            showAlert("Success", "Account statement cleared and recorded in ledger.");
-        } catch (e) {
-            showAlert("Error", "Failed to reset account.");
-        }
-    };
+
 
     const handleLinkToAccount = async (txnId, accountId) => {
         try {
             await financialService.linkTransactionToAccount(txnId, accountId);
-            fetchData();
+            handleRefreshAll();
             setContextMenu({ visible: false, x: 0, y: 0, txnId: null });
         } catch (e) {
             showAlert("Error", "Failed to link transaction to account.");
         }
+    };
+
+    const handleNavigateToOrder = (category, relatedId) => {
+        if (!relatedId) return;
+        let path = "";
+        switch (category) {
+            case 'Photo Orders':
+                path = "/photo-orders";
+                break;
+            case 'Bill Payment':
+                path = "/bill-payment";
+                break;
+            case 'Money Transfer':
+                path = "/money-transfer";
+                break;
+            case 'Service Order':
+            case 'Service Orders':
+                path = "/service-orders";
+                break;
+            case 'Train Booking':
+            case 'Train Bookings':
+                path = "/travel/train";
+                break;
+            default:
+                return;
+        }
+        navigate(`${path}?search=${encodeURIComponent(relatedId)}`);
     };
 
     const onContextMenu = (e, txnId) => {
@@ -336,15 +376,7 @@ export default function Transactions() {
                                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase">{account.accountType.replace('_', ' ')}</span>
                                         </div>
                                     </div>
-                                    {account.accountType === "CREDIT_CARD" && (
-                                        <button
-                                            onClick={() => handleResetAccount(account.id)}
-                                            className="absolute bottom-2 right-2 p-1.5 bg-muted rounded-md hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                                            title="Clear Statement"
-                                        >
-                                            <RotateCcw className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
+
                                 </div>
                             )})}
                         </div>
@@ -386,7 +418,18 @@ export default function Transactions() {
                                             </td>
                                             <td className="px-4 py-3 font-medium">{txn.category}</td>
                                             <td className="px-4 py-3 font-mono text-center text-[10px] text-muted-foreground whitespace-nowrap">
-                                                {txn.relatedId || '—'}
+                                                {txn.relatedId ? (
+                                                    <span 
+                                                        className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleNavigateToOrder(txn.category, txn.relatedId);
+                                                        }}
+                                                        title="Go to Order"
+                                                    >
+                                                        {txn.relatedId}
+                                                    </span>
+                                                ) : '—'}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-col">
@@ -496,7 +539,7 @@ export default function Transactions() {
                 accounts={accounts}
                 onSuccess={() => {
                     showAlert("Success", "Manual entry saved successfully.");
-                    fetchData();
+                    handleRefreshAll();
                 }}
                 showAlert={showAlert}
             />

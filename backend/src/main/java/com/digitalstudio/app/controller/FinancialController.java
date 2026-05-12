@@ -39,11 +39,7 @@ public class FinancialController {
         financialService.deleteAccount(id);
     }
 
-    @PostMapping("/accounts/{id}/pay")
-    public org.springframework.http.ResponseEntity<Void> markAccountAsPaid(@PathVariable UUID id) {
-        financialService.markAsPaid(id);
-        return org.springframework.http.ResponseEntity.ok().build();
-    }
+
 
     @GetMapping("/accounts/{id}/balance")
     public Double getAccountBalance(@PathVariable UUID id) {

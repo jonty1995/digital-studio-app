@@ -60,6 +60,10 @@ export const generateGroup = async (groupName, files, processDate) => {
     return await api.post("/lab-process/generate", formData);
 };
 
-export const openFolder = async (processDate) => {
-    return await api.get(`/lab-process/open-folder?processDate=${processDate}`);
+export const openFolder = async (processDate, logId = null) => {
+    let url = `/lab-process/open-folder?processDate=${processDate}`;
+    if (logId) {
+        url += `&logId=${logId}`;
+    }
+    return await api.get(url);
 };

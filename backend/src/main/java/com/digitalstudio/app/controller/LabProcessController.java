@@ -54,11 +54,25 @@ public class LabProcessController {
         }
     }
 
+    @Autowired
+    private com.digitalstudio.app.repository.LabProcessLogRepository labProcessLogRepository;
+
     @GetMapping("/open-folder")
-    public ResponseEntity<?> openFolder(@RequestParam("processDate") String processDate) {
+    public ResponseEntity<?> openFolder(@RequestParam(value = "processDate", required = false) String processDate,
+                                        @RequestParam(value = "logId", required = false) Long logId) {
         try {
-            labProcessService.openFolder(processDate);
-            return ResponseEntity.ok(Map.of("message", "Folder opened successfully"));
+            if (logId != null) {
+                com.digitalstudio.app.model.LabProcessLog log = labProcessLogRepository.findById(logId).orElse(null);
+                if (log != null && log.getSavedPath() != null) {
+                    labProcessService.openPath(log.getSavedPath());
+                    return ResponseEntity.ok(Map.of("message", "Folder opened successfully from saved path"));
+                }
+            }
+            if (processDate != null && !processDate.isEmpty()) {
+                labProcessService.openFolder(processDate);
+                return ResponseEntity.ok(Map.of("message", "Folder opened successfully from process date"));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", "No valid logId or processDate provided"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }

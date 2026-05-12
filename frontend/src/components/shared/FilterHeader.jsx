@@ -6,6 +6,8 @@ import { Search, X } from "lucide-react";
 import { configurationService } from "@/services/configurationService";
 import { format } from "date-fns";
 
+import { useLocation } from "react-router-dom";
+
 export const useViewMode = (storageKey = "app-view-mode") => {
     const [viewMode, setViewMode] = useState(() => localStorage.getItem(storageKey) || "cozy");
 
@@ -27,6 +29,17 @@ export const FilterHeader = ({
     action,
     children
 }) => {
+    const location = useLocation();
+
+    // Auto-fill search from URL
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const urlSearch = params.get('search');
+        if (urlSearch && onSearchChange) {
+            onSearchChange(urlSearch);
+        }
+    }, [location.search]);
+
     // Determine default date range from config on mount
     useEffect(() => {
         const loadConfig = async () => {

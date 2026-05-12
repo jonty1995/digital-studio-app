@@ -147,23 +147,32 @@ export function LabPhotoGroup({ group, onUpdate, onRemove, index }) {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
                 {group.files.map((fileObj, idx) => {
-                    const { file, frame, lamination } = fileObj;
-                    const url = URL.createObjectURL(file);
+                    const { file, frame, lamination, name } = fileObj;
+                    const url = file ? URL.createObjectURL(file) : null;
+                    const fileName = file ? file.name : (name || "Processed Image");
+                    
                     return (
                         <div
                             key={idx}
                             className="relative group flex flex-col items-center"
                         >
                             <div
-                                className="relative aspect-square w-full rounded-md overflow-hidden bg-muted border cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                                onClick={() => setPreviewImage(url)}
-                                title="Click to preview"
+                                className="relative aspect-square w-full rounded-md overflow-hidden bg-muted border cursor-pointer hover:ring-2 hover:ring-primary transition-all flex items-center justify-center"
+                                onClick={() => url && setPreviewImage(url)}
+                                title={url ? "Click to preview" : "Preview not available after refresh"}
                             >
-                                <img
-                                    src={url}
-                                    alt={`Preview ${idx}`}
-                                    className="w-full h-full object-cover"
-                                />
+                                {url ? (
+                                    <img
+                                        src={url}
+                                        alt={`Preview ${idx}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-muted-foreground/40">
+                                        <ImageIcon className="w-8 h-8 mb-1" />
+                                        <span className="text-[8px] font-bold uppercase truncate max-w-[90%]">{fileName}</span>
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Maximize2 className="w-5 h-5 text-white" />
                                 </div>

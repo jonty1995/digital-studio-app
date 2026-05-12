@@ -9,7 +9,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export function SimpleAlert({ open, onOpenChange, title, description, confirmText = "OK", onConfirm, cancelText = "Cancel", type = "alert", inputValue, onInputChange, placeholder = "Enter value..." }) {
+export function SimpleAlert({ open, onOpenChange, title, description, confirmText = "OK", onConfirm, cancelText = "Cancel", type = "alert", inputValue, onInputChange, placeholder = "Enter value...", children }) {
     const isPrompt = type === "prompt";
     const showCancel = type === "confirm" || type === "prompt" || onConfirm;
 
@@ -33,6 +33,7 @@ export function SimpleAlert({ open, onOpenChange, title, description, confirmTex
                             />
                         </div>
                     )}
+                    {children}
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     {showCancel && <AlertDialogCancel onClick={() => onOpenChange(false)}>{cancelText}</AlertDialogCancel>}

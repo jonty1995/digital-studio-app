@@ -32,21 +32,20 @@ public class DatabaseAdminController {
 
     @PostMapping("/clear/{table}")
     @Transactional
-    public ResponseEntity<?> clearTable(@PathVariable String table, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> clearTable(@PathVariable String table, 
+                                      @RequestBody Map<String, String> body,
+                                      @org.springframework.security.core.annotation.AuthenticationPrincipal com.digitalstudio.app.security.CustomUserDetails userDetails) {
         String password = body != null ? body.get("password") : null;
         
         try {
             // 1. Get Security Context
-            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated()) {
+            if (userDetails == null) {
                 return ResponseEntity.status(401).body(Map.of("error", "Not authenticated."));
             }
-            
-            String username = auth.getName();
-            
-            // 2. Validate Password against DB
+
+            // 2. Validate Password
             boolean authenticated = false;
-            com.digitalstudio.app.model.User adminUser = userRepository.findByUsernameIgnoreCase(username).orElse(null);
+            com.digitalstudio.app.model.User adminUser = userRepository.findByUsernameIgnoreCase(userDetails.getUsername()).orElse(null);
             if (adminUser != null && password != null && passwordEncoder.matches(password, adminUser.getPassword())) {
                 authenticated = true;
             }

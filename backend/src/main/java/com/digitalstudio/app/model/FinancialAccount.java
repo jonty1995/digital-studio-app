@@ -19,9 +19,7 @@ public class FinancialAccount {
     private AccountType accountType;
     
     // Primarily for CREDIT_CARD
-    private Integer billingDate; // 1 to 31
-    private Double totalLimit;
-    private java.time.LocalDateTime lastRepaymentDate; // Used to calculate current unbilled
+
     
     private String color; // For UI differentiation
     

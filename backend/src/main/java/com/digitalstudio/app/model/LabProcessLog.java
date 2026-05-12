@@ -25,6 +25,9 @@ public class LabProcessLog {
     @Column(columnDefinition = "TEXT")
     private String fileListJson; // List of filenames
 
+    @Column(length = 1000)
+    private String savedPath; // The exact absolute path where it was saved at that time
+
     @CreationTimestamp
     private LocalDateTime timestamp;
 }

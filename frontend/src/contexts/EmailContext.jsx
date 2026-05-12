@@ -78,6 +78,11 @@ export function EmailProvider({ children }) {
                         await new Promise((resolve, reject) => {
                             const xhr = new XMLHttpRequest();
                             xhr.open("POST", "/api/lab-process/send-email", true);
+                            
+                            const token = localStorage.getItem("token");
+                            if (token) {
+                                xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+                            }
 
                             xhr.upload.onprogress = (event) => {
                                 if (event.lengthComputable) {

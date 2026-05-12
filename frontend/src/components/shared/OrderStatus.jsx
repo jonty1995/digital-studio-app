@@ -11,6 +11,8 @@ import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { api } from "@/services/api";
 import { Loader2 } from "lucide-react";
 import { DoneStatusModal } from "./DoneStatusModal";
+import { IndianRupee, Smartphone, Building2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // --- Static Helpers (Exported for Reuse) ---
 
@@ -108,9 +110,10 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
     const [showPaymentPrompt, setShowPaymentPrompt] = useState(false);
     const [showDonePrompt, setShowDonePrompt] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState("");
+    const [selectedPaymentMode, setSelectedPaymentMode] = useState("Cash");
     const [pendingStatus, setPendingStatus] = useState(null);
 
-    const handleStatusUpdate = async (newStatus, amount = null, profit = null, profitType = null, finalAmount = null) => {
+    const handleStatusUpdate = async (newStatus, amount = null, profit = null, profitType = null, finalAmount = null, paymentMode = null) => {
         // If transitioning to Done for financial types, prompt for profit
         if (newStatus === 'Done' && (type === 'bill-payment' || type === 'money-transfer' || type === 'service-order' || type === 'train-booking') && profit === null && !showDonePrompt) {
             setPendingStatus(newStatus);
@@ -149,6 +152,7 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
                 const queryParams = new URLSearchParams();
                 queryParams.append("status", newStatus);
                 if (amount) queryParams.append("paymentAmount", amount);
+                if (paymentMode) queryParams.append("paymentMode", paymentMode);
 
                 updatedOrder = await api.put(`/orders/${order.orderId}/status?${queryParams.toString()}`, {});
             }
@@ -270,10 +274,39 @@ export function OrderStatus({ order, onUpdate, type = "photo-order", updateFn = 
                     if (isNaN(amount) || amount <= 0) {
                         handleStatusUpdate(pendingStatus, 0); // Just status change
                     } else {
-                        handleStatusUpdate(pendingStatus, amount);
+                        handleStatusUpdate(pendingStatus, amount, null, null, null, selectedPaymentMode);
                     }
                 }}
-            />
+            >
+                <div className="space-y-3 mt-4">
+                    <h3 className="text-sm font-semibold text-muted-foreground">Payment Details</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                        {[
+                            { id: "Cash", label: "Cash", icon: IndianRupee },
+                            { id: "UPI", label: "UPI", icon: Smartphone },
+                            { id: "Bank Transfer", label: "Bank Transfer", icon: Building2 }
+                        ].map((m) => {
+                            const Icon = m.icon;
+                            const isSelected = selectedPaymentMode === m.id;
+                            return (
+                                <div
+                                    key={m.id}
+                                    onClick={() => setSelectedPaymentMode(m.id)}
+                                    className={cn(
+                                        "flex flex-col items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all hover:bg-slate-50",
+                                        isSelected
+                                            ? "border-blue-600 bg-blue-50/50 text-blue-600"
+                                            : "border-muted text-muted-foreground hover:border-blue-200 hover:text-foreground"
+                                    )}
+                                >
+                                    <Icon className={cn("h-5 w-5 mb-1", isSelected ? "text-blue-600" : "text-foreground")} />
+                                    <span className="text-xs font-semibold text-center leading-tight">{m.label}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </SimpleAlert>
 
             <DoneStatusModal
                 isOpen={showDonePrompt}

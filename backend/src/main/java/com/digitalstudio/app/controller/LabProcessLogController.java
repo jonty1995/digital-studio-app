@@ -16,6 +16,9 @@ public class LabProcessLogController {
     @Autowired
     private LabProcessLogRepository repository;
 
+    @Autowired
+    private com.digitalstudio.app.service.ConfigurationService configurationService;
+
     @GetMapping
     public List<LabProcessLog> getAllLogs() {
         return repository.findAllByOrderByTimestampDesc();
@@ -24,6 +27,14 @@ public class LabProcessLogController {
     @PostMapping
     @SuppressWarnings("null")
     public LabProcessLog createLog(@RequestBody LabProcessLog log) {
+        if ("Generated".equals(log.getAction()) || "IN PROGRESS".equals(log.getAction())) {
+            String basePath = configurationService.getValue("LAB_PROCESS_PATH");
+            if (basePath != null && !basePath.trim().isEmpty()) {
+                String dateFolder = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+                java.nio.file.Path datePath = java.nio.file.Paths.get(basePath).resolve(dateFolder);
+                log.setSavedPath(datePath.toString());
+            }
+        }
         return repository.save(log);
     }
 

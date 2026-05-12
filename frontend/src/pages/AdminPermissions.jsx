@@ -101,51 +101,59 @@ export default function AdminPermissions() {
     }
   };
 
-  const loadUserPermissions = async (userId) => {
+  const handleUserSelect = async (userId) => {
     setSelectedUserId(userId);
     setIsCreatingUser(false);
-    const selectedUser = users.find(u => u.id === userId);
-    if (selectedUser) {
-      setEditUsername(selectedUser.username || "");
-      setEditEmail(selectedUser.email || "");
-      setEditRole(selectedUser.role || "USER");
-    }
-
+    setLoading(true);
+    setResettingUserId(null);
+    setAlert(null);
+    
     try {
-      const data = await api.get(`/admin/users/${userId}/permissions`);
-      const mergedPerms = ALL_PATHS.map(p => {
-        const existing = data.find(d => d.pagePath === p.path);
-        return {
-          userId: userId,
-          pagePath: p.path,
-          hasAccess: existing ? existing.hasAccess : false,
-          canAdd: existing ? existing.canAdd : false,
-          canEdit: existing ? existing.canEdit : false,
-          canDelete: existing ? existing.canDelete : false
+      const userToEdit = users.find(u => u.id === userId);
+      if (userToEdit) {
+        setEditUsername(userToEdit.username);
+        setEditEmail(userToEdit.email || "");
+        setEditRole(userToEdit.role);
+      }
+      
+      const userPermissions = await api.get(`/admin/users/${userId}/permissions`);
+      
+      // Merge with default list to ensure all paths are covered
+      const mergedPermissions = ALL_PATHS.map(pathObj => {
+        const existing = userPermissions.find(p => p.pagePath === pathObj.path);
+        return existing || {
+          userId,
+          pagePath: pathObj.path,
+          hasAccess: false,
+          canAdd: false,
+          canEdit: false,
+          canDelete: false
         };
       });
-      setPermissions(mergedPerms);
+      
+      setPermissions(mergedPermissions);
     } catch (err) {
-      setAlert({ type: "error", message: "Failed to load permissions for user." });
+      setAlert({ type: "error", message: "Failed to load user permissions." });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFieldToggle = (path, field) => {
+  const togglePermission = (path, field) => {
     setPermissions(prev => {
-      const newPerms = prev.map(p => 
-        p.pagePath === path ? { ...p, [field]: !p[field] } : p
-      );
+      const newPerms = [...prev];
+      const index = newPerms.findIndex(p => p.pagePath === path);
       
-      console.log("Local permissions updated for user:", selectedUserId, newPerms);
-      console.log("Current logged in user ID:", user?.id);
-
-      // Instant reflection for self
-      if (selectedUserId == user?.id) {
-        console.log("MATCH! Reflecting permissions for self instantly", user.id);
-        setAuthPermissions(newPerms.filter(p => p.hasAccess).map(p => p.pagePath));
-        setPagePermissions(newPerms);
-      } else {
-        console.log("NO MATCH. selectedUserId:", typeof selectedUserId, selectedUserId, "user.id:", typeof user?.id, user?.id);
+      if (index !== -1) {
+        newPerms[index] = {
+          ...newPerms[index],
+          [field]: !newPerms[index][field]
+        };
+        
+        // If we enable any sub-permission, we must enable hasAccess
+        if (field !== 'hasAccess' && newPerms[index][field]) {
+          newPerms[index].hasAccess = true;
+        }
       }
 
       return newPerms;
@@ -279,74 +287,70 @@ export default function AdminPermissions() {
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="p-4 sm:p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-primary" />
-            Admin Dashboard
-          </h1>
-          <p className="text-slate-400 mt-2">System administration and data controls.</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Access Management</h1>
+          </div>
+          <p className="text-slate-400 mt-2">Manage page-level access permissions for all users.</p>
         </div>
 
-        <div className="flex p-1 bg-slate-800/50 backdrop-blur-md rounded-xl border border-slate-700/50">
-          <button
+        <div className="flex gap-4 border-b border-slate-800 sm:border-none pb-4 sm:pb-0">
+          <button 
             onClick={() => setActiveTab("access")}
-            className={`px-6 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${activeTab === "access" 
-              ? "bg-primary text-white shadow-lg shadow-primary/20" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${activeTab === 'access' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            Access Management
+            User Permissions
           </button>
-          <button
+          <button 
             onClick={() => setActiveTab("data")}
-            className={`px-6 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${activeTab === "data" 
-              ? "bg-red-600 text-white shadow-lg shadow-red-900/20" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"}`}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${activeTab === 'data' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            Data Management
+            Database Control
           </button>
         </div>
       </div>
 
       {alert && (
-        <div className={`p-4 rounded-xl border flex items-center gap-3 transition-opacity ${
-          alert.type === "success" 
-            ? "bg-green-500/10 border-green-500/20 text-green-400" 
-            : "bg-red-500/10 border-red-500/20 text-red-400"
-        }`}>
-          {alert.type === "success" ? <ShieldCheck className="w-5 h-5" /> : <Save className="w-5 h-5" />}
-          <div>{alert.message}</div>
-          <button onClick={() => setAlert(null)} className="ml-auto opacity-70 hover:opacity-100">✕</button>
+        <div className={`p-4 rounded-xl border animate-in slide-in-from-top-4 duration-300 ${alert.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-rose-500/10 border-rose-500/50 text-rose-400'}`}>
+          {alert.message}
         </div>
       )}
 
       {activeTab === "access" ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* User Selection List */}
-          <Card className="col-span-1 bg-slate-800/50 border-slate-700 flex flex-col">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-lg">Users</CardTitle>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 bg-slate-800 text-blue-400 border-blue-900/50 hover:bg-blue-900/20 hover:text-blue-300"
-                onClick={() => { setSelectedUserId(null); setIsCreatingUser(true); }}
-              >
-                <Plus className="w-4 h-4 mr-1" /> Add User
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* User List Panel */}
+          <Card className="col-span-1 bg-slate-800/50 border-slate-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-400">Users</CardTitle>
+              <Button size="sm" variant="ghost" className="h-8 text-primary hover:text-primary hover:bg-primary/10" onClick={() => { setIsCreatingUser(true); setSelectedUserId(null); }}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add User
               </Button>
             </CardHeader>
-            <CardContent className="space-y-2 flex-grow">
-              {loading ? <p className="text-slate-400">Loading...</p> : (
+            <CardContent className="space-y-1 px-2">
+              {loading && !users.length ? (
+                <div className="text-center py-8 text-slate-500 text-sm">Loading...</div>
+              ) : (
                 users.map(u => (
                   <button
                     key={u.id}
-                    onClick={() => loadUserPermissions(u.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${selectedUserId === u.id ? 'bg-primary/20 text-primary border border-primary/30' : 'hover:bg-slate-700/50 text-slate-300'}`}
+                    onClick={() => handleUserSelect(u.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left group ${
+                      selectedUserId === u.id 
+                        ? "bg-primary/20 text-white border border-primary/30" 
+                        : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-200"
+                    }`}
                   >
-                    <UserIcon className="w-5 h-5" />
-                    <div>
-                      <div className="font-semibold">{u.username}</div>
+                    <div className={`p-2 rounded-full ${selectedUserId === u.id ? 'bg-primary/30' : 'bg-slate-900/50 group-hover:bg-slate-900'}`}>
+                      <UserIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold truncate">{u.username}</div>
                       <div className="text-xs text-slate-500">{u.role}</div>
                     </div>
                   </button>
@@ -357,68 +361,84 @@ export default function AdminPermissions() {
 
           {/* Right Side Panel */}
           {isCreatingUser ? (
-            <div className="col-span-1 md:col-span-3 space-y-6">
-              <Card className="bg-slate-800/50 border-slate-700">
+            <div className="col-span-1 md:col-span-3 space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <Card className="bg-slate-800/50 border-slate-700 shadow-xl overflow-hidden">
                 <CardHeader>
-                  <CardTitle className="text-lg">Create New User</CardTitle>
-                  <CardDescription>Add a new user and specify their authentication role.</CardDescription>
+                  <CardTitle className="text-xl font-bold text-white">Create New User</CardTitle>
+                  <CardDescription className="text-slate-400">Initialize a new account with specific access roles.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 max-w-md">
+                <CardContent className="space-y-5 max-w-md">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Username</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Username <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                       value={newUsername}
                       onChange={e => setNewUsername(e.target.value)}
+                      placeholder="Enter unique username"
                     />
                   </div>
+                  
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Email Address</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address <span className="text-red-500">*</span></label>
                     <input 
                       type="email" 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                       value={newUserEmail}
                       onChange={e => setNewUserEmail(e.target.value)}
                       placeholder="user@example.com"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Password</label>
-                    <input 
-                      type="password" 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                      value={newUserPassword}
-                      onChange={e => setNewUserPassword(e.target.value)}
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password <span className="text-red-500">*</span></label>
+                      <input 
+                        type="password" 
+                        className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                        value={newUserPassword}
+                        onChange={e => setNewUserPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Confirm <span className="text-red-500">*</span></label>
+                      <input 
+                        type="password" 
+                        className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                        value={newUserConfirmPassword}
+                        onChange={e => setNewUserConfirmPassword(e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Confirm Password</label>
-                    <input 
-                      type="password" 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                      value={newUserConfirmPassword}
-                      onChange={e => setNewUserConfirmPassword(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2 pb-4">
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Role</label>
+
+                  <div className="space-y-2 pb-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assign Role</label>
                     <select 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none"
+                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
                       value={newUserRole}
                       onChange={e => setNewUserRole(e.target.value)}
                     >
                       <option value="USER">User (Standard)</option>
-                      <option value="ADMIN">Admin (Full Access)</option>
+                      <option value="ADMIN">Admin (Superuser)</option>
                     </select>
                   </div>
-                  <Button 
-                    onClick={handleCreateUser} 
-                    disabled={saving || !newUsername || !newUserEmail || newUserPassword.length < 5 || newUserPassword !== newUserConfirmPassword}
-                    className="w-full bg-primary hover:bg-primary/90 text-white"
-                  >
-                    {saving ? "Creating..." : "Create User"}
-                  </Button>
+
+                  <div className="pt-4 flex gap-3">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setIsCreatingUser(false)}
+                      className="flex-1 border border-slate-700 text-slate-400 hover:text-white"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleCreateUser} 
+                      disabled={saving || !newUsername || !newUserEmail || newUserPassword.length < 5 || newUserPassword !== newUserConfirmPassword}
+                      className="flex-[2] bg-primary hover:bg-primary/90 text-white"
+                    >
+                      {saving ? "Creating..." : "Create User"}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -599,56 +619,58 @@ export default function AdminPermissions() {
                                       <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Access</span>
                                       <Switch
                                         checked={perm.hasAccess}
-                                        onCheckedChange={() => handleFieldToggle(pathObj.path, 'hasAccess')}
+                                        onCheckedChange={() => togglePermission(pathObj.path, 'hasAccess')}
                                       />
                                     </div>
                                   </div>
                                   
-                                  {isMainConfiguration && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-slate-800">
-                                      {group.paths.filter(p => p.path.startsWith('/configuration/') && p.path !== '/configuration').map(subPath => {
-                                        const subPerm = permissions.find(p => p.pagePath === subPath.path) || { hasAccess: false, canAdd: false, canEdit: false, canDelete: false };
-                                        const isAuditTrail = subPath.path === '/configuration/audit';
-                                        const showGranular = !isAuditTrail;
+                                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className="text-[8px] text-slate-500 uppercase font-bold">Add</span>
+                                      <Switch
+                                        size="sm"
+                                        checked={perm.canAdd}
+                                        onCheckedChange={() => togglePermission(pathObj.path, 'canAdd')}
+                                        disabled={!perm.hasAccess}
+                                      />
+                                    </div>
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className="text-[8px] text-slate-500 uppercase font-bold">Edit</span>
+                                      <Switch
+                                        size="sm"
+                                        checked={perm.canEdit}
+                                        onCheckedChange={() => togglePermission(pathObj.path, 'canEdit')}
+                                        disabled={!perm.hasAccess}
+                                      />
+                                    </div>
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className="text-[8px] text-slate-500 uppercase font-bold">Del</span>
+                                      <Switch
+                                        size="sm"
+                                        checked={perm.canDelete}
+                                        onCheckedChange={() => togglePermission(pathObj.path, 'canDelete')}
+                                        disabled={!perm.hasAccess}
+                                      />
+                                    </div>
+                                  </div>
 
-                                        return (
-                                          <div key={subPath.path} className="p-3 rounded-lg bg-slate-800/40 border border-slate-700/30 space-y-3">
-                                            <div className="flex items-center justify-between">
-                                              <div className="text-sm font-medium text-slate-300">{subPath.label}</div>
+                                  {isMainConfiguration && (
+                                    <div className="mt-4 p-4 bg-slate-950/50 rounded-lg border border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                      {MODULE_GROUPS.find(g => g.name === "Configuration Module").paths
+                                        .filter(p => p.path !== '/configuration')
+                                        .map(subPath => {
+                                          const subPerm = permissions.find(p => p.pagePath === subPath.path) || { hasAccess: false, canAdd: false, canEdit: false, canDelete: false };
+                                          return (
+                                            <div key={subPath.path} className="flex items-center justify-between p-2 rounded bg-slate-900 border border-slate-800">
+                                              <div className="text-[10px] text-slate-300 font-medium">{subPath.label}</div>
                                               <Switch
+                                                size="sm"
                                                 checked={subPerm.hasAccess}
+                                                onCheckedChange={() => togglePermission(subPath.path, 'hasAccess')}
                                                 disabled={!perm.hasAccess}
-                                                onCheckedChange={() => handleFieldToggle(subPath.path, 'hasAccess')}
                                               />
                                             </div>
-                                            
-                                            {showGranular && (
-                                              <div className={`grid grid-cols-3 gap-1 pt-2 border-t border-slate-700/50 transition-all ${subPerm.hasAccess && perm.hasAccess ? 'opacity-100' : 'opacity-30 pointer-events-none grayscale'}`}>
-                                                <div className="flex flex-col items-center">
-                                                  <span className="text-[8px] text-slate-500 uppercase font-bold">Add</span>
-                                                  <Switch
-                                                    checked={subPerm.canAdd}
-                                                    onCheckedChange={() => handleFieldToggle(subPath.path, 'canAdd')}
-                                                  />
-                                                </div>
-                                                <div className="flex flex-col items-center">
-                                                  <span className="text-[8px] text-slate-500 uppercase font-bold">Edit</span>
-                                                  <Switch
-                                                    checked={subPerm.canEdit}
-                                                    onCheckedChange={() => handleFieldToggle(subPath.path, 'canEdit')}
-                                                  />
-                                                </div>
-                                                <div className="flex flex-col items-center">
-                                                  <span className="text-[8px] text-slate-500 uppercase font-bold">Del</span>
-                                                  <Switch
-                                                    checked={subPerm.canDelete}
-                                                    onCheckedChange={() => handleFieldToggle(subPath.path, 'canDelete')}
-                                                  />
-                                                </div>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
+                                          );
                                       })}
                                     </div>
                                   )}
@@ -666,90 +688,99 @@ export default function AdminPermissions() {
           )}
         </div>
       ) : (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="bg-slate-800/50 border-slate-700 shadow-xl overflow-hidden">
-            <CardHeader className="bg-slate-900/50 border-b border-slate-700 pb-4">
-              <CardTitle className="flex items-center gap-2 text-red-400">
-                Data Management (Danger Zone)
-              </CardTitle>
-              <CardDescription>
-                Manually clear all records from specific database tables. This action cannot be undone.
-              </CardDescription>
+        /* Data Control Tab */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-xl text-red-400">Data Cleanup Console</CardTitle>
+              <CardDescription>Permanently clear specific database tables. Action cannot be undone.</CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {DATABASE_TABLES.map(table => (
-                  <div key={table.id} className="bg-slate-900/50 rounded-xl p-4 border border-red-900/30 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-slate-200">{table.label}</h4>
-                      <p className="text-xs text-slate-500 mt-1">Clear all {table.label.toLowerCase()}</p>
+                  <div key={table.id} className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-700 rounded-xl hover:border-red-500/30 transition-all group">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-200">{table.label}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{table.id}</span>
                     </div>
                     <Button 
-                      variant="destructive"
-                      size="sm"
-                      disabled={clearingTable !== null}
+                      variant="ghost" 
+                      size="sm" 
                       onClick={() => initiateClearTable(table.id)}
-                      className="bg-red-900/80 hover:bg-red-600 text-white shadow-md shadow-red-900/20"
+                      disabled={clearingTable === table.id}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                     >
-                      {clearingTable === table.id ? "Clearing..." : "Clear"}
+                      {clearingTable === table.id ? "..." : "Clear"}
                     </Button>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700 border-dashed">
+            <CardHeader>
+              <CardTitle className="text-xl text-slate-400">System Information</CardTitle>
+              <CardDescription>Database and infrastructure details for Raspberry Pi 5.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Engine</span>
+                  <span className="text-slate-200 font-mono">MariaDB 10.11</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Host</span>
+                  <span className="text-slate-200 font-mono">digital-studio-db</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">ORM</span>
+                  <span className="text-slate-200 font-mono">Hibernate 6.x</span>
+                </div>
+              </div>
+              <div className="p-6 border border-yellow-500/20 bg-yellow-500/5 rounded-xl">
+                <h4 className="text-yellow-500 font-bold text-sm uppercase tracking-widest mb-2">Admin Warning</h4>
+                <p className="text-xs text-yellow-500/80 leading-relaxed">
+                  Data clearing operations are performed directly on the production database. Ensure you have backups before proceeding with table resets.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      
-      {/* Password Verification Modal */}
+      {/* Password Confirmation Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-red-900/50 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-            <h3 className="text-xl font-bold text-red-500 mb-2">Security Verification</h3>
-            <p className="text-slate-400 text-sm mb-6">
-              You are about to delete ALL data in the <strong className="text-white">{tableToClear}</strong> table. 
-              This action is permanent. Please enter your admin password to confirm.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleClearTableConfirm()}
-                  autoFocus
-                />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-500">
+                <ShieldCheck className="w-6 h-6" />
+                <h3 className="text-xl font-bold">Confirm Administrative Action</h3>
               </div>
-              
+              <p className="text-slate-400 text-sm">
+                You are about to clear all data from <span className="font-bold text-slate-200">'{tableToClear}'</span>. Please enter the Admin password to verify.
+              </p>
+              <input 
+                type="password"
+                placeholder="Admin Password"
+                className="w-full bg-slate-800 border-slate-700 text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                value={adminPassword}
+                onChange={e => setAdminPassword(e.target.value)}
+                autoFocus
+              />
               <div className="flex gap-3 pt-2">
-                <Button 
-                  variant="outline" 
-                  className="flex-1 border-slate-700 hover:bg-slate-800 text-slate-300"
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    setAdminPassword("");
-                    setTableToClear(null);
-                  }}
-                >
+                <Button variant="ghost" className="flex-1 text-slate-400" onClick={() => { setShowPasswordModal(false); setAdminPassword(""); }}>
                   Cancel
                 </Button>
-                <Button 
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-900/20"
-                  onClick={handleClearTableConfirm}
-                  disabled={!adminPassword}
-                >
-                  Confirm Deletion
+                <Button className="flex-1 bg-red-600 hover:bg-red-700 text-white" onClick={handleClearTableConfirm}>
+                  Confirm Reset
                 </Button>
               </div>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

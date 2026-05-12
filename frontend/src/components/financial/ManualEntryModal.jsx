@@ -180,7 +180,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                 type: "DEBIT",
                 category: "Other(Debit)",
                 paymentMode: "OTHER",
-                description: debitData.description || debitData.purpose
+                description: debitData.description ? `${debitData.purpose} - ${debitData.description}` : debitData.purpose
             });
             onSuccess();
             onClose();
@@ -213,7 +213,7 @@ export function ManualEntryModal({ isOpen, onClose, accounts, onSuccess, showAle
                 type: "CREDIT",
                 category: "Other(Credit)",
                 paymentMode: "OTHER",
-                description: creditData.description || creditData.purpose
+                description: creditData.description ? `${creditData.purpose} - ${creditData.description}` : creditData.purpose
             });
             onSuccess();
             onClose();

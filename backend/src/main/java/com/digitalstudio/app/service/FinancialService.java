@@ -127,27 +127,7 @@ public class FinancialService {
         return transactionRepository.save(txn);
     }
 
-    public void markAsPaid(UUID accountId) {
-        FinancialAccount account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
 
-        Double unbilled = getAccountBalance(accountId);
-
-        if (unbilled > 0) {
-            FinancialTransaction repaymentTxn = new FinancialTransaction();
-            repaymentTxn.setAmount(unbilled);
-            repaymentTxn.setProfit(-unbilled); // Repayment is an expense that reduces net profit
-            repaymentTxn.setType("DEBIT");
-            repaymentTxn.setCategory("Credit Card Repayment");
-            repaymentTxn.setPaymentMode("BANK");
-            repaymentTxn.setDescription("Statement Paid for " + account.getName());
-            repaymentTxn.setTimestamp(LocalDateTime.now());
-            transactionRepository.save(repaymentTxn);
-        }
-
-        account.setLastRepaymentDate(LocalDateTime.now());
-        accountRepository.save(account);
-    }
 
     public java.util.Map<String, Double> getSummary(Specification<FinancialTransaction> spec) {
         // Ensure specification is not null for strict null safety

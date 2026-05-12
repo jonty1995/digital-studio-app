@@ -105,8 +105,13 @@ export const api = {
             } catch (e) { }
             throw new Error(`API Error: ${errorMsg}`);
         }
-        const resData = await response.json();
-        return normalizeDates(resData);
+        if (response.status === 204 || response.headers.get("content-length") === "0") return true;
+        try {
+            const resData = await response.json();
+            return normalizeDates(resData);
+        } catch (e) {
+            return true;
+        }
     },
     delete: async (endpoint) => {
         const headers = getHeaders();

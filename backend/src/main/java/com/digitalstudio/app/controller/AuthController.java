@@ -15,7 +15,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -67,11 +69,15 @@ public class AuthController {
         }
     }
 
+
     @GetMapping("/me")
     public ResponseEntity<AuthResponse> me(@AuthenticationPrincipal CustomUserDetails userDetails) {
         if (userDetails == null) {
+            log.warn("ME_DEBUG: No user details found in security context");
             return ResponseEntity.status(401).build();
         }
+
+        log.info("ME_DEBUG: Fetching details for user: {} (ID: {})", userDetails.getUsername(), userDetails.getId());
 
         List<UserPagePermission> allPerms = permissionRepository.findByUserId(userDetails.getId());
         List<String> permissions = allPerms.stream()
@@ -88,4 +94,5 @@ public class AuthController {
                 .pagePermissions(allPerms)
                 .build());
     }
+
 }

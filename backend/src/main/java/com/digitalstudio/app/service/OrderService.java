@@ -382,10 +382,14 @@ public class OrderService {
     }
 
     public PhotoOrder updateStatus(UUID orderId, String status) {
-        return updateStatus(orderId, status, null);
+        return updateStatus(orderId, status, null, null);
     }
 
     public PhotoOrder updateStatus(UUID orderId, String newStatus, Double paymentAmount) {
+        return updateStatus(orderId, newStatus, paymentAmount, null);
+    }
+
+    public PhotoOrder updateStatus(UUID orderId, String newStatus, Double paymentAmount, String paymentMode) {
         PhotoOrder order = photoOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -440,7 +444,7 @@ public class OrderService {
             txn.setProfit(txnProfit);
             txn.setType("CREDIT");
             txn.setCategory("Photo Orders");
-            txn.setPaymentMode(payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash");
+            txn.setPaymentMode(paymentMode != null ? paymentMode : (payment.getPaymentMode() != null ? payment.getPaymentMode() : "Cash"));
             txn.setDescription("Final Payment");
             txn.setRelatedId(order.getOrderId().toString());
             financialService.recordTransaction(txn);

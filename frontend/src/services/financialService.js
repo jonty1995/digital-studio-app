@@ -5,7 +5,7 @@ export const financialService = {
     getAccounts: () => api.get("/financial/accounts"),
     saveAccount: (account) => api.post("/financial/accounts", account),
     deleteAccount: (id) => api.delete(`/financial/accounts/${id}`),
-    markAccountAsPaid: (id) => api.post(`/financial/accounts/${id}/pay`),
+
     getAccountBalance: (id) => api.get(`/financial/accounts/${id}/balance`),
 
     // Transactions

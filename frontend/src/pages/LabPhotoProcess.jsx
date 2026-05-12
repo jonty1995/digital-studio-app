@@ -26,7 +26,8 @@ export default function LabPhotoProcess() {
     const [logs, setLogs] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [dateFilter, setDateFilter] = useState("");
+    const [dateFilter, setDateFilter] = useState(DateUtils.formatForInput(new Date()));
+    const [todayLog, setTodayLog] = useState(null);
 
     const showAlert = (title, message, onConfirm = null) => {
         setAlert({ open: true, title, message, onConfirm, folderExists: alert.folderExists });
@@ -71,6 +72,37 @@ export default function LabPhotoProcess() {
             const data = await labService.fetchLabProcessLogs();
             if (data) {
                 setLogs(data);
+                
+                // Check if today's batch was already generated
+                const todayStr = DateUtils.formatForInput(new Date());
+                const generatedToday = data.find(log => 
+                    log.action === "Generated" && 
+                    DateUtils.formatForInput(new Date(log.timestamp)) === todayStr
+                );
+                
+                if (generatedToday) {
+                    setTodayLog(generatedToday);
+                    
+                    // PREPOPULATE: Try to reconstruct groups from JSON
+                    try {
+                        const structured = JSON.parse(generatedToday.fileListJson);
+                        if (Array.isArray(structured)) {
+                            const reconstructedGroups = structured.map((g, idx) => ({
+                                id: Date.now() + idx,
+                                name: g.name,
+                                files: g.files.map(f => ({
+                                    file: null, // Binary data is not persisted, shows placeholder
+                                    name: f.originalName,
+                                    frame: f.frame,
+                                    lamination: f.lamination
+                                }))
+                            }));
+                            setGroups(reconstructedGroups);
+                        }
+                    } catch (e) {
+                        console.log("Not a structured log, skipping prepopulation");
+                    }
+                }
             }
         } catch (error) {
             console.error("Failed to fetch logs", error);
@@ -126,17 +158,18 @@ export default function LabPhotoProcess() {
 
         if (action === "Generated") {
             finalGroupSummary = groups.map(g => `${g.name}: ${g.files.length}`).join(", ");
-            const fileLines = [];
-            groups.forEach(group => {
-                group.files.forEach((f, idx) => {
-                    const flags = [];
-                    if (f.frame) flags.push("Frame");
-                    if (f.lamination) flags.push("Lam");
-                    const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
-                    fileLines.push(`${f.file.name} -> ${group.name} (${idx + 1})${flagStr}`);
-                });
-            });
-            finalFileList = fileLines.join("\n");
+            
+            // Create a structured JSON for reconstruction later
+            const structuredData = groups.map(group => ({
+                name: group.name,
+                files: group.files.map((f, idx) => ({
+                    originalName: f.file.name,
+                    renamed: `${group.name}(${idx + 1})`,
+                    frame: f.frame,
+                    lamination: f.lamination
+                }))
+            }));
+            finalFileList = JSON.stringify(structuredData);
         } else {
             finalGroupSummary = batchSummary;
             finalFileList = files ? files.map(f => f.name).join(", ") : "";
@@ -148,7 +181,7 @@ export default function LabPhotoProcess() {
                 category,
                 recipient,
                 finalGroupSummary,
-                files || finalFileList.split("\n")
+                finalFileList // Pass the JSON string directly
             );
             if (data) {
                 fetchLogs(); // Refresh logs
@@ -191,6 +224,7 @@ export default function LabPhotoProcess() {
         setShowConfirmModal(false);
         setGenerating(true);
         try {
+            const today = DateUtils.formatForInput(new Date());
             for (const group of groups) {
                 await labService.generateGroup(group.name, group.files, today);
             }
@@ -360,6 +394,15 @@ export default function LabPhotoProcess() {
         });
     };
 
+    const getLogDate = (timestamp) => {
+        if (!timestamp) return "";
+        if (typeof timestamp === 'string') return timestamp.split('T')[0];
+        if (Array.isArray(timestamp)) {
+            return `${timestamp[0]}-${String(timestamp[1]).padStart(2, '0')}-${String(timestamp[2]).padStart(2, '0')}`;
+        }
+        return DateUtils.formatForInput(timestamp);
+    };
+
     const filteredLogs = logs.filter(log => {
         const matchesSearch =
             (log.category && log.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -367,16 +410,16 @@ export default function LabPhotoProcess() {
             (log.groupSummary && log.groupSummary.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (log.fileListJson && log.fileListJson.toLowerCase().includes(searchTerm.toLowerCase()));
 
-        const logDate = log.timestamp ? log.timestamp.split('T')[0] : "";
+        const logDate = getLogDate(log.timestamp);
         const matchesDate = !dateFilter || logDate === dateFilter;
         return matchesSearch && matchesDate;
     });
 
     const handleRowClick = async (log) => {
-        if (log.action === "Generated") {
+        if (log.action === "Generated" || log.action === "IN PROGRESS") {
             try {
-                const logDate = log.timestamp.split('T')[0];
-                await labService.openFolder(logDate);
+                const logDate = getLogDate(log.timestamp);
+                await labService.openFolder(logDate, log.id);
             } catch (error) {
                 console.error("Failed to open folder", error);
                 const errorMsg = error.message.includes("FOLDER_NOT_FOUND")
@@ -454,6 +497,39 @@ export default function LabPhotoProcess() {
                         </div>
                     ) : (
                         <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+                            {todayLog && (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shadow-sm">
+                                    <div>
+                                        <h3 className="text-green-800 font-semibold flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                            Today's Batch Already Generated
+                                        </h3>
+                                        <p className="text-green-700 text-sm mt-1">
+                                            A batch was processed at {new Date(todayLog.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} with summary: <span className="font-medium">{todayLog.groupSummary}</span>
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="border-green-300 text-green-700 hover:bg-green-100"
+                                            onClick={() => handleRowClick(todayLog)}
+                                        >
+                                            Open Folder
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="border-green-300 text-green-700 hover:bg-green-100"
+                                            onClick={() => {
+                                                setShowEmailModal(true);
+                                            }}
+                                        >
+                                            Send Email
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                             {groups.map((group, index) => (
                                 <LabPhotoGroup
                                     key={group.id}
@@ -515,7 +591,25 @@ export default function LabPhotoProcess() {
                                                         {log.fileListJson && (
                                                             <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap bg-muted/50 p-3 rounded-lg border border-muted-foreground/10 font-medium leading-relaxed">
                                                                 <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60 mb-2 border-b pb-1">Processed Files:</div>
-                                                                <div className="font-mono">{log.fileListJson}</div>
+                                                                <div className="font-mono">
+                                                                    {(() => {
+                                                                        try {
+                                                                            const parsed = JSON.parse(log.fileListJson);
+                                                                            if (Array.isArray(parsed)) {
+                                                                                return parsed.map(g => 
+                                                                                    g.files.map(f => {
+                                                                                        const flags = [];
+                                                                                        if (f.frame) flags.push("Frame");
+                                                                                        if (f.lamination) flags.push("Lam");
+                                                                                        const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
+                                                                                        return `${f.originalName} -> ${g.name}${flagStr}`;
+                                                                                    }).join("\n")
+                                                                                ).join("\n");
+                                                                            }
+                                                                        } catch (e) {}
+                                                                        return log.fileListJson;
+                                                                    })()}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>

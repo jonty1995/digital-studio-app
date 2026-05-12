@@ -14,7 +14,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,12 +36,19 @@ services:
       - DB_PASS=Passw0rd
       - JAVA_OPTS=-Xmx512m -Xms256m
       - TZ=Asia/Kolkata
+      - APP_STORAGE_PATH=/app/uploads
+      - APP_LAB_PATH=/app/lab
     ports:
       - "8081:8081"
     volumes:
-      - ./uploads:/app/uploads
+      # Maps F:\Project\uploads to /app/uploads
+      - ../uploads:/app/uploads
+
+      # Maps F:\Project\lab to /app/lab
+      - ../lab:/app/lab
+
+      # Maps F:\Project\digital-studio-app\logs to /app/logs
       - ./logs:/app/logs
-      - ./lab:/app/lab
     networks:
       - app-network
 

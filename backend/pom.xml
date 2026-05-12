@@ -40,6 +40,12 @@
 			<optional>true</optional>
 		</dependency>
 
+		<!-- Actuator for Health & Monitoring (Raspberry Pi Edge Deployment) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
 		<!-- Spring Security -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
