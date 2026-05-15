@@ -75,21 +75,23 @@ export default function AdminPermissions() {
   const [refreshingSystem, setRefreshingSystem] = useState(false);
 
   const DATABASE_TABLES = [
-    { id: "photo_orders", label: "Photo Orders" },
-    { id: "service_orders", label: "Service Orders" },
-    { id: "bill_payments", label: "Bill Payments" },
-    { id: "money_transfers", label: "Money Transfers" },
-    { id: "train_bookings", label: "Train Bookings" },
-    { id: "financial_transactions", label: "Financial Transactions" },
-    { id: "uploads", label: "Image Storage (Uploads)" },
-    { id: "customers", label: "Customers" },
-    { id: "audit_logs", label: "Audit Logs" },
-    { id: "lab_process_logs", label: "Lab Process Logs" },
-    { id: "photo_items", label: "Photo Items" },
-    { id: "addons", label: "Addons" },
-    { id: "service_items", label: "Services" },
-    { id: "financial_accounts", label: "Accounts" },
-    { id: "value_configurations", label: "Configurations (Value)" }
+    { id: "photo_orders", label: "Photo Orders", category: "Transaction Data" },
+    { id: "service_orders", label: "Service Orders", category: "Transaction Data" },
+    { id: "bill_payments", label: "Bill Payments", category: "Transaction Data" },
+    { id: "money_transfers", label: "Money Transfers", category: "Transaction Data" },
+    { id: "train_bookings", label: "Train Bookings", category: "Transaction Data" },
+    { id: "financial_transactions", label: "Financial Transactions", category: "Transaction Data" },
+    { id: "customers", label: "Customers", category: "Master Data" },
+    { id: "uploads", label: "Image Storage (Uploads)", category: "Master Data" },
+    { id: "photo_items", label: "Photo Items", category: "Configuration Data" },
+    { id: "addons", label: "Addons", category: "Configuration Data" },
+    { id: "service_items", label: "Services", category: "Configuration Data" },
+    { id: "financial_accounts", label: "Accounts", category: "Configuration Data" },
+    { id: "value_configurations", label: "Values", category: "Configuration Data" },
+    { id: "stations", label: "Stations", category: "Configuration Data" },
+    { id: "trains", label: "Trains", category: "Configuration Data" },
+    { id: "audit_logs", label: "Audit Logs", category: "System Logs" },
+    { id: "lab_process_logs", label: "Lab Process Logs", category: "System Logs" }
   ];
 
   useEffect(() => {
@@ -907,22 +909,33 @@ export default function AdminPermissions() {
               <CardDescription>Permanently clear specific database tables. Action cannot be undone.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {DATABASE_TABLES.map(table => (
-                  <div key={table.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-red-500/30 transition-all group">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-800">{table.label}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{table.id}</span>
+              <div className="space-y-8">
+                {["Transaction Data", "Configuration Data", "Master Data", "System Logs"].map(category => (
+                  <div key={category} className="space-y-3">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                      <div className="h-px flex-1 bg-slate-100"></div>
+                      {category}
+                      <div className="h-px flex-1 bg-slate-100"></div>
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {DATABASE_TABLES.filter(t => t.category === category).map(table => (
+                        <div key={table.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-red-500/30 transition-all group">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-800">{table.label}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{table.id}</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => initiateClearTable(table.id)}
+                            disabled={clearingTable === table.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+                          >
+                            {clearingTable === table.id ? "..." : "Clear"}
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => initiateClearTable(table.id)}
-                      disabled={clearingTable === table.id}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      {clearingTable === table.id ? "..." : "Clear"}
-                    </Button>
                   </div>
                 ))}
               </div>

@@ -73,6 +73,8 @@ public class DatabaseAdminController {
                 case "service_items": dbTable = "service_items"; break;
                 case "financial_accounts": dbTable = "financial_accounts"; break;
                 case "value_configurations": dbTable = "value_configurations"; break;
+                case "stations": dbTable = "stations"; break;
+                case "trains": dbTable = "trains"; break;
                 default: return ResponseEntity.badRequest().body(Map.of("error", "Unknown table: " + table));
             }
 

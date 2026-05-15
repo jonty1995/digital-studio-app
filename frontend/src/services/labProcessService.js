@@ -7,7 +7,7 @@ export const saveLabProcessLog = async (action, category = null, recipient = nul
             category,
             recipient,
             groupSummary,
-            fileListJson: files ? files.map(f => f.name || f).join(", ") : ""
+            fileListJson: Array.isArray(files) ? files.map(f => f.name || f).join(", ") : (files || "")
         });
     } catch (e) {
         console.error("Failed to save lab process log", e);

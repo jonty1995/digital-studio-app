@@ -16,6 +16,8 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
 
     // Alert State
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, title: "", message: "" });
+    const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, index: null, name: "" });
+
     const showAlert = (title, message) => {
         setAlertConfig({ isOpen: true, title, message });
     };
@@ -50,13 +52,22 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
         }
     };
 
-    const handleDelete = (index) => {
+    const initiateDelete = (index) => {
         if (!canDelete) {
             showAlert("Permission Denied", "You do not have permission to delete configuration.");
             return;
         }
-        const newValues = values.filter((_, i) => i !== index);
+        setConfirmConfig({
+            isOpen: true,
+            index,
+            name: values[index].name || "this item"
+        });
+    };
+
+    const confirmDelete = () => {
+        const newValues = values.filter((_, i) => i !== confirmConfig.index);
         setValues(newValues);
+        setConfirmConfig({ isOpen: false, index: null, name: "" });
     };
 
     const handleChange = (index, field, val) => {
@@ -109,65 +120,68 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
                 </Button>
             </div>
 
-            <div className="rounded-md border">
-                <div className="overflow-y-auto max-h-[calc(100vh-260px)]">
-                <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
-                        <TableRow>
-                            <TableHead className="w-[30%]">Config Name (Key)</TableHead>
-                            <TableHead className="w-[30%]">Value</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="w-[100px] text-right">Action</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {values.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                                    No configurations defined.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            values.map((item, index) => {
-                                const isEditing = editingIndex === index;
-                                return (
-                                    <TableRow key={index}>
-                                        <TableCell className="align-top">
-                                            {isEditing ? (
-                                                <Input
-                                                    value={item.name}
-                                                    onChange={(e) => handleChange(index, "name", e.target.value)}
-                                                    placeholder="e.g. TaxRate"
-                                                />
-                                            ) : (
-                                                <span className="font-medium">{item.name}</span>
-                                            )}
+            <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <div className="overflow-y-auto max-h-[calc(100vh-260px)]">
+                        <Table className="w-full">
+                            <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+                                <TableRow>
+                                    <TableHead className="whitespace-nowrap">Config Name (Key)</TableHead>
+                                    <TableHead className="whitespace-nowrap">Value</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="w-[100px] text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {values.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                                            No configurations defined.
                                         </TableCell>
-                                        <TableCell className="align-top">
-                                            {isEditing ? (
-                                                <Input
-                                                    value={item.value}
-                                                    onChange={(e) => handleChange(index, "value", e.target.value)}
-                                                    placeholder="e.g. 18"
-                                                />
-                                            ) : (
-                                                <span>{item.value}</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="align-top">
-                                            {isEditing ? (
-                                                <Textarea
-                                                    value={item.description || ""}
-                                                    onChange={(e) => handleChange(index, "description", e.target.value)}
-                                                    placeholder="Optional description..."
-                                                    className="min-h-[60px]"
-                                                />
-                                            ) : (
-                                                <div className="max-h-[100px] overflow-y-auto whitespace-pre-wrap text-xs text-muted-foreground border rounded p-2 bg-muted/20">
-                                                    {item.description || "-"}
-                                                </div>
-                                            )}
-                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    values.map((item, index) => {
+                                        const isEditing = editingIndex === index;
+                                        return (
+                                            <TableRow key={index}>
+                                                <TableCell className="align-top">
+                                                    {isEditing ? (
+                                                        <Input
+                                                            value={item.name}
+                                                            onChange={(e) => handleChange(index, "name", e.target.value)}
+                                                            placeholder="e.g. TaxRate"
+                                                            className="min-w-[150px]"
+                                                        />
+                                                    ) : (
+                                                        <div className="font-medium whitespace-nowrap">{item.name}</div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="align-top">
+                                                    {isEditing ? (
+                                                        <Input
+                                                            value={item.value}
+                                                            onChange={(e) => handleChange(index, "value", e.target.value)}
+                                                            placeholder="e.g. 18"
+                                                            className="min-w-[150px]"
+                                                        />
+                                                    ) : (
+                                                        <div className="whitespace-nowrap text-sm font-mono bg-slate-50 px-2 py-0.5 rounded border">{item.value}</div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="align-top min-w-[300px]">
+                                                    {isEditing ? (
+                                                        <Textarea
+                                                            value={item.description || ""}
+                                                            onChange={(e) => handleChange(index, "description", e.target.value)}
+                                                            placeholder="Optional description..."
+                                                            className="min-h-[60px]"
+                                                        />
+                                                    ) : (
+                                                        <div className="whitespace-normal text-xs text-muted-foreground leading-relaxed">
+                                                            {item.description || "-"}
+                                                        </div>
+                                                    )}
+                                                </TableCell>
                                         <TableCell className="text-right align-top">
                                             <div className="flex justify-end gap-1">
                                                 {isEditing ? (
@@ -210,7 +224,7 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => handleDelete(index)}
+                                                            onClick={() => initiateDelete(index)}
                                                             className={`text-destructive hover:text-destructive hover:bg-destructive/10 ${!canDelete ? 'opacity-50' : ''}`}
                                                         >
                                                             <Trash2 className="w-4 h-4" />
@@ -224,9 +238,21 @@ export function ValueConfig({ canAdd, canEdit, canDelete }) {
                             })
                         )}
                     </TableBody>
-                </Table>
+                    </Table>
+                    </div>
                 </div>
             </div>
+
+            {/* Delete Confirmation */}
+            <SimpleAlert
+                open={confirmConfig.isOpen}
+                onOpenChange={(open) => setConfirmConfig(prev => ({ ...prev, isOpen: open }))}
+                title="Confirm Delete"
+                description={`Are you sure you want to delete the configuration '${confirmConfig.name}'? This action will remove it from the list. Remember to save changes to persist.`}
+                type="confirm"
+                confirmText="Delete"
+                onConfirm={confirmDelete}
+            />
 
             {/* Alert Dialog */}
             <SimpleAlert
