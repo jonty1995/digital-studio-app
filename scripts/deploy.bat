@@ -1,4 +1,5 @@
 @echo off
+cd /d %~dp0
 echo Starting Digital Studio Deployment...
 
 :: Ensure we have the necessary directories for volumes (Relative to project root)

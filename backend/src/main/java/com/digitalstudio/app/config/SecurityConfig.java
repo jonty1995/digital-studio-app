@@ -41,7 +41,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/files/**", "/actuator/**").permitAll()
+                .requestMatchers("/api/auth/**", "/api/files/**", "/api/lab-process/preview/**", "/actuator/**").permitAll()
                 // All other API endpoints will require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll() // Allow serving static files if needed

@@ -102,21 +102,43 @@ public class LabProcessService {
         String dateFolder = formatDate(processDate);
         Path datePath = Paths.get(basePath).resolve(dateFolder);
 
-        if (Files.exists(datePath)) {
-            // Use explorer.exe to open the folder on Windows
-            new ProcessBuilder("explorer.exe", datePath.toString()).start();
+        openPathInternal(datePath);
+    }
+
+    public void openPath(String absolutePath) throws IOException {
+        openPathInternal(Paths.get(absolutePath));
+    }
+
+    private void openPathInternal(Path path) throws IOException {
+        if (Files.exists(path)) {
+            String os = System.getProperty("os.name").toLowerCase();
+            try {
+                if (os.contains("win")) {
+                    new ProcessBuilder("explorer.exe", path.toString()).start();
+                } else if (os.contains("nix") || os.contains("nux") || os.contains("mac")) {
+                    // Try xdg-open for Linux environments
+                    new ProcessBuilder("xdg-open", path.toString()).start();
+                } else {
+                    throw new RuntimeException("OS_NOT_SUPPORTED_FOR_OPEN_FOLDER");
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to open folder: " + e.getMessage());
+                throw new RuntimeException("FAILED_TO_LAUNCH_FILE_EXPLORER: " + e.getMessage());
+            }
         } else {
             throw new RuntimeException("FOLDER_NOT_FOUND");
         }
     }
 
-    public void openPath(String absolutePath) throws IOException {
-        Path path = Paths.get(absolutePath);
-        if (Files.exists(path)) {
-            new ProcessBuilder("explorer.exe", path.toString()).start();
-        } else {
-            throw new RuntimeException("FOLDER_NOT_FOUND");
+    public org.springframework.core.io.Resource getFileResource(String processDate, String groupName, String fileName) throws IOException {
+        String basePath = getBasePath();
+        String dateFolder = formatDate(processDate);
+        Path filePath = Paths.get(basePath).resolve(dateFolder).resolve(groupName).resolve(fileName);
+        
+        if (Files.exists(filePath)) {
+            return new org.springframework.core.io.FileSystemResource(filePath);
         }
+        return null;
     }
 
     private void deleteDirectory(Path path) throws IOException {

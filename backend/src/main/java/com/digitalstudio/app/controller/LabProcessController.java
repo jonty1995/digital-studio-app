@@ -90,4 +90,26 @@ public class LabProcessController {
             return ResponseEntity.status(500).body(Map.of("error", "Failed to send email: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/preview")
+    public ResponseEntity<org.springframework.core.io.Resource> getPreview(
+            @RequestParam("processDate") String processDate,
+            @RequestParam("groupName") String groupName,
+            @RequestParam("fileName") String fileName) {
+        try {
+            org.springframework.core.io.Resource resource = labProcessService.getFileResource(processDate, groupName, fileName);
+            if (resource != null && resource.exists()) {
+                String contentType = "image/jpeg";
+                if (fileName.toLowerCase().endsWith(".png")) contentType = "image/png";
+                else if (fileName.toLowerCase().endsWith(".pdf")) contentType = "application/pdf";
+                
+                return ResponseEntity.ok()
+                        .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                        .body(resource);
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
 }

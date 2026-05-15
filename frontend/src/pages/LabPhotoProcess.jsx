@@ -52,6 +52,7 @@ export default function LabPhotoProcess() {
     const [dateFilter, setDateFilter] = useState(DateUtils.formatForInput(new Date()));
     const [todayLog, setTodayLog] = useState(null);
     const [previewEmailImage, setPreviewEmailImage] = useState(null);
+
     const emailInputRef = useRef(null);
 
     const showAlert = (title, message, onConfirm = null) => {
@@ -77,10 +78,6 @@ export default function LabPhotoProcess() {
                 setRecipientEmails(recipientConfig.value.split(",").map(e => e.trim()).filter(Boolean));
             }
 
-            // If no active groups and not loading logs yet, show setup
-            if (groups.length === 0) {
-                setShowSetup(true);
-            }
         } catch (error) {
             console.error("Failed to load configs", error);
         } finally {
@@ -132,7 +129,10 @@ export default function LabPhotoProcess() {
                         }
                     } catch (e) {
                         console.log("Not a structured log, skipping prepopulation");
+                        setShowSetup(true);
                     }
+                } else {
+                    setShowSetup(true);
                 }
             }
         } catch (error) {
@@ -315,17 +315,43 @@ export default function LabPhotoProcess() {
             // Group files by unique addon combinations
             const addonGroups = {};
 
-            groups.forEach(group => {
-                group.files.filter(f => f.file).forEach((fileObj, index) => {
+            const todayStr = parseLogDate(todayLog?.timestamp);
+
+            for (const group of groups) {
+                const groupQueue = [];
+                // Use for...of to allow await
+                for (let index = 0; index < group.files.length; index++) {
+                    const fileObj = group.files[index];
+                    let actualFile = fileObj.file;
+
+                    // If blob is missing (from history/refresh), fetch it from preview endpoint
+                    if (!actualFile && fileObj.name) {
+                        try {
+                            const extension = fileObj.name.substring(fileObj.name.lastIndexOf("."));
+                            const serverFileName = `${group.name}(${index + 1})${extension}`;
+                            const previewUrl = labService.getPreviewUrl(todayStr, group.name, serverFileName);
+                            
+                            const response = await fetch(previewUrl);
+                            if (response.ok) {
+                                const blob = await response.blob();
+                                actualFile = new File([blob], fileObj.name, { type: blob.type });
+                            }
+                        } catch (err) {
+                            console.error("Failed to fetch file for email", fileObj.name, err);
+                        }
+                    }
+
+                    if (!actualFile) continue;
+
                     const addons = [...(fileObj.selectedAddons || [])].sort().join(", ") || "Standard";
                     if (!addonGroups[addons]) addonGroups[addons] = [];
                     
-                    const extension = fileObj.file.name.substring(fileObj.file.name.lastIndexOf("."));
-                    const renamedFile = new File([fileObj.file], `${group.name}(${index + 1})${extension}`, { type: fileObj.file.type });
+                    const extension = actualFile.name.substring(actualFile.name.lastIndexOf("."));
+                    const renamedFile = new File([actualFile], `${group.name}(${index + 1})${extension}`, { type: actualFile.type });
                     
                     addonGroups[addons].push({ file: renamedFile, groupName: group.name, addons });
-                });
-            });
+                }
+            }
 
             const allEmailBatches = [];
 
@@ -472,13 +498,28 @@ export default function LabPhotoProcess() {
         // Page will show the groups with selected photos, as requested
     };
 
-    const getLogDate = (timestamp) => {
-        if (!timestamp) return "";
-        if (typeof timestamp === 'string') return timestamp.split('T')[0];
-        if (Array.isArray(timestamp)) {
-            return `${timestamp[0]}-${String(timestamp[1]).padStart(2, '0')}-${String(timestamp[2]).padStart(2, '0')}`;
+    const parseLogDate = (ts) => {
+        if (!ts) return DateUtils.formatForInput(new Date());
+        if (Array.isArray(ts)) {
+            return `${ts[0]}-${String(ts[1]).padStart(2, '0')}-${String(ts[2]).padStart(2, '0')}`;
         }
-        return DateUtils.formatForInput(timestamp);
+        if (typeof ts === 'string' && ts.includes('T')) return ts.split('T')[0];
+        return DateUtils.formatForInput(new Date(ts));
+    };
+
+    const formatLogTime = (ts) => {
+        if (!ts) return "";
+        let date;
+        if (Array.isArray(ts)) {
+            date = new Date(ts[0], ts[1] - 1, ts[2], ts[3] || 0, ts[4] || 0);
+        } else {
+            date = new Date(ts);
+        }
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const getLogDate = (timestamp) => {
+        return parseLogDate(timestamp);
     };
 
     const filteredLogs = logs.filter(log => {
@@ -493,19 +534,8 @@ export default function LabPhotoProcess() {
         return matchesSearch && matchesDate;
     });
 
-    const handleRowClick = async (log) => {
-        if (log.action === "Generated" || log.action === "IN PROGRESS") {
-            try {
-                const logDate = getLogDate(log.timestamp);
-                await labService.openFolder(logDate, log.id);
-            } catch (error) {
-                console.error("Failed to open folder", error);
-                const errorMsg = error.message.includes("FOLDER_NOT_FOUND")
-                    ? "The folder for this batch no longer exists on the disk."
-                    : "Failed to communicate with local system.";
-                showAlert("Error", errorMsg);
-            }
-        }
+    const handleRowClick = (log) => {
+        // Folder opening disabled as per user request
     };
 
     return (
@@ -596,23 +626,16 @@ export default function LabPhotoProcess() {
                                             Today's Batch Already Generated
                                         </h3>
                                         <p className="text-green-700 text-sm mt-1">
-                                            A batch was processed at {new Date(todayLog.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} with summary: <span className="font-medium">{todayLog.groupSummary}</span>
+                                            A batch was processed at {formatLogTime(todayLog.timestamp)} with summary: <span className="font-medium">{todayLog.groupSummary}</span>
                                         </p>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="border-green-300 text-green-700 hover:bg-green-100"
-                                            onClick={() => handleRowClick(todayLog)}
-                                        >
-                                            Open Folder
-                                        </Button>
+                                     <div className="flex gap-2">
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
                                             className="border-green-300 text-green-700 hover:bg-green-100"
                                             onClick={async () => {
+                                                setGenerating(true);
                                                 await buildEmailQueue();
                                                 setShowEmailConfirmation(true);
                                             }}
@@ -662,9 +685,7 @@ export default function LabPhotoProcess() {
                                         filteredLogs.map((log) => (
                                             <TableRow
                                                 key={log.id}
-                                                className={`transition-colors ${log.action === "Generated" ? "cursor-pointer hover:bg-green-50/50" : "hover:bg-muted/30"}`}
-                                                onClick={() => handleRowClick(log)}
-                                                title={log.action === "Generated" ? "Click to open folder in explorer" : ""}
+                                                className="transition-colors hover:bg-muted/30"
                                             >
                                                 <TableCell className="text-xs font-semibold">
                                                     {DateUtils.format(log.timestamp)}
@@ -758,6 +779,7 @@ export default function LabPhotoProcess() {
                     </div>
                 </div>
             </Modal>
+
 
             {/* Email Confirmation Modal */}
             <Modal

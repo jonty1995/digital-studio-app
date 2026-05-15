@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, API_BASE_URL } from "./api";
 
 export const saveLabProcessLog = async (action, category = null, recipient = null, groupSummary = null, files = null) => {
     try {
@@ -24,15 +24,6 @@ export const updateLabProcessLog = async (id, action) => {
     }
 };
 
-export const fetchLabProcessLogs = async () => {
-    try {
-        return await api.get("/lab-process/logs");
-    } catch (e) {
-        console.error("Failed to fetch lab process logs", e);
-        return [];
-    }
-};
-
 export const deleteLabProcessLog = async (id) => {
     try {
         return await api.delete(`/lab-process/logs/${id}`);
@@ -42,21 +33,32 @@ export const deleteLabProcessLog = async (id) => {
     }
 };
 
-export const checkFolderExists = async (processDate) => {
-    return await api.get(`/lab-process/check-exists?processDate=${processDate}`);
+export const fetchLabProcessLogs = async () => {
+    try {
+        return await api.get("/lab-process/logs");
+    } catch (e) {
+        console.error("Failed to fetch lab process logs", e);
+        return [];
+    }
 };
 
-export const clearFolder = async (processDate) => {
-    return await api.delete(`/lab-process/folder?processDate=${processDate}`);
+export const checkFolderExists = async (processDate) => {
+    try {
+        return await api.get(`/lab-process/check-exists?processDate=${processDate}`);
+    } catch (e) {
+        console.error("Failed to check folder existence", e);
+        return { exists: false };
+    }
 };
 
 export const generateGroup = async (groupName, files, processDate) => {
     const formData = new FormData();
     formData.append("groupName", groupName);
     formData.append("processDate", processDate);
-    files.forEach(fileObj => {
-        formData.append("files", fileObj.file || fileObj);
+    files.forEach(f => {
+        formData.append("files", f.file);
     });
+
     return await api.post("/lab-process/generate", formData);
 };
 
@@ -66,4 +68,8 @@ export const openFolder = async (processDate, logId = null) => {
         url += `&logId=${logId}`;
     }
     return await api.get(url);
+};
+
+export const getPreviewUrl = (processDate, groupName, fileName) => {
+    return `${API_BASE_URL}/lab-process/preview?processDate=${processDate}&groupName=${groupName}&fileName=${fileName}`;
 };

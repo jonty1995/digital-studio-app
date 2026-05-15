@@ -1,7 +1,11 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2, X, Image as ImageIcon, Plus, Maximize2 } from "lucide-react";
+import { 
+    getPreviewUrl 
+} from "@/services/labProcessService";
 import { cn } from "@/lib/utils";
+import { DateUtils } from "@/utils/DateUtils";
 import { Modal } from "@/components/ui/modal";
 
 export function LabPhotoGroup({ group, onUpdate, onRemove, index, allAddons, pricingRules }) {
@@ -197,7 +201,7 @@ export function LabPhotoGroup({ group, onUpdate, onRemove, index, allAddons, pri
                         )}
                     </div>
 
-                    <Button
+                     <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => inputRef.current?.click()}
@@ -219,8 +223,21 @@ export function LabPhotoGroup({ group, onUpdate, onRemove, index, allAddons, pri
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
                 {group.files.map((fileObj, idx) => {
                     const { file, selectedAddons, name } = fileObj;
-                    const url = file ? URL.createObjectURL(file) : null;
+                    
+                    // Priority 1: Actual File blob (in-memory)
+                    let url = file ? URL.createObjectURL(file) : null;
                     const fileName = file ? file.name : (name || "Processed Image");
+                    
+                    // Priority 2: Server-side preview if this is a reconstructed view
+                    if (!url && name) {
+                        const todayStr = DateUtils.formatForInput(new Date());
+                        // Important: the backend renames files during generation. 
+                        // The 'name' property in a reconstructed group IS the original name.
+                        // We need to match the backend's naming convention: GroupName(index+1).ext
+                        const extension = name.substring(name.lastIndexOf("."));
+                        const serverFileName = `${group.name}(${idx + 1})${extension}`;
+                        url = getPreviewUrl(todayStr, group.name, serverFileName);
+                    }
                     
                     return (
                         <div
