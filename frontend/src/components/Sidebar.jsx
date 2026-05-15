@@ -26,7 +26,6 @@ export function Sidebar() {
         { name: "Uploads", path: "/uploads", icon: Folder },
         { name: "Lab Photo Process", path: "/lab-photo-process", icon: Beaker },
         { name: "Configuration", path: "/configuration", icon: Settings },
-        { name: "System Logs", path: "/logs", icon: FileText },
     ]
 
     return (

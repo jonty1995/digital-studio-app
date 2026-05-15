@@ -118,7 +118,7 @@ export function StatusTimeline(props) {
     };
 
     const OrderIdDisplay = order.orderId || order.id; // PhotoOrder uses orderId, BillPayment uses id
-    const uploadLabel = (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order' || props.type === 'train-booking') ? 'Receipt/Ticket ID' : 'Upload ID';
+    const uploadLabel = (props.type === 'bill-payment' || props.type === 'money-transfer' || props.type === 'service-order' || props.type === 'train-booking') ? 'Receipt ID' : 'Upload ID';
 
     return (
         <div className="flex flex-col gap-6">
@@ -225,7 +225,11 @@ export function StatusTimeline(props) {
                     <div className="flex flex-col gap-1">
                         <span className="text-muted-foreground text-xs uppercase tracking-wider font-bold">{uploadLabel}</span>
                         <div className="flex items-center gap-2">
-                            <span className="font-mono text-pink-600 font-medium">{order.uploadId || "N/A"}</span>
+                            <span className="font-mono text-pink-600 font-medium">{
+                                (order.uploadId && typeof order.uploadId === 'string' && order.uploadId.includes('.')) 
+                                ? order.uploadId.split('.')[0] 
+                                : (order.uploadId || "N/A")
+                            }</span>
                             {order.uploadId && (
                                 <CopyButton
                                     text={order.uploadId}

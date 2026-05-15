@@ -540,4 +540,38 @@ public class FileController {
             return ResponseEntity.status(500).body("Error linking file: " + e.getMessage());
         }
     }
+
+    @PostMapping("/open-explorer")
+    public ResponseEntity<?> openInExplorer(@RequestBody Map<String, String> payload) {
+        String pathStr = payload.get("path");
+        if (pathStr == null || pathStr.isEmpty()) {
+            return ResponseEntity.badRequest().body("Path is required");
+        }
+
+        try {
+            File file = new File(pathStr);
+            if (!file.exists()) {
+                // Try relative to upload dir if absolute fails?
+                File relativeFile = new File(getUploadDir() + pathStr);
+                if (relativeFile.exists()) {
+                    file = relativeFile;
+                } else {
+                    return ResponseEntity.status(404).body("File does not exist on disk: " + pathStr);
+                }
+            }
+
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                // explorer.exe /select,"path" is the most robust
+                String absolutePath = file.getAbsolutePath();
+                new ProcessBuilder("explorer.exe", "/select," + absolutePath).start();
+                return ResponseEntity.ok(Map.of("message", "Explorer opened for: " + absolutePath));
+            } else {
+                return ResponseEntity.status(501).body("Feature only supported on Windows server");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Failed to open explorer: " + e.getMessage());
+        }
+    }
 }

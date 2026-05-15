@@ -2,6 +2,7 @@ import React from 'react';
 import { FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { API_BASE_URL } from '@/services/api';
 
 export const FileThumbnail = ({
     fileId,
@@ -37,7 +38,7 @@ export const FileThumbnail = ({
                         <FileText className={iconClass} />
                     ) : (
                         <img
-                            src={`/api/files/${fileId}`}
+                            src={`${API_BASE_URL}/files/${fileId}`}
                             alt="Preview"
                             className={imgClass}
                             onError={(e) => {

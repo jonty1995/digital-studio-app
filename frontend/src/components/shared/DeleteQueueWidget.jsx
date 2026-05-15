@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Eye, Minimize2, Maximize2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { format, differenceInDays, addDays } from 'date-fns';
+import { API_BASE_URL } from '@/services/api';
 
 export function DeleteQueueWidget({ onView, refreshTrigger }) {
     const [queue, setQueue] = useState([]);
@@ -25,7 +26,7 @@ export function DeleteQueueWidget({ onView, refreshTrigger }) {
 
     const fetchQueue = async () => {
         try {
-            const res = await fetch('/api/files/queue');
+            const res = await fetch(`${API_BASE_URL}/files/queue`);
             if (res.ok) {
                 const data = await res.json();
                 setQueue(data);
@@ -37,7 +38,7 @@ export function DeleteQueueWidget({ onView, refreshTrigger }) {
 
     const fetchConfig = async () => {
         try {
-            const res = await fetch("/api/config/values");
+            const res = await fetch(`${API_BASE_URL}/config/values`);
             if (res.ok) {
                 const data = await res.json();
                 // data is array of { name, value, ... }

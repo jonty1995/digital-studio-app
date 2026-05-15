@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { CustomerInfo } from "./CustomerInfo";
 import { PaymentMode } from "./PaymentMode";
+import { FileUpload } from "./FileUpload";
 import { billPaymentService } from "@/services/billPaymentService";
 import { financialService } from "@/services/financialService";
 import { customerService } from "@/services/customerService";
@@ -488,6 +490,25 @@ export function BillPaymentModal({ isOpen, onClose, onSave, transaction = null }
                     allowCommission={true}
                     hideModes={["Card"]}
                 />
+
+                {/* Receipt Upload Integration */}
+                <div className="bg-card rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Receipt Attachment</h3>
+                        {uploadId && typeof uploadId === 'string' && (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Linked</Badge>
+                        )}
+                    </div>
+                    <div className="pt-2">
+                        <FileUpload
+                            file={uploadId}
+                            onUpload={(id) => setUploadId(id)}
+                            onRemove={() => setUploadId(null)}
+                            source="Bill Payment"
+                            instantUpload={false} // Deferred upload handled by onSave in parent
+                        />
+                    </div>
+                </div>
 
                 <div className="flex justify-end gap-3 mt-4">
                     <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

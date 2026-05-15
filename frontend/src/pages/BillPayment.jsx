@@ -30,6 +30,7 @@ import { configurationService } from "@/services/configurationService";
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { CopyButton } from "@/components/shared/CopyButton";
+import { API_BASE_URL } from "@/services/api";
 
 export default function BillPayment() {
     const [transactions, setTransactions] = useState([]);
@@ -576,14 +577,14 @@ export default function BillPayment() {
                                                                             <DropdownMenuSeparator />
                                                                             {txn.isFileAvailable !== false ? (
                                                                                 <>
-                                                                                    <DropdownMenuItem onClick={() => window.open(`/api/files/${txn.uploadId}`, '_blank')}>
+                                                                                    <DropdownMenuItem onClick={() => window.open(`${API_BASE_URL}/files/${txn.uploadId}`, '_blank')}>
                                                                                         <Eye className="mr-2 h-4 w-4" />
                                                                                         <span>View Receipt</span>
                                                                                     </DropdownMenuItem>
                                                                                     <DropdownMenuItem onClick={(e) => {
                                                                                         e.stopPropagation();
                                                                                         const link = document.createElement('a');
-                                                                                        link.href = `/api/files/${txn.uploadId}`;
+                                                                                        link.href = `${API_BASE_URL}/files/${txn.uploadId}`;
                                                                                         link.download = txn.uploadId;
                                                                                         document.body.appendChild(link);
                                                                                         link.click();

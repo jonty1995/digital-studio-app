@@ -16,7 +16,6 @@ import com.digitalstudio.app.model.Customer;
 
 @RestController
 @RequestMapping("/api/customers")
-@CrossOrigin(origins = "http://localhost:5173") // Allow frontend access
 public class CustomerController {
 
     private final CustomerService customerService;

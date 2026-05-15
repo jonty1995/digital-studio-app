@@ -16,6 +16,7 @@ import { configurationService } from "@/services/configurationService";
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { CopyButton } from "@/components/shared/CopyButton";
+import { API_BASE_URL } from "@/services/api";
 
 export default function MoneyTransfer() {
     const [transfers, setTransfers] = useState([]);
@@ -414,14 +415,14 @@ export default function MoneyTransfer() {
                                                                         <DropdownMenuSeparator />
                                                                         {t.isFileAvailable !== false ? (
                                                                             <>
-                                                                                <DropdownMenuItem onClick={() => window.open(`/api/files/${t.uploadId}`, '_blank')}>
+                                                                                <DropdownMenuItem onClick={() => window.open(`${API_BASE_URL}/files/${t.uploadId}`, '_blank')}>
                                                                                     <Eye className="mr-2 h-4 w-4" />
                                                                                     <span>View Receipt</span>
                                                                                 </DropdownMenuItem>
                                                                                 <DropdownMenuItem onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     const link = document.createElement('a');
-                                                                                    link.href = `/api/files/${t.uploadId}`;
+                                                                                    link.href = `${API_BASE_URL}/files/${t.uploadId}`;
                                                                                     link.download = t.uploadId;
                                                                                     document.body.appendChild(link);
                                                                                     link.click();

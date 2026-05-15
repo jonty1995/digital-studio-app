@@ -3,11 +3,12 @@ import { X, Download, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { useState } from 'react';
+import { API_BASE_URL } from '@/services/api';
 
 export function FileViewer({ fileId, isOpen, onClose }) {
     if (!isOpen || !fileId) return null;
 
-    const fileUrl = `/api/files/${fileId}`;
+    const fileUrl = `${API_BASE_URL}/files/${fileId}`;
     const isPdf = fileId.toLowerCase().endsWith('.pdf');
     const [alertState, setAlertState] = useState({ open: false, title: "", description: "" });
 

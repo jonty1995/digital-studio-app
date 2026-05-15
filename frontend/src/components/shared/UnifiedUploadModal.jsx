@@ -9,6 +9,7 @@ import { FileUpload } from "./FileUpload";
 import { fileService } from "@/services/fileService";
 import { customerService } from "@/services/customerService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { API_BASE_URL } from "@/services/api";
 
 export function UnifiedUploadModal({ isOpen, onClose, onSuccess }) {
     const [files, setFiles] = useState([]); // Array of Files or Strings (IDs)
@@ -91,7 +92,7 @@ export function UnifiedUploadModal({ isOpen, onClose, onSuccess }) {
                         customerId: customer.id
                     };
 
-                    const res = await fetch("/api/files/link", {
+                    const res = await fetch(`${API_BASE_URL}/files/link`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(payload)

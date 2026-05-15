@@ -12,6 +12,7 @@ import { DateUtils } from "@/utils/DateUtils";
 import { OrderStatus, getAvailableTransitions } from "@/components/shared/OrderStatus";
 import { StatusTimeline } from "@/components/shared/StatusTimeline";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { API_BASE_URL } from "@/services/api";
 
 import { FileViewer } from "../components/shared/FileViewer";
 import { CopyButton } from "@/components/shared/CopyButton";
@@ -502,7 +503,7 @@ export default function PhotoOrders() {
                                                         onView={setViewerFileId}
                                                         onDownload={(id) => {
                                                             const link = document.createElement('a');
-                                                            link.href = `/api/files/${id}`;
+                                                            link.href = `${API_BASE_URL}/files/${id}`;
                                                             link.download = id;
                                                             document.body.appendChild(link);
                                                             link.click();

@@ -11,6 +11,7 @@ import { ChevronsRight, Loader2, Check, X, AlertCircle } from "lucide-react";
 
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { API_BASE_URL } from "@/services/api";
 
 export function LinkCustomerModal({ isOpen, onClose, onSuccess }) {
     const [uploadId, setUploadId] = useState("");
@@ -108,7 +109,7 @@ export function LinkCustomerModal({ isOpen, onClose, onSuccess }) {
         };
 
         try {
-            const res = await fetch("/api/orders", {
+            const res = await fetch(`${API_BASE_URL}/orders`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

@@ -12,6 +12,7 @@ import { customerService } from "@/services/customerService";
 import { fileService } from "@/services/fileService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { photoOrderService } from "@/services/photoOrderService";
+import { API_BASE_URL } from "@/services/api";
 import { ChevronLeft, ChevronRight, Image as ImageIcon } from "lucide-react";
 
 
@@ -153,7 +154,7 @@ export function PhotoOrderModal({ isOpen, onClose, onSave, instanceId, editOrder
                         {suggestions.map((s, idx) => {
                             // Construct URL (Relative for Proxy)
                             const isImage = s.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null;
-                            const url = `/api/files/${s}`;
+                            const url = `${API_BASE_URL}/files/${s}`;
                             return (
                                 <button key={idx} type="button" onClick={() => setImage(s)} className="flex-none w-[100px] h-[100px] border rounded-md bg-card hover:border-primary/50 transition-all shadow-sm relative overflow-hidden group/item" title="Click to use this file">
                                     {isImage ? (

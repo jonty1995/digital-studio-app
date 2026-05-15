@@ -361,6 +361,10 @@ public class ServiceOrderService {
             }
         }
 
+        if (updates.containsKey("uploadIdsJson")) {
+            order.setUploadIdsJson((String) updates.get("uploadIdsJson"));
+        }
+
         return serviceOrderRepository.save(order);
     }
 }

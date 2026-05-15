@@ -306,8 +306,7 @@ export function ServiceOrderModal({ isOpen, onClose, onSave, order = null }) {
                             <FileUpload
                                 file={documentIds}
                                 onUpload={(docs) => {
-                                    const newDocs = Array.isArray(docs) ? docs : [docs];
-                                    setDocumentIds(prev => [...prev.filter(d => !(d instanceof File)), ...newDocs]);
+                                    setDocumentIds(Array.isArray(docs) ? docs : [docs]);
                                 }}
                                 onRemove={(idx) => {
                                     setDocumentIds(prev => prev.filter((_, i) => i !== idx));

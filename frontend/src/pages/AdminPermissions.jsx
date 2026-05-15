@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Switch } from "../components/ui/switch";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
-import { ShieldCheck, User as UserIcon, Save, Plus } from "lucide-react";
+import { ShieldCheck, User as UserIcon, Save, Plus, Trash2, Activity, Thermometer, HardDrive, Database, RefreshCw } from "lucide-react";
 
 const MODULE_GROUPS = [
   {
@@ -19,7 +19,6 @@ const MODULE_GROUPS = [
       { path: "/customers", label: "Customers" },
       { path: "/transactions", label: "Transactions" },
       { path: "/uploads", label: "Image Storage" },
-      { path: "/logs", label: "System Logs" },
     ]
   },
   {
@@ -66,12 +65,14 @@ export default function AdminPermissions() {
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("USER");
 
-  const [activeTab, setActiveTab] = useState("access"); // "access" or "data"
+  const [activeTab, setActiveTab] = useState("access"); // "access", "data", or "system"
   const [activeSubTab, setActiveSubTab] = useState("details"); // "details" or "permissions"
   const [clearingTable, setClearingTable] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [tableToClear, setTableToClear] = useState(null);
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [refreshingSystem, setRefreshingSystem] = useState(false);
 
   const DATABASE_TABLES = [
     { id: "photo_orders", label: "Photo Orders" },
@@ -83,12 +84,42 @@ export default function AdminPermissions() {
     { id: "uploads", label: "Image Storage (Uploads)" },
     { id: "customers", label: "Customers" },
     { id: "audit_logs", label: "Audit Logs" },
-    { id: "lab_process_logs", label: "Lab Process Logs" }
+    { id: "lab_process_logs", label: "Lab Process Logs" },
+    { id: "photo_items", label: "Photo Items" },
+    { id: "addons", label: "Addons" },
+    { id: "service_items", label: "Services" },
+    { id: "financial_accounts", label: "Accounts" },
+    { id: "value_configurations", label: "Configurations (Value)" }
   ];
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "system") {
+      fetchSystemStatus();
+      const interval = setInterval(fetchSystemStatus, 30000); // Refresh every 30s
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  // Clear alerts when switching tabs to prevent "message bleed" between sections
+  useEffect(() => {
+    setAlert(null);
+  }, [activeTab]);
+
+  const fetchSystemStatus = async () => {
+    setRefreshingSystem(true);
+    try {
+      const data = await api.get("/admin/system/status");
+      setSystemStatus(data);
+    } catch (err) {
+      console.error("Failed to fetch system status", err);
+    } finally {
+      setRefreshingSystem(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -282,35 +313,73 @@ export default function AdminPermissions() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (selectedUserId === user?.id) {
+      setAlert({ type: "error", message: "You cannot delete your own account while logged in." });
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete user '${editUsername}'? This action cannot be undone.`)) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.delete(`/admin/users/${selectedUserId}`);
+      setAlert({ type: "success", message: `User '${editUsername}' deleted successfully.` });
+      setSelectedUserId(null);
+      fetchUsers();
+    } catch (err) {
+      setAlert({ type: "error", message: "Failed to delete user." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (user?.role !== "ADMIN") {
     return <div className="p-8 text-center text-red-500 font-bold">Access Denied. Admins Only.</div>;
   }
 
   return (
-    <div className="p-4 sm:p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
+    <div className="w-full p-4 sm:p-8 space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg text-primary">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Access Management</h1>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Access Management</h1>
           </div>
-          <p className="text-slate-400 mt-2">Manage page-level access permissions for all users.</p>
+          <p className="text-slate-500 mt-2">Manage page-level access permissions for all users.</p>
         </div>
 
-        <div className="flex gap-4 border-b border-slate-800 sm:border-none pb-4 sm:pb-0">
+        <div className="flex p-1 bg-slate-100/80 backdrop-blur-sm rounded-xl w-full sm:w-[480px] border border-slate-200 shadow-inner">
           <button 
-            onClick={() => setActiveTab("access")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${activeTab === 'access' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-slate-200'}`}
+            onClick={() => { setActiveTab("access"); setIsCreatingUser(false); }}
+            className={`flex-1 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-300 uppercase tracking-wider ${activeTab === 'access'
+                ? "bg-white text-primary shadow-md scale-[1.02]"
+                : "text-slate-500 hover:text-primary hover:bg-white/40"
+                }`}
           >
-            User Permissions
+            Permissions
           </button>
           <button 
-            onClick={() => setActiveTab("data")}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${activeTab === 'data' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:text-slate-200'}`}
+            onClick={() => { setActiveTab("data"); setSelectedUserId(null); setIsCreatingUser(false); }}
+            className={`flex-1 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-300 uppercase tracking-wider ${activeTab === 'data'
+                ? "bg-white text-primary shadow-md scale-[1.02]"
+                : "text-slate-500 hover:text-primary hover:bg-white/40"
+                }`}
           >
-            Database Control
+            Database
+          </button>
+          <button 
+            onClick={() => { setActiveTab("system"); setSelectedUserId(null); setIsCreatingUser(false); }}
+            className={`flex-1 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-300 uppercase tracking-wider ${activeTab === 'system'
+                ? "bg-white text-primary shadow-md scale-[1.02]"
+                : "text-slate-500 hover:text-primary hover:bg-white/40"
+                }`}
+          >
+            System
           </button>
         </div>
       </div>
@@ -324,9 +393,9 @@ export default function AdminPermissions() {
       {activeTab === "access" ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* User List Panel */}
-          <Card className="col-span-1 bg-slate-800/50 border-slate-700">
+          <Card className="col-span-1 bg-white border-slate-200 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-400">Users</CardTitle>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-500">Users</CardTitle>
               <Button size="sm" variant="ghost" className="h-8 text-primary hover:text-primary hover:bg-primary/10" onClick={() => { setIsCreatingUser(true); setSelectedUserId(null); }}>
                 <Plus className="w-4 h-4 mr-1" />
                 Add User
@@ -342,15 +411,15 @@ export default function AdminPermissions() {
                     onClick={() => handleUserSelect(u.id)}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left group ${
                       selectedUserId === u.id 
-                        ? "bg-primary/20 text-white border border-primary/30" 
-                        : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-200"
+                        ? "bg-primary/10 text-primary border border-primary/20" 
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >
-                    <div className={`p-2 rounded-full ${selectedUserId === u.id ? 'bg-primary/30' : 'bg-slate-900/50 group-hover:bg-slate-900'}`}>
+                    <div className={`p-2 rounded-full ${selectedUserId === u.id ? 'bg-primary/20' : 'bg-slate-100 group-hover:bg-slate-200'}`}>
                       <UserIcon className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{u.username}</div>
+                      <div className="font-semibold truncate text-slate-900">{u.username}</div>
                       <div className="text-xs text-slate-500">{u.role}</div>
                     </div>
                   </button>
@@ -362,17 +431,17 @@ export default function AdminPermissions() {
           {/* Right Side Panel */}
           {isCreatingUser ? (
             <div className="col-span-1 md:col-span-3 space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-              <Card className="bg-slate-800/50 border-slate-700 shadow-xl overflow-hidden">
+              <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
                 <CardHeader>
-                  <CardTitle className="text-xl font-bold text-white">Create New User</CardTitle>
-                  <CardDescription className="text-slate-400">Initialize a new account with specific access roles.</CardDescription>
+                  <CardTitle className="text-xl font-bold text-slate-900">Create New User</CardTitle>
+                  <CardDescription className="text-slate-500">Initialize a new account with specific access roles.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-5 max-w-md">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Username <span className="text-red-500">*</span></label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Username <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                       value={newUsername}
                       onChange={e => setNewUsername(e.target.value)}
                       placeholder="Enter unique username"
@@ -380,10 +449,10 @@ export default function AdminPermissions() {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address <span className="text-red-500">*</span></label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address <span className="text-red-500">*</span></label>
                     <input 
                       type="email" 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                       value={newUserEmail}
                       onChange={e => setNewUserEmail(e.target.value)}
                       placeholder="user@example.com"
@@ -392,19 +461,19 @@ export default function AdminPermissions() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password <span className="text-red-500">*</span></label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Password <span className="text-red-500">*</span></label>
                       <input 
                         type="password" 
-                        className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                         value={newUserPassword}
                         onChange={e => setNewUserPassword(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Confirm <span className="text-red-500">*</span></label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confirm <span className="text-red-500">*</span></label>
                       <input 
                         type="password" 
-                        className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
                         value={newUserConfirmPassword}
                         onChange={e => setNewUserConfirmPassword(e.target.value)}
                       />
@@ -412,9 +481,9 @@ export default function AdminPermissions() {
                   </div>
 
                   <div className="space-y-2 pb-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assign Role</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Assign Role</label>
                     <select 
-                      className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-4 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer"
                       value={newUserRole}
                       onChange={e => setNewUserRole(e.target.value)}
                     >
@@ -427,7 +496,7 @@ export default function AdminPermissions() {
                     <Button 
                       variant="ghost" 
                       onClick={() => setIsCreatingUser(false)}
-                      className="flex-1 border border-slate-700 text-slate-400 hover:text-white"
+                      className="flex-1 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                     >
                       Cancel
                     </Button>
@@ -443,30 +512,30 @@ export default function AdminPermissions() {
               </Card>
             </div>
           ) : !selectedUserId ? (
-            <div className="col-span-1 md:col-span-3 flex items-center justify-center p-12 border border-slate-700/50 rounded-xl bg-slate-800/30 text-slate-500">
+            <div className="col-span-1 md:col-span-3 flex items-center justify-center p-12 border border-slate-200 border-dashed rounded-xl bg-slate-50 text-slate-400 font-medium">
               Select a user from the left to view and edit their permissions, or add a new user.
             </div>
           ) : (
             <div className="col-span-1 md:col-span-3 space-y-6">
               {/* Sub-tabs Switcher */}
-              <div className="flex border-b border-slate-700 mb-6">
+              <div className="flex border-b border-slate-200 mb-6">
                 <button
-                  onClick={() => setActiveSubTab("details")}
+                  onClick={() => { setActiveSubTab("details"); setAlert(null); }}
                   className={`px-6 py-3 text-sm font-semibold transition-all relative ${
                     activeSubTab === "details" 
                       ? "text-primary" 
-                      : "text-slate-400 hover:text-slate-200"
+                      : "text-slate-500 hover:text-primary"
                   }`}
                 >
                   Account & Security
                   {activeSubTab === "details" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>}
                 </button>
                 <button
-                  onClick={() => setActiveSubTab("permissions")}
+                  onClick={() => { setActiveSubTab("permissions"); setAlert(null); }}
                   className={`px-6 py-3 text-sm font-semibold transition-all relative ${
                     activeSubTab === "permissions" 
                       ? "text-primary" 
-                      : "text-slate-400 hover:text-slate-200"
+                      : "text-slate-500 hover:text-primary"
                   }`}
                 >
                   Page Permissions
@@ -476,7 +545,7 @@ export default function AdminPermissions() {
 
               {activeSubTab === "details" ? (
                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <Card className="bg-slate-800/50 border-slate-700">
+                  <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>
                         <CardTitle className="text-lg">User Details</CardTitle>
@@ -489,27 +558,27 @@ export default function AdminPermissions() {
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                       <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Username</label>
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Username</label>
                         <input 
                           type="text" 
-                          className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                           value={editUsername}
                           onChange={e => setEditUsername(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Email ID</label>
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Email ID</label>
                         <input 
                           type="email" 
-                          className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                           value={editEmail}
                           onChange={e => setEditEmail(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Role</label>
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Role</label>
                         <select 
-                          className="w-full bg-slate-900 border border-slate-700 text-white rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none"
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-md px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none"
                           value={editRole}
                           onChange={e => setEditRole(e.target.value)}
                         >
@@ -520,32 +589,32 @@ export default function AdminPermissions() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-slate-800/50 border-slate-700 border-t-red-500/30">
+                  <Card className="bg-white border-slate-200 border-t-red-500/30 shadow-sm">
                     <CardHeader>
                       <CardTitle className="text-lg text-red-400">Security Actions</CardTitle>
                       <CardDescription>Administrative security controls for this user.</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                    <CardContent className="space-y-4">
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                         <div>
-                          <h4 className="font-medium text-slate-200">Force Password Reset</h4>
+                          <h4 className="font-medium text-slate-800">Force Password Reset</h4>
                           <p className="text-xs text-slate-500 mt-1">Directly overwrite this user's password.</p>
                         </div>
                         
                         {resettingUserId === selectedUserId ? (
-                          <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto p-4 bg-slate-950/50 rounded-lg border border-red-900/30">
+                          <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto p-4 bg-white rounded-lg border border-red-200">
                             <div className="flex flex-col gap-2">
                               <input 
                                 type="password"
                                 placeholder="New Password"
-                                className="bg-slate-800 border-slate-600 text-white px-3 py-2 rounded-md focus:border-red-500 focus:ring-1 focus:ring-red-500 w-full sm:w-48 text-sm outline-none"
+                                className="bg-slate-50 border-slate-200 text-slate-900 px-3 py-2 rounded-md focus:border-red-500 focus:ring-1 focus:ring-red-500 w-full sm:w-48 text-sm outline-none"
                                 value={newPassword}
                                 onChange={e => setNewPassword(e.target.value)}
                               />
                               <input 
                                 type="password"
                                 placeholder="Confirm Password"
-                                className="bg-slate-800 border-slate-600 text-white px-3 py-2 rounded-md focus:border-red-500 focus:ring-1 focus:ring-red-500 w-full sm:w-48 text-sm outline-none"
+                                className="bg-slate-50 border-slate-200 text-slate-900 px-3 py-2 rounded-md focus:border-red-500 focus:ring-1 focus:ring-red-500 w-full sm:w-48 text-sm outline-none"
                                 value={confirmPassword}
                                 onChange={e => setConfirmPassword(e.target.value)}
                               />
@@ -573,12 +642,28 @@ export default function AdminPermissions() {
                           </Button>
                         )}
                       </div>
+
+                      <div className="bg-rose-50 rounded-xl p-4 border border-rose-200 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mt-4">
+                        <div>
+                          <h4 className="font-medium text-rose-900">Delete User Account</h4>
+                          <p className="text-xs text-rose-600 mt-1">Permanently remove this user and all their permissions.</p>
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleDeleteUser}
+                          disabled={saving || selectedUserId === user?.id}
+                          className="bg-rose-600 hover:bg-rose-700 text-white border-none"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Account
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
               ) : (
                 <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                  <Card className="bg-slate-800/50 border-slate-700">
+                  <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>
                         <CardTitle className="text-lg">Page Permissions</CardTitle>
@@ -593,9 +678,9 @@ export default function AdminPermissions() {
                       {MODULE_GROUPS.map(group => (
                         <div key={group.name} className="space-y-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-px flex-1 bg-slate-800"></div>
+                            <div className="h-px flex-1 bg-slate-200"></div>
                             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">{group.name}</h3>
-                            <div className="h-px flex-1 bg-slate-800"></div>
+                            <div className="h-px flex-1 bg-slate-200"></div>
                           </div>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -609,11 +694,11 @@ export default function AdminPermissions() {
                               const perm = permissions.find(p => p.pagePath === pathObj.path) || { hasAccess: false, canAdd: false, canEdit: false, canDelete: false };
                               
                               return (
-                                <div key={pathObj.path} className={`p-4 rounded-xl bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 transition-colors flex flex-col justify-between space-y-4 ${isMainConfiguration ? 'md:col-span-2 lg:col-span-3' : ''}`}>
+                                <div key={pathObj.path} className={`p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors flex flex-col justify-between space-y-4 ${isMainConfiguration ? 'md:col-span-2 lg:col-span-3' : ''}`}>
                                   <div className="flex items-start justify-between">
                                     <div>
-                                      <div className={`font-bold ${isMainConfiguration ? 'text-lg text-primary' : 'text-slate-200'}`}>{pathObj.label}</div>
-                                      <div className="text-[10px] text-slate-500 font-mono mt-1">{pathObj.path}</div>
+                                      <div className={`font-bold ${isMainConfiguration ? 'text-lg text-primary' : 'text-slate-800'}`}>{pathObj.label}</div>
+                                      <div className="text-[10px] text-slate-400 font-mono mt-1">{pathObj.path}</div>
                                     </div>
                                     <div className="flex flex-col items-center gap-1">
                                       <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Access</span>
@@ -624,51 +709,84 @@ export default function AdminPermissions() {
                                     </div>
                                   </div>
                                   
-                                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
-                                    <div className="flex flex-col items-center gap-1">
-                                      <span className="text-[8px] text-slate-500 uppercase font-bold">Add</span>
-                                      <Switch
-                                        size="sm"
-                                        checked={perm.canAdd}
-                                        onCheckedChange={() => togglePermission(pathObj.path, 'canAdd')}
-                                        disabled={!perm.hasAccess}
-                                      />
+                                  {!isMainConfiguration && (
+                                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200">
+                                      <div className="flex flex-col items-center gap-1">
+                                        <span className="text-[8px] text-slate-500 uppercase font-bold">Add</span>
+                                        <Switch
+                                          size="sm"
+                                          checked={perm.canAdd}
+                                          onCheckedChange={() => togglePermission(pathObj.path, 'canAdd')}
+                                          disabled={!perm.hasAccess}
+                                        />
+                                      </div>
+                                      <div className="flex flex-col items-center gap-1">
+                                        <span className="text-[8px] text-slate-500 uppercase font-bold">Edit</span>
+                                        <Switch
+                                          size="sm"
+                                          checked={perm.canEdit}
+                                          onCheckedChange={() => togglePermission(pathObj.path, 'canEdit')}
+                                          disabled={!perm.hasAccess}
+                                        />
+                                      </div>
+                                      <div className="flex flex-col items-center gap-1">
+                                        <span className="text-[8px] text-slate-500 uppercase font-bold">Del</span>
+                                        <Switch
+                                          size="sm"
+                                          checked={perm.canDelete}
+                                          onCheckedChange={() => togglePermission(pathObj.path, 'canDelete')}
+                                          disabled={!perm.hasAccess}
+                                        />
+                                      </div>
                                     </div>
-                                    <div className="flex flex-col items-center gap-1">
-                                      <span className="text-[8px] text-slate-500 uppercase font-bold">Edit</span>
-                                      <Switch
-                                        size="sm"
-                                        checked={perm.canEdit}
-                                        onCheckedChange={() => togglePermission(pathObj.path, 'canEdit')}
-                                        disabled={!perm.hasAccess}
-                                      />
-                                    </div>
-                                    <div className="flex flex-col items-center gap-1">
-                                      <span className="text-[8px] text-slate-500 uppercase font-bold">Del</span>
-                                      <Switch
-                                        size="sm"
-                                        checked={perm.canDelete}
-                                        onCheckedChange={() => togglePermission(pathObj.path, 'canDelete')}
-                                        disabled={!perm.hasAccess}
-                                      />
-                                    </div>
-                                  </div>
+                                  )}
 
                                   {isMainConfiguration && (
-                                    <div className="mt-4 p-4 bg-slate-950/50 rounded-lg border border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="mt-4 p-4 bg-slate-100/50 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                       {MODULE_GROUPS.find(g => g.name === "Configuration Module").paths
                                         .filter(p => p.path !== '/configuration')
                                         .map(subPath => {
                                           const subPerm = permissions.find(p => p.pagePath === subPath.path) || { hasAccess: false, canAdd: false, canEdit: false, canDelete: false };
                                           return (
-                                            <div key={subPath.path} className="flex items-center justify-between p-2 rounded bg-slate-900 border border-slate-800">
-                                              <div className="text-[10px] text-slate-300 font-medium">{subPath.label}</div>
-                                              <Switch
-                                                size="sm"
-                                                checked={subPerm.hasAccess}
-                                                onCheckedChange={() => togglePermission(subPath.path, 'hasAccess')}
-                                                disabled={!perm.hasAccess}
-                                              />
+                                            <div key={subPath.path} className="flex flex-col gap-2 p-3 rounded bg-white border border-slate-200 shadow-sm">
+                                              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                                <div className="text-xs font-bold text-slate-700">{subPath.label}</div>
+                                                <Switch
+                                                  size="sm"
+                                                  checked={subPerm.hasAccess}
+                                                  onCheckedChange={() => togglePermission(subPath.path, 'hasAccess')}
+                                                  disabled={!perm.hasAccess}
+                                                />
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 pt-1">
+                                                <div className="flex flex-col items-center gap-1">
+                                                  <span className="text-[8px] text-slate-500 uppercase font-bold">Add</span>
+                                                  <Switch
+                                                    size="sm"
+                                                    checked={subPerm.canAdd}
+                                                    onCheckedChange={() => togglePermission(subPath.path, 'canAdd')}
+                                                    disabled={!subPerm.hasAccess || !perm.hasAccess}
+                                                  />
+                                                </div>
+                                                <div className="flex flex-col items-center gap-1">
+                                                  <span className="text-[8px] text-slate-500 uppercase font-bold">Edit</span>
+                                                  <Switch
+                                                    size="sm"
+                                                    checked={subPerm.canEdit}
+                                                    onCheckedChange={() => togglePermission(subPath.path, 'canEdit')}
+                                                    disabled={!subPerm.hasAccess || !perm.hasAccess}
+                                                  />
+                                                </div>
+                                                <div className="flex flex-col items-center gap-1">
+                                                  <span className="text-[8px] text-slate-500 uppercase font-bold">Del</span>
+                                                  <Switch
+                                                    size="sm"
+                                                    checked={subPerm.canDelete}
+                                                    onCheckedChange={() => togglePermission(subPath.path, 'canDelete')}
+                                                    disabled={!subPerm.hasAccess || !perm.hasAccess}
+                                                  />
+                                                </div>
+                                              </div>
                                             </div>
                                           );
                                       })}
@@ -687,28 +805,121 @@ export default function AdminPermissions() {
             </div>
           )}
         </div>
+      ) : activeTab === "system" ? (
+        /* System Monitor Tab */
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-amber-500 flex items-center gap-2">
+              <Activity className="w-6 h-6" />
+              Raspberry Pi 5 Health
+            </h2>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchSystemStatus} 
+              disabled={refreshingSystem}
+              className="border-slate-200 text-slate-600 hover:text-slate-900"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshingSystem ? 'animate-spin' : ''}`} />
+              {refreshingSystem ? 'Refreshing...' : 'Refresh Now'}
+            </Button>
+          </div>
+
+          {!systemStatus ? (
+            <div className="p-12 text-center text-slate-400 border border-slate-200 border-dashed rounded-xl">
+              Loading system hardware metrics...
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="bg-white border-slate-200 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Thermometer className="w-4 h-4 text-orange-600" />
+                      CPU Temperature
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-3xl font-bold ${systemStatus.cpuTemp === 'N/A' ? 'text-slate-400' : 'text-slate-900'}`}>
+                      {systemStatus.cpuTemp}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {systemStatus.cpuTemp === 'N/A' ? 'Only available on Linux/Pi' : 'Real-time SoC thermal sensor'}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white border-slate-200 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-blue-600" />
+                      RAM Usage
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-slate-900">{systemStatus.ramUsage}</div>
+                    <p className="text-xs text-slate-500 mt-1">Total physical memory consumption</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white border-slate-200 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <HardDrive className="w-4 h-4 text-emerald-600" />
+                      Disk Space (Root)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-slate-900">{systemStatus.diskSpace}</div>
+                    <p className="text-xs text-slate-500 mt-1">Available system storage capacity</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="bg-white border-slate-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Database className="w-5 h-5 text-amber-600" />
+                    Storage Breakdown
+                  </CardTitle>
+                  <CardDescription>Size of specific application directories on disk.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {Object.entries(systemStatus.storageBreakdown).map(([name, size]) => (
+                      <div key={name} className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{name}</div>
+                        <div className="text-xl font-bold text-slate-800">{size}</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
       ) : (
         /* Data Control Tab */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-red-400">Data Cleanup Console</CardTitle>
+              <CardTitle className="text-xl text-red-600">Data Cleanup Console</CardTitle>
               <CardDescription>Permanently clear specific database tables. Action cannot be undone.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {DATABASE_TABLES.map(table => (
-                  <div key={table.id} className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-700 rounded-xl hover:border-red-500/30 transition-all group">
+                  <div key={table.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-red-500/30 transition-all group">
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-200">{table.label}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">{table.id}</span>
+                      <span className="text-sm font-semibold text-slate-800">{table.label}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{table.id}</span>
                     </div>
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       onClick={() => initiateClearTable(table.id)}
                       disabled={clearingTable === table.id}
-                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       {clearingTable === table.id ? "..." : "Clear"}
                     </Button>
@@ -718,24 +929,24 @@ export default function AdminPermissions() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 border-dashed">
+          <Card className="bg-white border-slate-200 border-dashed shadow-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-slate-400">System Information</CardTitle>
+              <CardTitle className="text-xl text-slate-500">System Information</CardTitle>
               <CardDescription>Database and infrastructure details for Raspberry Pi 5.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700 space-y-2">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Engine</span>
-                  <span className="text-slate-200 font-mono">MariaDB 10.11</span>
+                  <span className="text-slate-700 font-mono">MariaDB 10.11</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Host</span>
-                  <span className="text-slate-200 font-mono">digital-studio-db</span>
+                  <span className="text-slate-700 font-mono">digital-studio-db</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">ORM</span>
-                  <span className="text-slate-200 font-mono">Hibernate 6.x</span>
+                  <span className="text-slate-700 font-mono">Hibernate 6.x</span>
                 </div>
               </div>
               <div className="p-6 border border-yellow-500/20 bg-yellow-500/5 rounded-xl">
@@ -751,20 +962,20 @@ export default function AdminPermissions() {
 
       {/* Password Confirmation Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
             <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 text-red-500">
+              <div className="flex items-center gap-3 text-red-600">
                 <ShieldCheck className="w-6 h-6" />
                 <h3 className="text-xl font-bold">Confirm Administrative Action</h3>
               </div>
-              <p className="text-slate-400 text-sm">
-                You are about to clear all data from <span className="font-bold text-slate-200">'{tableToClear}'</span>. Please enter the Admin password to verify.
+              <p className="text-slate-500 text-sm">
+                You are about to clear all data from <span className="font-bold text-slate-900">'{tableToClear}'</span>. Please enter the Admin password to verify.
               </p>
               <input 
                 type="password"
                 placeholder="Admin Password"
-                className="w-full bg-slate-800 border-slate-700 text-white px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                className="w-full bg-slate-50 border-slate-200 text-slate-900 px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 outline-none transition-all"
                 value={adminPassword}
                 onChange={e => setAdminPassword(e.target.value)}
                 autoFocus

@@ -15,6 +15,7 @@ import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { DateUtils } from "@/utils/DateUtils";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/services/api";
 
 const stripHtml = (html) => {
     if (!html) return "";
@@ -313,10 +314,10 @@ export default function ServiceOrders() {
                                                                                 fileId={id}
                                                                                 isPdf={id.toLowerCase().endsWith('.pdf')}
                                                                                 containerClass="h-16 w-full rounded-md border"
-                                                                                onView={(fid) => window.open(`/api/files/${fid}`, '_blank')}
+                                                                                onView={(fid) => window.open(`${API_BASE_URL}/files/${fid}`, '_blank')}
                                                                                 onDownload={(fid) => {
                                                                                     const a = document.createElement('a');
-                                                                                    a.href = `/api/files/${fid}`;
+                                                                                    a.href = `${API_BASE_URL}/files/${fid}`;
                                                                                     a.download = fid;
                                                                                     a.click();
                                                                                 }}

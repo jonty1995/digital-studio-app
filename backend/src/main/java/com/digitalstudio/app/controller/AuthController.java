@@ -32,14 +32,10 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        log.info("LOGIN_DEBUG: Attempting login for user '{}' with password '{}'", 
-                request.getUsername(), request.getPassword());
-        
         try {
             Authentication authenticate = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
-            log.info("LOGIN_DEBUG: Authentication successful for user: {}", request.getUsername());
 
             CustomUserDetails userDetails = (CustomUserDetails) authenticate.getPrincipal();
             String token = jwtUtil.generateToken(userDetails);
@@ -73,11 +69,8 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<AuthResponse> me(@AuthenticationPrincipal CustomUserDetails userDetails) {
         if (userDetails == null) {
-            log.warn("ME_DEBUG: No user details found in security context");
             return ResponseEntity.status(401).build();
         }
-
-        log.info("ME_DEBUG: Fetching details for user: {} (ID: {})", userDetails.getUsername(), userDetails.getId());
 
         List<UserPagePermission> allPerms = permissionRepository.findByUserId(userDetails.getId());
         List<String> permissions = allPerms.stream()

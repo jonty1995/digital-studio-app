@@ -37,7 +37,6 @@ public class PasswordResetController {
             @RequestBody ForgotPasswordRequest request,
             @RequestHeader(value = "Origin", required = false) String origin,
             HttpServletRequest httpRequest) {
-        log.info("Processing forgot-password for username: {} (Origin: {})", request.getUsername(), origin);
         Optional<User> userOptional = userRepository.findByUsernameIgnoreCase(request.getUsername());
 
         if (userOptional.isPresent()) {
@@ -83,9 +82,7 @@ public class PasswordResetController {
                     "<p>If you did not request a password reset, please ignore this email.</p>";
 
             try {
-                log.info("Generating password reset link for {}: {}", user.getEmail(), resetLink);
                 emailService.sendSimpleEmail(user.getEmail(), "Password Reset Request", emailBody);
-                log.info("Reset email sent to: {}", user.getEmail());
             } catch (Exception e) {
                 log.error("Failed to send reset email to {}", user.getEmail(), e);
                 // Return success anyway in development so the user can see the link in the logs
@@ -100,7 +97,6 @@ public class PasswordResetController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
-        log.info("Processing reset-password for token: {}", request.getToken());
         Optional<PasswordResetToken> tokenOptional = tokenRepository.findByToken(request.getToken());
 
         if (tokenOptional.isEmpty()) {
@@ -120,7 +116,6 @@ public class PasswordResetController {
         // Delete the token after successful reset
         tokenRepository.delete(token);
 
-        log.info("Password successfully reset for user: {}", user.getUsername());
         return ResponseEntity.ok(Map.of("message", "Password has been reset successfully. You can now log in."));
     }
 }

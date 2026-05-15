@@ -314,6 +314,10 @@ public class BillPaymentService {
             }
         }
 
+        if (updates.containsKey("uploadId")) {
+            transaction.setUploadId((String) updates.get("uploadId"));
+        }
+
         return billPaymentRepository.save(transaction);
     }
 

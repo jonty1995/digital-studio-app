@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { saveQueue, getQueue, clearQueue } from '@/services/emailQueuePersistence';
 
 import { saveLabProcessLog, updateLabProcessLog } from '@/services/labProcessService';
+import { API_BASE_URL } from '@/services/api';
 
 const EmailContext = createContext();
 
@@ -77,7 +78,7 @@ export function EmailProvider({ children }) {
 
                         await new Promise((resolve, reject) => {
                             const xhr = new XMLHttpRequest();
-                            xhr.open("POST", "/api/lab-process/send-email", true);
+                            xhr.open("POST", `${API_BASE_URL}/lab-process/send-email`, true);
                             
                             const token = localStorage.getItem("token");
                             if (token) {

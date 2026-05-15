@@ -45,6 +45,8 @@ services:
       - ../uploads:/app/uploads
       - ./logs:/app/logs
       - ../lab:/app/lab
+      - /proc:/proc:ro
+      - /sys:/sys:ro
     networks:
       - app-network
 

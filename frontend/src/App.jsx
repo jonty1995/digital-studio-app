@@ -11,7 +11,6 @@ import BillPayment from "./pages/BillPayment"
 import MoneyTransfer from "./pages/MoneyTransfer"
 import ServiceOrders from "./pages/ServiceOrders"
 import TrainBookings from "./pages/TrainBookings"
-import SystemLogs from "./pages/SystemLogs"
 
 import Customers from "./pages/Customers"
 import Uploads from "./pages/Uploads"
@@ -43,7 +42,6 @@ function App() {
               <Route path="lab-photo-process" element={<ProtectedRoute path="/lab-photo-process"><LabPhotoProcess /></ProtectedRoute>} />
               <Route path="customers" element={<ProtectedRoute path="/customers"><Customers /></ProtectedRoute>} />
               <Route path="uploads" element={<ProtectedRoute path="/uploads"><Uploads /></ProtectedRoute>} />
-              <Route path="logs" element={<ProtectedRoute path="/logs"><SystemLogs /></ProtectedRoute>} />
               <Route path="configuration" element={<ProtectedRoute path="/configuration"><Configuration /></ProtectedRoute>} />
               <Route path="transactions" element={<ProtectedRoute path="/transactions"><Transactions /></ProtectedRoute>} />
               <Route path="admin/permissions" element={<AdminPermissions />} />

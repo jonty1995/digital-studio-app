@@ -1,16 +1,17 @@
-# PowerShell script to check the status of Digital Studio on Raspberry Pi 5
-# Usage: .\check_pi_status.ps1
-
+# PowerShell script to check Pi System Status from Windows
 $PI_USER = "jonty"
 $PI_HOST = "digital-studio-rp5"
 $PI_DIR = "~/digital-studio-app"
 
-Write-Host "--- Checking Status on Digital Studio RPi 5 ---" -ForegroundColor Cyan
-Write-Host "(Connecting to $PI_HOST...)" -ForegroundColor Gray
+Write-Host "--- Fetching Raspberry Pi 5 System Health ---" -ForegroundColor Cyan
 
-ssh $PI_USER@$PI_HOST "cd $PI_DIR && ./scripts/check_status.sh"
+$remoteCmd = "cd $PI_DIR ; chmod +x ./scripts/system_status.sh ; ./scripts/system_status.sh"
 
-Write-Host "`nCheck Complete!" -ForegroundColor Cyan
-Write-Host "For detailed live metrics, visit: " -NoNewline -ForegroundColor Gray
-Write-Host "http://$PI_HOST:8081/actuator" -ForegroundColor Yellow
-Read-Host "Press Enter to exit..."
+try {
+    ssh "$PI_USER@$PI_HOST" $remoteCmd
+} catch {
+    Write-Host "Error connecting to Pi: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+Write-Host "`nCheck complete. Press any key to exit..."
+$null = [System.Console]::ReadKey($true)

@@ -1,9 +1,11 @@
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { Upload, X, Link, Loader2, FileText } from "lucide-react"
 import { useEffect, useState } from "react"
 import { fileService } from "@/services/fileService";
+import { API_BASE_URL } from "@/services/api";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
 import { CopyButton } from "@/components/shared/CopyButton";
 
@@ -43,7 +45,7 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                 if (typeof f === 'string') {
                     const isPdf = f.toLowerCase().endsWith(".pdf");
                     if (isPdf) type = "pdf";
-                    url = (!f.startsWith('blob:') && !f.startsWith('http')) ? `http://localhost:8081/api/files/${f}` : f;
+                    url = (!f.startsWith('blob:') && !f.startsWith('http')) ? `${API_BASE_URL}/files/${f}` : f;
                     // Determine type from extension if ID? Backend might serve it.
                     // Best guess for icon rendering.
                     return { url, type, originalFile: f, cleanup: false };
@@ -76,26 +78,21 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                 return;
             }
 
-            // If multiple, we append or replace? Usually Input replaces.
-            // If we want to append, we need to merge with existing props `file`.
-            // But usually input onChange replaces the selection.
-
             if (!instantUpload) {
-                // Pass raw files back
-                onUpload(multiple ? selectedFiles : selectedFiles[0]);
+                const currentFiles = Array.isArray(file) ? file : (file ? [file] : []);
+                onUpload(multiple ? [...currentFiles, ...selectedFiles] : selectedFiles[0]);
                 return;
             }
 
             setUploading(true);
             try {
-                // Upload One by One or Parallel
                 const results = await Promise.all(selectedFiles.map(f => fileService.upload(f, source)));
                 const ids = results.map(r => r.uploadId);
-                onUpload(multiple ? ids : ids[0]);
+                const currentFiles = Array.isArray(file) ? file : (file ? [file] : []);
+                onUpload(multiple ? [...currentFiles, ...ids] : ids[0]);
             } catch (err) {
-                console.error(err);
-                showAlert("Upload Error", "Upload failed. Please try again.");
-                onRemove();
+                console.error("Upload failed:", err);
+                showAlert("Upload Error", err.message || "Upload failed. Please try again.");
             } finally {
                 setUploading(false);
             }
@@ -103,14 +100,12 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
     }
 
     const handleLink = async () => {
-        if (!linkId) return;
+        const targetId = linkId || manualLink;
+        if (!targetId) return;
         try {
             setUploading(true);
-            const res = await fileService.lookup(linkId);
+            const res = await fileService.lookup(targetId);
 
-            // Validate Source Validation
-            // Exception: If file source is "Uploads", allow linking anywhere.
-            // Exception 2: If we are on "Uploads" page (source prop is "Uploads"), allow linking from ANY source.
             if (source && source !== "Uploads" && res.source !== source && res.source !== "Uploads") {
                 showAlert("Source Mismatch", `Cannot link file. It belongs to '${res.source || "Unknown"}', but expected '${source}'.`);
                 setUploading(false);
@@ -121,11 +116,12 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                 const currentFiles = Array.isArray(file) ? file : (file ? [file] : []);
                 onUpload([...currentFiles, res.uploadId]);
             } else {
-                onUpload(res.uploadId); // Save ID
+                onUpload(res.uploadId);
             }
             setLinkMessage("Photo linked successfully!");
 
             setLinkId("");
+            setManualLink("");
         } catch (error) {
             showAlert("Not Found", "File ID not found.");
         } finally {
@@ -150,8 +146,6 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
         if (filesToProcess.length > 0) {
             e.preventDefault();
             if (!multiple && filesToProcess.length > 1) {
-                // Take first or warn?
-                // Warn.
                 showAlert("Single File Only", "Clipboard contains multiple files, but only single file is allowed.");
                 return;
             }
@@ -159,7 +153,8 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
             const finalFiles = multiple ? filesToProcess : [filesToProcess[0]];
 
             if (!instantUpload) {
-                onUpload(multiple ? finalFiles : finalFiles[0]);
+                const currentFiles = Array.isArray(file) ? file : (file ? [file] : []);
+                onUpload(multiple ? [...currentFiles, ...finalFiles] : finalFiles[0]);
                 return;
             }
 
@@ -167,11 +162,11 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
             try {
                 const results = await Promise.all(finalFiles.map(f => fileService.upload(f, source)));
                 const ids = results.map(r => r.uploadId);
-                onUpload(multiple ? ids : ids[0]);
+                const currentFiles = Array.isArray(file) ? file : (file ? [file] : []);
+                onUpload(multiple ? [...currentFiles, ...ids] : ids[0]);
             } catch (err) {
-                console.error(err);
-                showAlert("Upload Error", "Upload failed. Please try again.");
-                onRemove();
+                console.error("Upload failed:", err);
+                showAlert("Upload Error", err.message || "Upload failed. Please try again.");
             } finally {
                 setUploading(false);
             }
@@ -186,7 +181,6 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
             <h3 className="font-bold text-pink-900 uppercase text-sm tracking-wide">File Upload</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Upload Box */}
                 <div className="relative border-2 border-dashed border-pink-300 rounded-lg bg-white p-6 flex flex-col items-center justify-center text-center space-y-2 hover:bg-pink-50/30 transition-colors cursor-pointer group focus-within:ring-2 focus-within:ring-pink-500 focus-within:ring-offset-2 outline-none">
                     <input
                         type="file"
@@ -203,6 +197,11 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                         <p className="text-sm font-medium text-gray-900">
                             {uploading ? "Uploading..." : "Click to upload"} <span className="text-pink-600 font-normal">{!uploading && "or drag and drop"}</span>
                         </p>
+                        {(!multiple && !linkMessage && !file) && (
+                            <div className="mt-4 px-1">
+                                <Label className="text-[10px] font-black uppercase opacity-50 block mb-1">Receipt ID</Label>
+                            </div>
+                        )}
                         <p className="text-xs text-pink-400">
                             Paste (Ctrl+V) also supported
                         </p>
@@ -210,7 +209,6 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                     </div>
                 </div>
 
-                {/* Link ID Section */}
                 <div className="flex flex-col gap-2">
                     <div className="flex items-start gap-2">
                         <Input
@@ -232,7 +230,6 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                     </div>
                     {linkMessage && <p className="text-xs text-green-600 font-medium">{linkMessage}</p>}
 
-                    {/* Show Generated ID after upload */}
                     {(typeof file === 'string' && !file.startsWith('blob:') && !linkMessage) && (
                         <div className="text-xs font-semibold text-pink-600 flex items-center gap-2">
                             <span>Upload ID : {file.split('.')[0]}</span>
@@ -244,12 +241,9 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                             />
                         </div>
                     )}
-
-                    {/* Preview Section - Moved Here */}
                 </div>
             </div>
 
-            {/* Previews Grid */}
             {previews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pt-2">
                     {previews.map((preview, index) => (
@@ -258,7 +252,11 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                                 <div className="h-24 w-full flex flex-col items-center justify-center bg-white border border-pink-200 rounded-lg shadow-sm p-2 text-center">
                                     <FileText className="h-8 w-8 text-red-500 mb-1" />
                                     <span className="text-[10px] text-gray-600 break-all line-clamp-2 leading-tight">
-                                        {preview.originalFile instanceof File ? preview.originalFile.name : preview.originalFile}
+                                        {preview.originalFile instanceof File 
+                                            ? preview.originalFile.name 
+                                            : (typeof preview.originalFile === 'string' && preview.originalFile.includes('.') 
+                                                ? preview.originalFile.split('.')[0] 
+                                                : preview.originalFile)}
                                     </span>
                                 </div>
                             ) : (
@@ -272,8 +270,6 @@ export function FileUpload({ file, onUpload, onRemove, source, instantUpload = t
                                 type="button"
                                 onClick={() => {
                                     if (multiple) {
-                                        // Filter out this index.
-                                        // Need to call onUpload with new array.
                                         const currentFiles = Array.isArray(file) ? file : [file];
                                         const newFiles = currentFiles.filter((_, i) => i !== index);
                                         onUpload(newFiles.length > 0 ? newFiles : []);

@@ -37,7 +37,6 @@ public class DataSeeder implements CommandLineRunner {
             }
 
             // Seed Default Configurations
-            seedConfiguration("LOG_BUFFER_SIZE", "5000", "Number of log lines to retain in memory");
             seedConfiguration("FILE_DELETION_SCHEDULED_TIME", "02:00", "Daily cleanup time (24h format)");
             seedConfiguration("LAB_SYNC_INTERVAL", "300", "Interval in seconds to check for new lab files");
 
@@ -62,7 +61,7 @@ public class DataSeeder implements CommandLineRunner {
         String[] pages = {
             "/photo-orders", "/bill-payment", "/money-transfer", "/service-orders", 
             "/travel/train", "/customers", "/transactions", "/uploads", 
-            "/lab-photo-process", "/configuration", "/logs", "/admin/permissions",
+            "/lab-photo-process", "/configuration", "/admin/permissions",
             "/configuration/items", "/configuration/addons", "/configuration/pricing",
             "/configuration/services", "/configuration/accounts", "/configuration/values",
             "/configuration/audit"
@@ -73,9 +72,13 @@ public class DataSeeder implements CommandLineRunner {
             perm.setUserId(userId);
             perm.setPagePath(path);
             perm.setHasAccess(true);
-            perm.setCanAdd(true);
-            perm.setCanEdit(true);
-            perm.setCanDelete(true);
+            
+            // Root configuration path only needs access, CRUD is handled by sub-modules
+            boolean isRootConfig = "/configuration".equals(path);
+            perm.setCanAdd(!isRootConfig);
+            perm.setCanEdit(!isRootConfig);
+            perm.setCanDelete(!isRootConfig);
+            
             permissionRepository.save(perm);
         }
         log.info("Seeded {} page permissions for admin user.", pages.length);

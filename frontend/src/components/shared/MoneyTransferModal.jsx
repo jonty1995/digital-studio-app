@@ -9,6 +9,8 @@ import { PaymentMode } from "./PaymentMode";
 import { customerService } from "@/services/customerService";
 import { moneyTransferService } from "@/services/moneyTransferService";
 import { SimpleAlert } from "@/components/shared/SimpleAlert";
+import { FileUpload } from "./FileUpload";
+import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null }) {
@@ -335,6 +337,25 @@ export function MoneyTransferModal({ isOpen, onClose, onSave, transaction = null
                     minAdvance={payment.total}
                     hideModes={["Card"]}
                 />
+
+                {/* Receipt Upload Integration */}
+                <div className="bg-card rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Receipt Attachment</h3>
+                        {uploadId && typeof uploadId === 'string' && (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Linked</Badge>
+                        )}
+                    </div>
+                    <div className="pt-2">
+                        <FileUpload
+                            file={uploadId}
+                            onUpload={(id) => setUploadId(id)}
+                            onRemove={() => setUploadId(null)}
+                            source="Money Transfer"
+                            instantUpload={false} // Deferred upload handled by onSave in parent
+                        />
+                    </div>
+                </div>
 
                 <div className="flex justify-end gap-3 mt-4">
                     <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

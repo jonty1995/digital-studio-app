@@ -20,6 +20,7 @@ import { UnifiedUploadModal } from "../components/shared/UnifiedUploadModal";
 import { DeleteQueueWidget } from "../components/shared/DeleteQueueWidget";
 
 import { configurationService } from "../services/configurationService";
+import { API_BASE_URL } from "@/services/api";
 
 export default function Uploads() {
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -204,7 +205,7 @@ export default function Uploads() {
                 params.append("sortDir", sortConfig.direction);
             }
 
-            const res = await fetch(`/api/files?${params.toString()}`, { signal: controller.signal });
+            const res = await fetch(`${API_BASE_URL}/files?${params.toString()}`, { signal: controller.signal });
             if (res.ok) {
                 const data = await res.json();
                 const newUploads = data.content || [];
@@ -225,6 +226,22 @@ export default function Uploads() {
             if (abortControllerRef.current === controller) {
                 setLoading(false);
             }
+        }
+    };
+
+    const handleOpenExplorer = async (path) => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/files/open-explorer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path })
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                showAlert("Explorer Error", text);
+            }
+        } catch (e) {
+            showAlert("Error", "Failed to open explorer: " + e.message);
         }
     };
 
@@ -262,7 +279,7 @@ export default function Uploads() {
             formData.append("source", "Uploads");
 
             try {
-                const res = await fetch("/api/files/upload", {
+                const res = await fetch(`${API_BASE_URL}/files/upload`, {
                     method: "POST",
                     body: formData
                 });
@@ -343,7 +360,7 @@ export default function Uploads() {
 
     const handleDownload = async (filename, originalName) => {
         try {
-            const response = await fetch(`/api/files/${filename}`);
+            const response = await fetch(`${API_BASE_URL}/files/${filename}`);
             if (!await checkResponse(response)) return; // Check storage error
             if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
 
@@ -369,7 +386,7 @@ export default function Uploads() {
             if (!silent) setLoading(true);
 
             try {
-                const res = await fetch("/api/files/check-availability", { method: "POST" });
+                const res = await fetch(`${API_BASE_URL}/files/check-availability`, { method: "POST" });
 
                 // Check for Blocking Storage Alert
                 if (!await checkResponse(res)) return;
@@ -404,7 +421,7 @@ export default function Uploads() {
         confirmAction("Full File Scan", "This will re-verify all files on disk, ignoring their current status. Continue?", async () => {
             setLoading(true);
             try {
-                const res = await fetch("/api/files/check-availability?force=true", { method: "POST" });
+                const res = await fetch(`${API_BASE_URL}/files/check-availability?force=true`, { method: "POST" });
                 if (!await checkResponse(res)) return;
 
                 if (res.ok) {
@@ -448,7 +465,7 @@ export default function Uploads() {
             const formData = new FormData();
             formData.append("remarks", remarks);
 
-            const res = await fetch(`/api/files/recover/${upload.uploadId}`, {
+            const res = await fetch(`${API_BASE_URL}/files/recover/${upload.uploadId}`, {
                 method: "POST",
                 body: formData
             });
@@ -493,7 +510,7 @@ export default function Uploads() {
 
         setLoading(true);
         try {
-            const res = await fetch(`/api/files/${upload.uploadId}?remarks=${encodeURIComponent(remarks || "")}`, {
+            const res = await fetch(`${API_BASE_URL}/files/${upload.uploadId}?remarks=${encodeURIComponent(remarks || "")}`, {
                 method: "DELETE"
             });
 
@@ -720,7 +737,11 @@ export default function Uploads() {
                                             <TableCell className={`${paddingClass} max-w-[200px] truncate`} title={upload.originalFilename}>
                                                 {upload.originalFilename}
                                             </TableCell>
-                                            <TableCell className={`${paddingClass} max-w-[250px] truncate text-xs text-muted-foreground`} title={upload.uploadPath}>
+                                            <TableCell 
+                                                className={`${paddingClass} max-w-[250px] truncate text-xs text-muted-foreground hover:text-primary hover:underline cursor-pointer`} 
+                                                title={upload.uploadPath}
+                                                onClick={() => handleOpenExplorer(upload.uploadPath)}
+                                            >
                                                 {upload.uploadPath || "-"}
                                             </TableCell>
                                              <TableCell className={`${paddingClass} text-muted-foreground text-xs whitespace-nowrap`}>
